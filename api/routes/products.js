@@ -1,18 +1,19 @@
 // routes/productos.js
-// =============================
 const express = require('express');
 const Joi = require('joi');
 const pool = require('../config/database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Validaciones
+// =============================
+// Esquemas de validación
+// =============================
 const createProductSchema = Joi.object({
     nombre: Joi.string().max(150).required(),
     descripcion: Joi.string(),
-    id_categoria: Joi.number().integer(),
-    id_marca: Joi.number().integer(),
+    id_categoria: Joi.number().integer().allow(null),
+    id_marca: Joi.number().integer().allow(null),
     stock: Joi.number().integer().min(0).default(0),
     precio_unitario: Joi.number().positive().required(),
     moneda: Joi.string().length(3).default('PEN'),
@@ -30,49 +31,54 @@ const updateProductSchema = Joi.object({
     activo: Joi.boolean()
 });
 
-// GET - Obtener todos los productos
+// =============================
+// Rutas
+// =============================
+
+// GET - Obtener todos los productos (autenticado)
 router.get('/', authenticateToken, async (req, res) => {
     try {
         const { page = 1, limit = 10, search = '', categoria = '', marca = '', activo = '' } = req.query;
         const offset = (page - 1) * limit;
 
         let query = `
-      SELECT p.*, c.nombre as categoria_nombre, m.nombre as marca_nombre
-      FROM productos p
-      LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
-      LEFT JOIN marcas m ON p.id_marca = m.id_marca
-    `;
+            SELECT p.*, c.nombre AS categoria_nombre, m.nombre AS marca_nombre
+            FROM productos p
+            LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+            LEFT JOIN marcas m ON p.id_marca = m.id_marca
+        `;
 
         let countQuery = `
-      SELECT COUNT(*) FROM productos p
-      LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
-      LEFT JOIN marcas m ON p.id_marca = m.id_marca
-    `;
+            SELECT COUNT(*) 
+            FROM productos p
+            LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+            LEFT JOIN marcas m ON p.id_marca = m.id_marca
+        `;
 
         const conditions = [];
         const queryParams = [];
         let paramCount = 1;
 
         if (search) {
-            conditions.push(`(p.nombre ILIKE ${paramCount} OR p.descripcion ILIKE ${paramCount})`);
+            conditions.push(`(p.nombre ILIKE $${paramCount} OR p.descripcion ILIKE $${paramCount})`);
             queryParams.push(`%${search}%`);
             paramCount++;
         }
 
         if (categoria) {
-            conditions.push(`p.id_categoria = ${paramCount}`);
+            conditions.push(`p.id_categoria = $${paramCount}`);
             queryParams.push(categoria);
             paramCount++;
         }
 
         if (marca) {
-            conditions.push(`p.id_marca = ${paramCount}`);
+            conditions.push(`p.id_marca = $${paramCount}`);
             queryParams.push(marca);
             paramCount++;
         }
 
         if (activo !== '') {
-            conditions.push(`p.activo = ${paramCount}`);
+            conditions.push(`p.activo = $${paramCount}`);
             queryParams.push(activo === 'true');
             paramCount++;
         }
@@ -83,7 +89,7 @@ router.get('/', authenticateToken, async (req, res) => {
             countQuery += whereClause;
         }
 
-        query += ` ORDER BY p.nombre LIMIT ${paramCount} OFFSET ${paramCount + 1}`;
+        query += ` ORDER BY p.nombre LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
         queryParams.push(limit, offset);
 
         const [result, countResult] = await Promise.all([
@@ -111,18 +117,18 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 });
 
-// GET - Obtener producto por ID
+// GET - Obtener producto por ID (autenticado)
 router.get('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
         const result = await pool.query(`
-      SELECT p.*, c.nombre as categoria_nombre, m.nombre as marca_nombre
-      FROM productos p
-      LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
-      LEFT JOIN marcas m ON p.id_marca = m.id_marca
-      WHERE p.id_producto = $1
-    `, [id]);
+            SELECT p.*, c.nombre AS categoria_nombre, m.nombre AS marca_nombre
+            FROM productos p
+            LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+            LEFT JOIN marcas m ON p.id_marca = m.id_marca
+            WHERE p.id_producto = $1
+        `, [id]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Producto no encontrado' });
@@ -135,26 +141,20 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// POST - Crear producto
-router.post('/', authenticateToken, async (req, res) => {
+// POST - Crear producto (solo ADMIN)
+router.post('/', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
     try {
         const { error } = createProductSchema.validate(req.body);
         if (error) {
             return res.status(400).json({ error: error.details[0].message });
         }
 
-        const {
-            nombre, descripcion, id_categoria, id_marca,
-            stock, precio_unitario, moneda, activo
-        } = req.body;
+        const { nombre, descripcion, id_categoria, id_marca, stock, precio_unitario, moneda, activo } = req.body;
 
         const result = await pool.query(
-            `INSERT INTO productos (nombre, descripcion, id_categoria, id_marca, 
-                            stock, precio_unitario, moneda, activo) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
-       RETURNING *`,
-            [nombre, descripcion, id_categoria, id_marca,
-                stock || 0, precio_unitario, moneda || 'PEN', activo !== false]
+            `INSERT INTO productos (nombre, descripcion, id_categoria, id_marca, stock, precio_unitario, moneda, activo) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+            [nombre, descripcion, id_categoria, id_marca, stock || 0, precio_unitario, moneda || 'PEN', activo !== false]
         );
 
         res.status(201).json({
@@ -167,8 +167,8 @@ router.post('/', authenticateToken, async (req, res) => {
     }
 });
 
-// PUT - Actualizar producto
-router.put('/:id', authenticateToken, async (req, res) => {
+// PUT - Actualizar producto (solo ADMIN)
+router.put('/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
     try {
         const { id } = req.params;
         const { error } = updateProductSchema.validate(req.body);
@@ -176,23 +176,13 @@ router.put('/:id', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: error.details[0].message });
         }
 
-        const {
-            nombre, descripcion, id_categoria, id_marca,
-            stock, precio_unitario, moneda, activo
-        } = req.body;
-
         const updates = [];
         const values = [];
         let paramCount = 1;
 
-        const fields = {
-            nombre, descripcion, id_categoria, id_marca,
-            stock, precio_unitario, moneda, activo
-        };
-
-        Object.entries(fields).forEach(([key, value]) => {
+        Object.entries(req.body).forEach(([key, value]) => {
             if (value !== undefined) {
-                updates.push(`${key} = ${paramCount}`);
+                updates.push(`${key} = $${paramCount}`);
                 values.push(value);
                 paramCount++;
             }
@@ -205,9 +195,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
         values.push(id);
 
         const result = await pool.query(
-            `UPDATE productos SET ${updates.join(', ')} 
-       WHERE id_producto = ${paramCount} 
-       RETURNING *`,
+            `UPDATE productos SET ${updates.join(', ')} WHERE id_producto = $${paramCount} RETURNING *`,
             values
         );
 
@@ -225,30 +213,23 @@ router.put('/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// DELETE - Eliminar producto
-router.delete('/:id', authenticateToken, async (req, res) => {
+// DELETE - Eliminar producto (solo ADMIN)
+router.delete('/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Verificar si el producto tiene ventas o compras asociadas
         const [ventasResult, comprasResult] = await Promise.all([
             pool.query('SELECT COUNT(*) FROM detalle_ventas WHERE id_producto = $1', [id]),
             pool.query('SELECT COUNT(*) FROM detalle_compras WHERE id_producto = $1', [id])
         ]);
 
-        const totalVentas = parseInt(ventasResult.rows[0].count);
-        const totalCompras = parseInt(comprasResult.rows[0].count);
-
-        if (totalVentas > 0 || totalCompras > 0) {
+        if (parseInt(ventasResult.rows[0].count) > 0 || parseInt(comprasResult.rows[0].count) > 0) {
             return res.status(400).json({
                 error: 'No se puede eliminar el producto porque tiene transacciones asociadas'
             });
         }
 
-        const result = await pool.query(
-            'DELETE FROM productos WHERE id_producto = $1 RETURNING nombre',
-            [id]
-        );
+        const result = await pool.query('DELETE FROM productos WHERE id_producto = $1 RETURNING nombre', [id]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Producto no encontrado' });

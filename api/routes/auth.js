@@ -1,22 +1,18 @@
-// routes/auth.js
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const Joi = require('joi');
 const pool = require('../config/database');
+const { generarToken } = require('../utils/jwt');
 
 const router = express.Router();
 
-// Validación para login
 const loginSchema = Joi.object({
     nombre_usuario: Joi.string().required(),
     clave: Joi.string().required()
 });
 
-// Login
 router.post('/login', async (req, res) => {
     try {
-        // Validar datos
         const { error } = loginSchema.validate(req.body);
         if (error) {
             return res.status(400).json({ error: error.details[0].message });
@@ -24,7 +20,6 @@ router.post('/login', async (req, res) => {
 
         const { nombre_usuario, clave } = req.body;
 
-        // Buscar usuario
         const result = await pool.query(
             'SELECT * FROM usuarios WHERE nombre_usuario = $1',
             [nombre_usuario]
@@ -36,22 +31,12 @@ router.post('/login', async (req, res) => {
 
         const usuario = result.rows[0];
 
-        // Verificar contraseña
         const isValidPassword = await bcrypt.compare(clave, usuario.clave_hash);
         if (!isValidPassword) {
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
 
-        // Generar token JWT
-        const token = jwt.sign(
-            {
-                id_usuario: usuario.id_usuario,
-                nombre_usuario: usuario.nombre_usuario,
-                rol: usuario.rol
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-        );
+        const token = generarToken(usuario);
 
         res.json({
             message: 'Login exitoso',

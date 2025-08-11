@@ -1,5 +1,6 @@
-const jwt = require('jsonwebtoken');
+// middleware/auth.js
 const pool = require('../config/database');
+const { verificarToken } = require('../utils/jwt');
 
 const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -9,8 +10,12 @@ const authenticateToken = async (req, res, next) => {
         return res.status(401).json({ error: 'Token de acceso requerido' });
     }
 
+    const decoded = verificarToken(token);
+    if (!decoded) {
+        return res.status(403).json({ error: 'Token inválido o expirado' });
+    }
+
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const result = await pool.query(
             'SELECT id_usuario, nombre_usuario, rol FROM usuarios WHERE id_usuario = $1',
             [decoded.id_usuario]
@@ -23,7 +28,8 @@ const authenticateToken = async (req, res, next) => {
         req.user = result.rows[0];
         next();
     } catch (error) {
-        return res.status(403).json({ error: 'Token inválido' });
+        console.error('Error en autenticación:', error);
+        return res.status(500).json({ error: 'Error interno del servidor' });
     }
 };
 

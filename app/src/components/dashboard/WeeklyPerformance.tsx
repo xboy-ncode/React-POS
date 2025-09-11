@@ -1,5 +1,5 @@
 // components/dashboard/WeeklyPerformance.tsx
-import React from 'react';
+import React from "react";
 import {
     ResponsiveContainer,
     BarChart,
@@ -8,8 +8,9 @@ import {
     XAxis,
     YAxis,
     Tooltip,
-} from 'recharts';
-import { BarChart as BarChartIcon } from 'lucide-react';
+} from "recharts";
+import { BarChart as BarChartIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Props = {
     data?: { day: string; sales: number }[];
@@ -30,13 +31,15 @@ export default function WeeklyPerformance({
 }: Props) {
     return (
         <div
-            className={`mt-8 bg-white rounded-2xl p-6 shadow-lg transition-all duration-1000 ${animated ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-                }`}
-            style={{ transitionDelay: '1600ms' }}
+            className={cn(
+                "mt-8 bg-background rounded-xl border p-6 shadow-sm transition-all duration-700",
+                animated ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+            )}
+            style={{ transitionDelay: "700ms" }}
         >
-            <div className="flex items-center mb-6">
-                <BarChartIcon className="w-6 h-6 text-indigo-600 mr-2" />
-                <h3 className="text-xl font-semibold text-gray-800">Weekly Performance</h3>
+            <div className="flex items-center mb-5">
+                <BarChartIcon className="w-6 h-6 text-primary mr-2" />
+                <h3 className="text-lg font-semibold text-foreground">Weekly Performance</h3>
             </div>
             <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">

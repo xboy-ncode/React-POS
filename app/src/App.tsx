@@ -1,6 +1,7 @@
-
+//import './styles.css'
+import './index.css' 
 import { useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import Sidebar from './components/Layout/Sidebar'
 import Topbar from './components/Layout/Topbar'
 import Protected from './components/Protected'
@@ -13,16 +14,15 @@ import Users from './pages/Users'
 import Settings from './pages/Settings'
 import Personalization from './pages/Personalization'
 import { useAuth } from './store/auth'
-import { useUI } from './store/ui'
 
 export default function App() {
   const hydrateAuth = useAuth((s) => s.hydrate)
-  const hydrateUI = useUI((s) => s.hydrate)
+
 
   useEffect(() => {
     hydrateAuth()
-    hydrateUI()
-  }, [])
+
+  }, [hydrateAuth])
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -53,14 +53,13 @@ export default function App() {
   )
 }
 
-import { Outlet } from 'react-router-dom'
 function AppShell() {
   return (
-    <div className="grid grid-cols-[15rem_1fr]">
+    <div className="grid grid-cols-[15rem_1fr] h-screen">
       <Sidebar />
-      <div className="min-h-screen flex flex-col">
+      <div className="flex flex-col">
         <Topbar />
-        <main className="p-6 grow">
+        <main className="p-6 flex-1 overflow-auto">
           <Outlet />
         </main>
       </div>

@@ -1,6 +1,10 @@
 
 import { useEffect, useState } from 'react'
-import DataTable, { Column } from '../components/DataTable'
+import DataTable from '../components/DataTable'
+import type { Column } from '../components/DataTable'
+import { Card } from '../components/ui/card'
+import { Input } from '../components/ui/input'
+import { Button } from '../components/ui/button'
 import { api } from '../lib/api'
 import { useTranslation } from 'react-i18next'
 import { IfCan } from '../lib/permissions'
@@ -33,8 +37,8 @@ export default function Inventory() {
     { key: 'stock', title: t('app.stock')! },
     { key: 'actions', title: t('app.actions')!, render: (r) => (
       <div className="flex gap-2">
-        <IfCan permission={['inventory:write']}><button className="btn btn-outline" onClick={() => { setEditing(r); setOpen(true) }}>{t('app.edit')}</button></IfCan>
-        <IfCan permission={['inventory:write']}><button className="btn btn-outline" onClick={() => removeItem(r.id)}>{t('app.delete')}</button></IfCan>
+  <IfCan permission={['inventory:write']}><Button variant="outline" size="sm" onClick={() => { setEditing(r); setOpen(true) }}>{t('app.edit')}</Button></IfCan>
+  <IfCan permission={['inventory:write']}><Button variant="outline" size="sm" onClick={() => removeItem(r.id)}>{t('app.delete')}</Button></IfCan>
       </div>
     )}
   ]
@@ -48,11 +52,11 @@ export default function Inventory() {
     <div className="space-y-4">
       <div className="flex justify-between">
         <h1 className="text-xl font-semibold">{t('app.inventory')}</h1>
-        <IfCan permission={['inventory:write']}><button className="btn-primary" onClick={() => { setEditing(null); setOpen(true) }}>{t('app.add')}</button></IfCan>
+  <IfCan permission={['inventory:write']}><Button variant="default" onClick={() => { setEditing(null); setOpen(true) }}>{t('app.add')}</Button></IfCan>
       </div>
-      <div className="card p-4">
+      <Card className="p-4">
         <DataTable data={items} columns={columns} />
-      </div>
+      </Card>
       {open && <Editor close={() => { setOpen(false); load() }} item={editing} />}
     </div>
   )
@@ -71,19 +75,19 @@ function Editor({ item, close }: { item: Item | null, close: ()=>void }) {
 
   return (
     <div className="fixed inset-0 bg-black/30 grid place-items-center">
-      <div className="card p-6 w-full max-w-lg">
+      <Card className="p-6 w-full max-w-lg">
         <h2 className="text-lg font-semibold mb-4">{item ? t('app.edit') : t('app.add')}</h2>
         <div className="grid gap-3">
-          <input className="input" placeholder={t('app.name')!} value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} />
-          <input className="input" placeholder="SKU" value={form.sku} onChange={(e)=>setForm({...form, sku: e.target.value})} />
-          <input type="number" className="input" placeholder={t('app.price')!} value={form.price} onChange={(e)=>setForm({...form, price: parseFloat(e.target.value)})} />
-          <input type="number" className="input" placeholder={t('app.stock')!} value={form.stock} onChange={(e)=>setForm({...form, stock: parseInt(e.target.value)})} />
+          <Input placeholder={t('app.name')!} value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} />
+          <Input placeholder="SKU" value={form.sku} onChange={(e)=>setForm({...form, sku: e.target.value})} />
+          <Input type="number" placeholder={t('app.price')!} value={form.price} onChange={(e)=>setForm({...form, price: parseFloat(e.target.value)})} />
+          <Input type="number" placeholder={t('app.stock')!} value={form.stock} onChange={(e)=>setForm({...form, stock: parseInt(e.target.value)})} />
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <button className="btn btn-outline" onClick={close}>{t('app.cancel')}</button>
-          <button className="btn btn-primary" onClick={save}>{t('app.save')}</button>
+          <Button variant="outline" onClick={close}>{t('app.cancel')}</Button>
+          <Button variant="default" onClick={save}>{t('app.save')}</Button>
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

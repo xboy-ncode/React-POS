@@ -1,5 +1,5 @@
 // components/dashboard/SalesTrendChart.tsx
-import React from 'react';
+import React from "react";
 import {
     ResponsiveContainer,
     AreaChart,
@@ -8,8 +8,9 @@ import {
     XAxis,
     YAxis,
     Tooltip,
-} from 'recharts';
-import { TrendingUp } from 'lucide-react';
+} from "recharts";
+import { TrendingUp } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type SalesTrendChartProps = {
     data: { time: string; sales: number }[];
@@ -19,15 +20,15 @@ type SalesTrendChartProps = {
 export default function SalesTrendChart({ data, animated = true }: SalesTrendChartProps) {
     return (
         <div
-            className={`bg-white rounded-2xl p-6 shadow-lg transition-all duration-1000 ${animated ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-                }`}
-            style={{ transitionDelay: '800ms' }}
+            className={cn(
+                "bg-background rounded-xl border p-6 shadow-sm transition-all duration-700",
+                animated ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+            )}
+            style={{ transitionDelay: "400ms" }}
         >
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center">
-                    <TrendingUp className="w-6 h-6 text-blue-600 mr-2" />
-                    <h3 className="text-xl font-semibold text-gray-800">Sales Trend Today</h3>
-                </div>
+            <div className="flex items-center mb-5">
+                <TrendingUp className="w-6 h-6 text-primary mr-2" />
+                <h3 className="text-lg font-semibold text-foreground">Sales Trend Today</h3>
             </div>
             <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">

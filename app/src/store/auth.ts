@@ -27,29 +27,72 @@ interface AuthState {
   hydrate: () => void;
 }
 
-// Role to permissions mapping (fallback if backend does not send granular permissions)
+// Role to permissions mapping
 export const ROLE_DEFAULT_PERMS: Record<Role, Permission[]> = {
-  admin: ['inventory:read','inventory:write','sales:read','sales:write','customers:read','customers:write','users:read','users:write','settings:write'],
-  manager: ['inventory:read','inventory:write','sales:read','sales:write','customers:read','customers:write','users:read'],
+  admin: [
+    'inventory:read','inventory:write',
+    'sales:read','sales:write',
+    'customers:read','customers:write',
+    'users:read','users:write',
+    'settings:write'
+  ],
+  manager: [
+    'inventory:read','inventory:write',
+    'sales:read','sales:write',
+    'customers:read','customers:write',
+    'users:read'
+  ],
   cashier: ['sales:read','sales:write','customers:read']
 }
+
+// ⚡ Variable para saber si estamos en modo mock
+const DISABLE_AUTH = import.meta.env.VITE_DISABLE_AUTH === 'true'
 
 export const useAuth = create<AuthState>((set, get) => ({
   user: null,
   token: null,
   loading: false,
+
   hydrate: () => {
-    // Restore from localStorage on app load
+    if (DISABLE_AUTH) {
+      // Usuario falso en modo mock
+      const mockUser: User = {
+        id: '1',
+        name: 'Dev Admin',
+        email: 'dev@example.com',
+        role: 'admin',
+        permissions: ROLE_DEFAULT_PERMS.admin
+      }
+      set({ user: mockUser, token: 'mock-token' })
+      return
+    }
+
+    // Restore desde localStorage
     const token = localStorage.getItem('token')
     const user = localStorage.getItem('user')
     if (token && user) {
       set({ token, user: JSON.parse(user) })
     }
   },
+
   signIn: async ({ nombre_usuario, clave }) => {
+    if (DISABLE_AUTH) {
+      // Simula login instantáneo
+      const mockUser: User = {
+        id: '1',
+        name: nombre_usuario || 'Dev User',
+        email: 'mock@example.com',
+        role: 'admin',
+        permissions: ROLE_DEFAULT_PERMS.admin
+      }
+      localStorage.setItem('user', JSON.stringify(mockUser))
+      localStorage.setItem('token', 'mock-token')
+      set({ user: mockUser, token: 'mock-token' })
+      return
+    }
+
     set({ loading: true })
     try {
-      // Call your Node API auth endpoint
       const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -57,12 +100,11 @@ export const useAuth = create<AuthState>((set, get) => ({
       })
       if (!res.ok) throw new Error('Invalid credentials')
       const data = await res.json()
-      
-      // Map backend response to frontend User interface
+
       const user: User = {
         id: data.usuario.id_usuario.toString(),
         name: data.usuario.nombre_usuario,
-        email: '', // You might want to add email to your backend user model
+        email: '', // opcional
         role: data.usuario.rol as Role,
         permissions: ROLE_DEFAULT_PERMS[data.usuario.rol as Role] || []
       }
@@ -77,6 +119,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       set({ loading: false })
     }
   },
+
   signOut: () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')

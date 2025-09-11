@@ -4,6 +4,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useAuth } from '../store/auth'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { Card } from '../components/ui/card'
+import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
+import { Button } from '../components/ui/button'
 
 const schema = z.object({
   nombre_usuario: z.string().min(1, 'Username is required'),
@@ -28,23 +32,23 @@ export default function Login() {
 
   return (
     <div className="min-h-screen grid place-items-center">
-      <div className="card p-6 w-full max-w-md">
+      <Card className="p-6 w-full max-w-md">
         <h1 className="text-2xl font-semibold mb-2">{t('app.sign_in')}</h1>
-        <p className="text-sm text-muted mb-6">{t('app.signin_tagline')}</p>
+        <p className="text-sm text-muted-foreground mb-6">{t('app.signin_tagline')}</p>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="label">{t('Username') || 'Username'}</label>
-            <input className="input" type="text" placeholder="username" {...register('nombre_usuario')} />
+            <Label htmlFor="nombre_usuario">{t('Username') || 'Username'}</Label>
+            <Input id="nombre_usuario" type="text" placeholder="username" {...register('nombre_usuario')} />
             {errors.nombre_usuario && <p className="text-xs text-red-500 mt-1">{errors.nombre_usuario.message}</p>}
           </div>
           <div>
-            <label className="label">{t('app.password')}</label>
-            <input type="password" className="input" placeholder="••••••••" {...register('clave')} />
+            <Label htmlFor="clave">{t('app.password')}</Label>
+            <Input id="clave" type="password" placeholder="••••••••" {...register('clave')} />
             {errors.clave && <p className="text-xs text-red-500 mt-1">{errors.clave.message}</p>}
           </div>
-          <button disabled={isSubmitting} className="btn-primary w-full">{t('app.sign_in')}</button>
+          <Button disabled={isSubmitting} className="w-full" type="submit" variant="default">{t('app.sign_in')}</Button>
         </form>
-      </div>
+      </Card>
     </div>
   )
 }

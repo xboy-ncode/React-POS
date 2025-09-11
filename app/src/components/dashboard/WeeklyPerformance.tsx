@@ -48,7 +48,7 @@ export default function WeeklyPerformance({
                         <XAxis dataKey="day" stroke="#6b7280" fontSize={12} />
                         <YAxis stroke="#6b7280" fontSize={12} />
                         <Tooltip />
-                        <Bar dataKey="sales" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="sales" fill="#ff6900" radius={[4, 4, 0, 0]} />
                     </BarChart>
                 </ResponsiveContainer>
             </div>

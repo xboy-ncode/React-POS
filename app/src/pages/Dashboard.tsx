@@ -8,6 +8,7 @@ import TopProducts from '../components/dashboard/TopProducts'
 import RecentTransactions from '../components/dashboard/RecentTransactions'
 import SalesTrendChart from '../components/dashboard/SalesTrendChart'
 import WeeklyPerformance from '../components/dashboard/WeeklyPerformance'
+import { ChartBarDefault } from '@/components/dashboard/chart-bar-default'
 import QuickActions from '../components/dashboard/QuickActions'
 import { CreditCardFilled, InboxOutlined, TeamOutlined } from '@ant-design/icons'
 import { Card } from '../components/ui/card'
@@ -38,6 +39,10 @@ export default function Dashboard() {
             color="purple" change={0}        />
         </div>
       </Card>
+      {/* 🔹 Quick Actions */}
+      <Card className="p-4">
+        <QuickActions />
+      </Card>
 
       {/* 🔹 Charts Section */}
       <Card className="p-4">
@@ -56,10 +61,6 @@ export default function Dashboard() {
         </div>
       </Card>
 
-      {/* 🔹 Quick Actions */}
-      <Card className="p-4">
-        <QuickActions />
-      </Card>
     </div>
   )
 }

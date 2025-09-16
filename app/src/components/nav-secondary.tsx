@@ -1,4 +1,7 @@
-import * as React from "react"
+// components/nav-secondary.tsx
+"use client"
+
+import { Link, useLocation } from 'react-router-dom'
 import { type LucideIcon } from "lucide-react"
 
 import {
@@ -19,20 +22,33 @@ export function NavSecondary({
     icon: LucideIcon
   }[]
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
+  const location = useLocation()
+
   return (
     <SidebarGroup {...props}>
       <SidebarGroupContent>
         <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild size="sm">
-                <a href={item.url}>
-                  <item.icon />
-                  <span>{item.title}</span>
-                </a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {items.map((item) => {
+            const isActive = location.pathname === item.url
+
+            return (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton asChild isActive={isActive} size="sm">
+                  {item.url.startsWith('#') ? (
+                    <button onClick={() => console.log(`Clicked ${item.title}`)}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </button>
+                  ) : (
+                    <Link to={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )
+          })}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

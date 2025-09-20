@@ -164,6 +164,17 @@
   "pos": {
     "title": "Point of Sale",
     "search_placeholder": "Search menu...",
+    "loading_products": "Loading products...",
+    "no_products_found": "No products found matching your search.",
+    "no_products": "No products available.",
+    "add_first_product": "Add your first product",
+    "products_available": "products available",
+    "products_available_one": "product available",
+    "low_stock": "Low Stock",
+    "out_of_stock": "Out of Stock",
+    "products_title": "Products",
+    "product_title": "Product",
+
     "sections": {
       "categories": "Categories",
       "products": "Products"
@@ -185,9 +196,36 @@
       "drink": "Drink",
       "pasta": "Pasta",
       "dessert": "Dessert",
-      "salad": "Salad"
+      "salad": "Salad",
+      "liquor": "Liquor",
+      "beer": "Beer",
+      "cigarettes": "Cigarettes",
+      "snacks": "Snacks",
+      "beverages": "Beverages",
+      "candy": "Candy",
+      "personal_care": "Personal Care",
+      "household": "Household",
+      "phone_cards": "Phone Cards"
     },
     "products": {
+       "red_wine": "Red Wine",
+      "whiskey": "Whiskey",
+      "lager_beer": "Lager Beer",
+      "ipa_beer": "IPA Beer",
+      "marlboro_pack": "Marlboro Pack",
+      "camel_pack": "Camel Pack",
+      "potato_chips": "Potato Chips",
+      "salted_peanuts": "Salted Peanuts",
+      "coca_cola": "Coca-Cola",
+      "orange_juice": "Orange Juice",
+      "chocolate_bar": "Chocolate Bar",
+      "gummy_bears": "Gummy Bears",
+      "shampoo": "Shampoo",
+      "toothpaste": "Toothpaste",
+      "laundry_detergent": "Laundry Detergent",
+      "dish_soap": "Dish Soap",
+      "phone_card_10": "Phone Card $10",
+      "phone_card_20": "Phone Card $20",
       "margherita_pizza": "Margherita Pizza",
       "vegetarian_pizza": "Vegetarian Pizza",
       "pepperoni_pizza": "Pepperoni Pizza",
@@ -235,7 +273,8 @@
       "ingredients": "Ingredients",
       "ingredients_placeholder": "Dough, tomato sauce, mozzarella, basil",
       "allergens": "Allergens",
-      "allergens_placeholder": "Gluten, dairy"
+      "allergens_placeholder": "Gluten, dairy",
+      "product_icon": "Product Icon"
     }
   },
   "settings": {

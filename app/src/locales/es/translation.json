@@ -165,6 +165,16 @@
     "title": "Punto de Venta",
     "search_placeholder": "Buscar en el menú...",
     "products_available": "productos disponibles",
+    "products_available_one": "producto disponible",
+    "loading_products": "Cargando productos...",
+    "no_products_found": "No se encontraron productos que coincidan con tu búsqueda.",
+    "no_products": "No hay productos disponibles.",
+    "add_first_product": "Agrega tu primer producto",
+    "low_stock": "Stock Bajo",
+    "out_of_stock": "Sin Stock",
+    "products_title": "Productos",
+    "product_title": "Producto",
+
     "sections": {
       "categories": "Categorías",
       "products": "Productos"
@@ -186,9 +196,36 @@
       "drink": "Bebida",
       "pasta": "Pasta",
       "dessert": "Postre",
-      "salad": "Ensalada"
+      "salad": "Ensalada",
+      "liquor": "Licores",
+      "beer": "Cerveza",
+      "cigarettes": "Cigarrillos",
+      "snacks": "Snacks",
+      "beverages": "Bebidas",
+      "candy": "Dulces",
+      "personal_care": "Cuidado Personal",
+      "household": "Hogar",
+      "phone_cards": "Tarjetas Telefónicas"
     },
     "products": {
+       "red_wine": "Vino Tinto",
+      "whiskey": "Whiskey",
+      "lager_beer": "Cerveza Lager",
+      "ipa_beer": "Cerveza IPA",
+      "marlboro_pack": "Paquete Marlboro",
+      "camel_pack": "Paquete Camel",
+      "potato_chips": "Papas Fritas",
+      "salted_peanuts": "Maní Salado",
+      "coca_cola": "Coca-Cola",
+      "orange_juice": "Jugo de Naranja",
+      "chocolate_bar": "Barra de Chocolate",
+      "gummy_bears": "Gomitas",
+      "shampoo": "Champú",
+      "toothpaste": "Pasta de Dientes",
+      "laundry_detergent": "Detergente para Ropa",
+      "dish_soap": "Jabón para Platos",
+      "phone_card_10": "Tarjeta Telefónica $10",
+      "phone_card_20": "Tarjeta Telefónica $20",
       "margherita_pizza": "Pizza Margarita",
       "vegetarian_pizza": "Pizza Vegetariana",
       "pepperoni_pizza": "Pizza de Pepperoni",
@@ -236,7 +273,8 @@
       "ingredients": "Ingredientes",
       "ingredients_placeholder": "Masa, salsa de tomate, mozzarella, albahaca",
       "allergens": "Alérgenos",
-      "allergens_placeholder": "Gluten, lácteos"
+      "allergens_placeholder": "Gluten, lácteos",
+      "product_icon": "Icono del Producto"
     }
   },
   "settings": {

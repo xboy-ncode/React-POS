@@ -1,6 +1,8 @@
-
 import { useAuth } from '../store/auth'
 import type { Permission } from '../store/auth'
+
+// Re-export Permission type so other components can use it
+export type { Permission } from '../store/auth'
 
 // Hook to check permissions on demand
 export function useCan(required: Permission | Permission[]) {

@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, Plus, ShoppingCart, X, Minus, Package, Loader2 } from 'lucide-react'
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
+
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
@@ -18,7 +17,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -30,7 +29,7 @@ import {
 import {
   Table,
   TableBody,
-  TableCaption,
+
   TableCell,
   TableHead,
   TableHeader,
@@ -38,11 +37,10 @@ import {
 } from "@/components/ui/table"
 
 
-import { Edit2, Trash2, Box, DollarSign, AlertTriangle } from 'lucide-react'
+import { Edit2, Trash2, Box, AlertTriangle } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 
 import CheckoutDialog from '../components/pos/CheckoutDialog'
-import type { Dispatch, SetStateAction } from "react"
 
 // Types
 type Category = {
@@ -241,78 +239,17 @@ function ProductEditor({
 
 
 
-  // Common product icons by category
-  const categoryIcons = {
-    alcohol: ['🍷', '🥃', '🍸', '🍹', '🍾', '🥂'],
-    beer: ['🍺', '🍻', '🍺', '🍻'],
-    cigarettes: ['🚬'],
-    snacks: ['🥜', '🥔', '🍿', '🥨', '🍪', '🍘'],
-    beverages: ['🥤', '🧃', '☕', '🧋', '🍵', '🥛'],
-    candy: ['🍫', '🍬', '🧸', '🍭', '🍩', '🧁'],
-    personal_care: ['🧴', '🦷', '🪥', '🧼', '🪒', '💄'],
-    household: ['🧽', '🧼', '🧹', '🪣', '🧺', '🧻'],
-    phone_cards: ['📱', '📞', '💳', '📶']
-  }
 
 
 
-  const [showCheckout, setShowCheckout] = useState(false)
-
-  const handleDeleteProduct = (productId: number) => {
-    setProducts((prev: Product[]) => prev.filter((p: Product) => p.id !== productId))
-  }
 
 
-  interface CheckoutCustomer {
-    name: string
-    email?: string
-    phone?: string
-    document?: string
-    address?: string
-    notes?: string
-  }
 
-  type ReceiptType = 'ticket' | 'receipt' | 'invoice'
 
-  interface CheckoutData {
-    customer?: CheckoutCustomer
-    receiptType: ReceiptType
-    cart: CartItem[]
-    total: number
-    subtotal: number
-    tax: number
-  }
 
-  const handleProcessPayment = (checkoutData: CheckoutData): void => {
-    console.log('Procesando pago:', checkoutData)
 
-    // Aquí puedes agregar tu lógica de negocio:
-    // - Validar stock disponible
-    // - Procesar el pago
-    // - Generar comprobante según el tipo
-    // - Guardar en base de datos
-    // - Enviar email de confirmación
 
-    // Ejemplo de estructura de datos que recibes:
-    // checkoutData = {
-    //   customer: { name, email, phone, document, address, notes },
-    //   receiptType: 'ticket' | 'receipt' | 'invoice',
-    //   cart: [...items],
-    //   total: number,
-    //   subtotal: number,
-    //   tax: number
-    // }
 
-    // Simular procesamiento
-    setTimeout(() => {
-      // Limpiar carrito después del pago exitoso
-      setCart([])
-      setShowCheckout(false)
-
-      // Aquí podrías mostrar un toast de éxito o redirigir
-      alert(`¡Pago de $${checkoutData.total.toFixed(2)} procesado exitosamente!`)
-    }, 1000)
-  }
 
 
   return (

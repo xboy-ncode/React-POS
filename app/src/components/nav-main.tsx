@@ -3,7 +3,7 @@
 
 import { Link, useLocation } from 'react-router-dom'
 import { ChevronRight, type LucideIcon } from "lucide-react"
-import { useCan } from '../lib/permissions'
+import { useCan, type Permission } from '../lib/permissions'
 
 import {
   Collapsible,
@@ -30,7 +30,7 @@ export function NavMain({
     url: string
     icon: LucideIcon
     isActive?: boolean
-    permissions?: string[]
+    permissions?: Permission[]
     items?: {
       title: string
       url: string

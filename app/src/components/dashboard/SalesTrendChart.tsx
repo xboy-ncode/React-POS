@@ -1,5 +1,5 @@
 // components/dashboard/SalesTrendChart.tsx
-import React from "react";
+
 import {
     ResponsiveContainer,
     AreaChart,

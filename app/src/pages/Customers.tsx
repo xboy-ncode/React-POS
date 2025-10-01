@@ -372,7 +372,7 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
   }, [item])
 
 
-  // Simular consulta a RENIEC
+// Simular consulta a RENIEC
   async function consultarReniec(dni: string) {
     if (dni.length !== 8) return
 
@@ -415,11 +415,11 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
           ...bdData
         }))
       } else {
-        showToast(t('app.dni_not_found'), 'error')
+        toast.error(t('app.dni_not_found'))
       }
     } catch (error) {
       console.error('Error consultando BD:', error)
-      showToast(t('app.reniec_error'), 'error')
+      toast.error(t('app.reniec_error'))
     } finally {
       setLoadingReniec(false)
     }

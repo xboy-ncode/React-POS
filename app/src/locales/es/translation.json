@@ -104,7 +104,8 @@
     "select_all": "Seleccionar Todo",
     "unselect_all": "Deseleccionar Todo",
     "saving": "Guardando...",
-    "update": "Actualizar"
+    "update": "Actualizar",
+    "manual_entry": "Consultar Base de Datos"
   },
   "inventory": {
     "title": "Gestión de Inventario",
@@ -144,13 +145,13 @@
     "basic_information": "Información Básica",
     "created_at": "Creado en",
     "updated_at": "Actualizado en",
-    "product_name_placeholder": "iPhone 15 Pro",
-    "sku_placeholder": "IPH15PRO-128",
-    "description_placeholder": "Último modelo de iPhone con 128GB de almacenamiento",
+    "product_name_placeholder": "Cerveza Heineken",
+    "sku_placeholder": "BER-HEI-001",
+    "description_placeholder": "Cerveza, lager, botella de 330ml",
     "price_placeholder": "0.00",
     "stock_placeholder": "0",
     "threshold_placeholder": "10",
-    "supplier_placeholder": "Apple Inc.",
+    "supplier_placeholder": "Heineken International",
     "location_placeholder": "Estante A1-001"
   },
   "categories": {
@@ -165,6 +166,22 @@
     "title": "Punto de Venta",
     "search_placeholder": "Buscar en el menú...",
     "products_available": "productos disponibles",
+    "products_available_one": "producto disponible",
+    "loading_products": "Cargando productos...",
+    "no_products_found": "No se encontraron productos que coincidan con tu búsqueda.",
+    "no_products": "No hay productos disponibles.",
+    "add_first_product": "Agrega tu primer producto",
+    "low_stock": "Stock Bajo",
+    "out_of_stock": "Sin Stock",
+    "products_title": "Productos",
+    "add_to_cart": "Agregar al carrito",
+    "delete_product": "Eliminar Producto",
+    "delete_product_confirmation": "¿Estás seguro de que quieres eliminar {{name}} (SKU: {{sku}})?",
+    "in_stock": "Disponible",
+    "product_title": "Producto",
+    "category": "Categoría",
+
+    
     "sections": {
       "categories": "Categorías",
       "products": "Productos"
@@ -186,9 +203,36 @@
       "drink": "Bebida",
       "pasta": "Pasta",
       "dessert": "Postre",
-      "salad": "Ensalada"
+      "salad": "Ensalada",
+      "liquor": "Licores",
+      "beer": "Cerveza",
+      "cigarettes": "Cigarrillos",
+      "snacks": "Snacks",
+      "beverages": "Bebidas",
+      "candy": "Dulces",
+      "personal_care": "Cuidado Personal",
+      "household": "Hogar",
+      "phone_cards": "Tarjetas Telefónicas"
     },
     "products": {
+      "red_wine": "Vino Tinto",
+      "whiskey": "Whiskey",
+      "lager_beer": "Cerveza Lager",
+      "ipa_beer": "Cerveza IPA",
+      "marlboro_pack": "Paquete Marlboro",
+      "camel_pack": "Paquete Camel",
+      "potato_chips": "Papas Fritas",
+      "salted_peanuts": "Maní Salado",
+      "coca_cola": "Coca-Cola",
+      "orange_juice": "Jugo de Naranja",
+      "chocolate_bar": "Barra de Chocolate",
+      "gummy_bears": "Gomitas",
+      "shampoo": "Champú",
+      "toothpaste": "Pasta de Dientes",
+      "laundry_detergent": "Detergente para Ropa",
+      "dish_soap": "Jabón para Platos",
+      "phone_card_10": "Tarjeta Telefónica $10",
+      "phone_card_20": "Tarjeta Telefónica $20",
       "margherita_pizza": "Pizza Margarita",
       "vegetarian_pizza": "Pizza Vegetariana",
       "pepperoni_pizza": "Pizza de Pepperoni",
@@ -236,7 +280,47 @@
       "ingredients": "Ingredientes",
       "ingredients_placeholder": "Masa, salsa de tomate, mozzarella, albahaca",
       "allergens": "Alérgenos",
-      "allergens_placeholder": "Gluten, lácteos"
+      "allergens_placeholder": "Gluten, lácteos",
+      "product_icon": "Icono del Producto"
+    },
+    "checkout": {
+      "title": "Finalizar Compra",
+      "customer": {
+        "title": "Datos del Cliente",
+        "name": "Nombre completo",
+        "email": "Correo electrónico",
+        "phone": "Teléfono",
+        "document": "Documento de identidad",
+        "address": "Dirección",
+        "notes": "Notas adicionales"
+      },
+      "receipt_type": {
+        "title": "Tipo de Comprobante",
+        "ticket": "Ticket",
+        "receipt": "Recibo",
+        "invoice": "Factura"
+      },
+      "cart": {
+        "title": "Resumen del Pedido",
+        "empty": "Carrito vacío",
+        "items_count_one": "{{count}} artículo",
+        "items_count_other": "{{count}} artículos",
+        "price_each": "${{price}} c/u",
+        "subtotal": "Subtotal",
+        "tax": "Impuestos (18%)",
+        "total": "Total a Pagar"
+      },
+      "buttons": {
+        "cancel": "Cancelar",
+        "process": "Procesar Pago"
+      },
+      "messages": {
+        "invoice_requirements": "Factura: Requiere nombre completo, documento y dirección del cliente.",
+        "processing": "Procesando pago...",
+        "success": "¡Pago procesado exitosamente!",
+        "error": "Error al procesar el pago",
+        "stock_error": "Error: Algunos productos no tienen stock suficiente"
+      }
     }
   },
   "settings": {

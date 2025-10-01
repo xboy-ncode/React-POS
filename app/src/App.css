@@ -1,3 +1,20 @@
+/* Custom dark scrollbar for dialogs and overlays */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #7c3aed #18181b;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  background: #18181b;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #7c3aed;
+  border-radius: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a78bfa;
+}
 #root {
   max-width: 1280px;
   margin: 0 auto;

@@ -11,136 +11,131 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { Search, Plus, Edit2, Trash2, Package, DollarSign, AlertTriangle, Loader2, Box } from 'lucide-react'
 
-type Item = {
+
+
+// Types
+type Category = {
+  toLowerCase(): unknown
   id: string
   name: string
-  sku: string
+  nameKey: string
+  icon: string
+}
+
+
+type Product = {
+  id: number
+  name: string
+  nameKey: string
   price: number
-  stock: number
-  category?: string
-  lowStockThreshold?: number
+  category: string
+  image: string
+  sku?: string
   description?: string
+  cost?: number
+  preparationTime?: number
+  ingredients?: string
+  allergens?: string
+  isAvailable?: boolean
+  popularity?: number
+  productIcon?: string
+  stock?: number
+  lowStockThreshold?: number
   supplier?: string
   location?: string
   createdAt?: string
   updatedAt?: string
 }
 
-// Mock data for demonstration
-const mockItems: Item[] = [
-  { 
-    id: '1', 
-    name: 'iPhone 15 Pro', 
-    sku: 'IPH15PRO-128', 
-    price: 999.00, 
-    stock: 25, 
-    category: 'Electronics', 
-    lowStockThreshold: 10,
-    description: 'Latest iPhone model with 128GB storage',
-    supplier: 'Apple Inc.',
-    location: 'Shelf A1-001'
-  },
-  { 
-    id: '2', 
-    name: 'Samsung Galaxy S24', 
-    sku: 'SGS24-256', 
-    price: 899.00, 
-    stock: 8, 
-    category: 'Electronics', 
-    lowStockThreshold: 10,
-    description: 'Samsung flagship phone with 256GB',
-    supplier: 'Samsung',
-    location: 'Shelf A1-002'
-  },
-  { 
-    id: '3', 
-    name: 'MacBook Pro 14"', 
-    sku: 'MBP14-512', 
-    price: 1999.00, 
-    stock: 12, 
-    category: 'Computers', 
-    lowStockThreshold: 5,
-    description: '14-inch MacBook Pro with M3 chip',
-    supplier: 'Apple Inc.',
-    location: 'Shelf B2-001'
-  },
-  { 
-    id: '4', 
-    name: 'iPad Air', 
-    sku: 'IPAD-AIR-64', 
-    price: 599.00, 
-    stock: 18, 
-    category: 'Tablets', 
-    lowStockThreshold: 8,
-    description: 'iPad Air with 64GB storage',
-    supplier: 'Apple Inc.',
-    location: 'Shelf A2-001'
-  },
-  { 
-    id: '5', 
-    name: 'AirPods Pro', 
-    sku: 'APP-GEN2', 
-    price: 249.00, 
-    stock: 3, 
-    category: 'Audio', 
-    lowStockThreshold: 15,
-    description: 'AirPods Pro 2nd generation',
-    supplier: 'Apple Inc.',
-    location: 'Shelf C1-001'
-  },
-  { 
-    id: '6', 
-    name: 'Dell Monitor 27"', 
-    sku: 'DELL-MON-27', 
-    price: 299.00, 
-    stock: 22, 
-    category: 'Accessories', 
-    lowStockThreshold: 10,
-    description: '27-inch 4K monitor',
-    supplier: 'Dell',
-    location: 'Shelf B1-001'
-  },
-  { 
-    id: '7', 
-    name: 'Logitech Mouse', 
-    sku: 'LOG-MX-MASTER', 
-    price: 99.00, 
-    stock: 45, 
-    category: 'Accessories', 
-    lowStockThreshold: 20,
-    description: 'MX Master wireless mouse',
-    supplier: 'Logitech',
-    location: 'Shelf C2-001'
-  },
-  { 
-    id: '8', 
-    name: 'Gaming Keyboard', 
-    sku: 'GAME-KB-RGB', 
-    price: 159.00, 
-    stock: 2, 
-    category: 'Accessories', 
-    lowStockThreshold: 12,
-    description: 'RGB mechanical gaming keyboard',
-    supplier: 'Corsair',
-    location: 'Shelf C2-002'
+
+  // Common product icons by category
+  const categoryIcons = {
+    alcohol: ['🍷', '🥃', '🍸', '🍹', '🍾', '🥂'],
+    beer: ['🍺', '🍻', '🍺', '🍻'],
+    cigarettes: ['🚬'],
+    snacks: ['🥜', '🥔', '🍿', '🥨', '🍪', '🍘'],
+    beverages: ['🥤', '🧃', '☕', '🧋', '🍵', '🥛'],
+    candy: ['🍫', '🍬', '🧸', '🍭', '🍩', '🧁'],
+    personal_care: ['🧴', '🦷', '🪥', '🧼', '🪒', '💄'],
+    household: ['🧽', '🧼', '🧹', '🪣', '🧺', '🧻'],
+    phone_cards: ['📱', '📞', '💳', '📶']
   }
+
+
+const categories: Category[] = [
+  {
+    id: 'all', name: 'Todos', nameKey: 'pos.categories.all', icon: '🏪',
+    toLowerCase: function (): unknown {
+      throw new Error('Function not implemented.')
+    }
+  },
+  { id: 'alcohol', name: 'Liquor', nameKey: 'pos.categories.liquor', icon: '🍷', toLowerCase: function () { return undefined; } },
+  { id: 'beer', name: 'Beer', nameKey: 'pos.categories.beer', icon: '🍺', toLowerCase: function () { return undefined; } },
+  { id: 'cigarettes', name: 'Cigarrettes', nameKey: 'pos.categories.cigarettes', icon: '🚬', toLowerCase: function () { return undefined; } },
+  { id: 'snacks', name: 'Snacks', nameKey: 'pos.categories.snacks', icon: '🥜', toLowerCase: function () { return undefined; } },
+  { id: 'beverages', name: 'Beverages', nameKey: 'pos.categories.beverages', icon: '🥤', toLowerCase: function () { return undefined; } },
+  { id: 'candy', name: 'Candy', nameKey: 'pos.categories.candy', icon: '🍬', toLowerCase: function () { return undefined; } },
+  { id: 'personal_care', name: 'Personal Care', nameKey: 'pos.categories.personal_care', icon: '🧴', toLowerCase: function () { return undefined; } },
+  { id: 'household', name: 'Household', nameKey: 'pos.categories.household', icon: '🧽', toLowerCase: function () { return undefined; } },
+  { id: 'phone_cards', name: 'Phone Cards', nameKey: 'pos.categories.phone_cards', icon: '📱', toLowerCase: function () { return undefined; } }
 ]
 
-const categories = ['Electronics', 'Computers', 'Tablets', 'Audio', 'Accessories', 'Gaming']
+
+
+// Mock data for demonstration
+const initialProducts: Product[] = [
+  // Alcohol
+  { id: 1, name: 'Red Wine', nameKey: 'pos.products.red_wine', price: 15.00, category: 'alcohol', image: '/api/placeholder/200/200', sku: 'ALC-RED-001', isAvailable: true, productIcon: '🍷', stock: 5 },
+  { id: 2, name: 'Whiskey', nameKey: 'pos.products.whiskey', price: 25.00, category: 'alcohol', image: '/api/placeholder/200/200', sku: 'ALC-WHI-001', isAvailable: true, productIcon: '🥃', stock: 12 },
+
+  // Beer
+  { id: 3, name: 'Lager Beer', nameKey: 'pos.products.lager_beer', price: 3.50, category: 'beer', image: '/api/placeholder/200/200', sku: 'BER-LAG-001', isAvailable: true, productIcon: '🍺', stock: 20 },
+  { id: 4, name: 'IPA Beer', nameKey: 'pos.products.ipa_beer', price: 4.20, category: 'beer', image: '/api/placeholder/200/200', sku: 'BER-IPA-001', isAvailable: true, productIcon: '🍻', stock: 7 },
+
+  // Cigarettes
+  { id: 5, name: 'Marlboro Pack', nameKey: 'pos.products.marlboro_pack', price: 6.00, category: 'cigarettes', image: '/api/placeholder/200/200', sku: 'CIG-MAR-001', isAvailable: true, productIcon: '🚬', stock: 30 },
+  { id: 6, name: 'Camel Pack', nameKey: 'pos.products.camel_pack', price: 5.50, category: 'cigarettes', image: '/api/placeholder/200/200', sku: 'CIG-CAM-001', isAvailable: true, productIcon: '🚬', stock: 2 },
+
+  // Snacks
+  { id: 7, name: 'Potato Chips', nameKey: 'pos.products.potato_chips', price: 2.00, category: 'snacks', image: '/api/placeholder/200/200', sku: 'SNK-POT-001', isAvailable: true, productIcon: '🥔', stock: 15 },
+  { id: 8, name: 'Salted Peanuts', nameKey: 'pos.products.salted_peanuts', price: 1.50, category: 'snacks', image: '/api/placeholder/200/200', sku: 'SNK-PEA-001', isAvailable: true, productIcon: '🥜', stock: 8 },
+
+  // Beverages
+  { id: 9, name: 'Coca-Cola', nameKey: 'pos.products.coca_cola', price: 1.80, category: 'beverages', image: '/api/placeholder/200/200', sku: 'BEV-COC-001', isAvailable: true, productIcon: '🥤', stock: 50 },
+  { id: 10, name: 'Orange Juice', nameKey: 'pos.products.orange_juice', price: 2.50, category: 'beverages', image: '/api/placeholder/200/200', sku: 'BEV-ORA-001', isAvailable: true, productIcon: '🧃', stock: 3 },
+
+  // Candy
+  { id: 11, name: 'Chocolate Bar', nameKey: 'pos.products.chocolate_bar', price: 1.20, category: 'candy', image: '/api/placeholder/200/200', sku: 'CAN-CHO-001', isAvailable: true, productIcon: '🍫', stock: 18 },
+  { id: 12, name: 'Gummy Bears', nameKey: 'pos.products.gummy_bears', price: 1.00, category: 'candy', image: '/api/placeholder/200/200', sku: 'CAN-GUM-001', isAvailable: true, productIcon: '🧸', stock: 0 },
+
+  // Personal Care
+  { id: 13, name: 'Shampoo', nameKey: 'pos.products.shampoo', price: 5.00, category: 'personal_care', image: '/api/placeholder/200/200', sku: 'PER-SHA-001', isAvailable: true, productIcon: '🧴', stock: 6 },
+  { id: 14, name: 'Toothpaste', nameKey: 'pos.products.toothpaste', price: 2.50, category: 'personal_care', image: '/api/placeholder/200/200', sku: 'PER-TOO-001', isAvailable: true, productIcon: '🦷', stock: 25 },
+
+  // Household
+  { id: 15, name: 'Laundry Detergent', nameKey: 'pos.products.laundry_detergent', price: 8.00, category: 'household', image: '/api/placeholder/200/200', sku: 'HOU-LAU-001', isAvailable: true, productIcon: '🧽', stock: 10 },
+  { id: 16, name: 'Dish Soap', nameKey: 'pos.products.dish_soap', price: 3.00, category: 'household', image: '/api/placeholder/200/200', sku: 'HOU-DIS-001', isAvailable: true, productIcon: '🧼', stock: 1 },
+
+  // Phone Cards
+  { id: 17, name: 'Phone Card $10', nameKey: 'pos.products.phone_card_10', price: 10.00, category: 'phone_cards', image: '/api/placeholder/200/200', sku: 'PHC-010-001', isAvailable: true, productIcon: '📱', stock: 40 },
+  { id: 18, name: 'Phone Card $20', nameKey: 'pos.products.phone_card_20', price: 20.00, category: 'phone_cards', image: '/api/placeholder/200/200', sku: 'PHC-020-001', isAvailable: true, productIcon: '📞', stock: 9 }
+]
+
+
 
 export default function Inventory() {
   const { t } = useTranslation()
-  const [items, setItems] = useState<Item[]>(mockItems)
-  const [filteredItems, setFilteredItems] = useState<Item[]>(mockItems)
+  const [items, setItems] = useState<Product[]>(initialProducts)
+  const [filteredItems, setFilteredItems] = useState<Product[]>(initialProducts)
   const [searchTerm, setSearchTerm] = useState('')
   const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState<Item | null>(null)
+  const [editing, setEditing] = useState<Product | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const filtered = items.filter(item =>
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.sku?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
       item.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.supplier?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -148,8 +143,8 @@ export default function Inventory() {
     setFilteredItems(filtered)
   }, [items, searchTerm])
 
-  const totalValue = items.reduce((sum, item) => sum + (item.price * item.stock), 0)
-  const lowStockItems = items.filter(item => item.stock <= (item.lowStockThreshold || 10))
+  const totalValue = items.reduce((sum, item) => sum + (item.price * (item.stock ?? 0)), 0)
+  const lowStockItems = items.filter(item => (item.stock ?? 0) <= (item.lowStockThreshold || 10))
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen)
@@ -158,31 +153,35 @@ export default function Inventory() {
     }
   }
 
-  const handleSaveItem = (item: Item) => {
+  const handleSaveItem = (item: Product) => {
     if (item.id && editing) {
       setItems(prev => prev.map(i => i.id === item.id ? item : i))
     } else {
-      const newItem = { ...item, id: Date.now().toString(), createdAt: new Date().toISOString() }
-      setItems(prev => [...prev, newItem])
+      const newItem = { ...item, id: Date.now(), createdAt: new Date().toISOString() }
+      setItems(prev => [...prev, newItem as Product])
     }
     setOpen(false)
     setEditing(null)
   }
 
-  const handleDeleteItem = (id: string) => {
+  const handleDeleteItem = (id: number) => {
     setItems(prev => prev.filter(item => item.id !== id))
   }
 
-  const getStockStatus = (item: Item) => {
-    const threshold = item.lowStockThreshold || 10
-    if (item.stock === 0) {
-      return <Badge variant="destructive">{t('inventory.out_of_stock')}</Badge>
-    } else if (item.stock <= threshold) {
-      return <Badge variant="outline" className="border-yellow-500 text-yellow-600">{t('inventory.low_stock')}</Badge>
-    } else {
-      return <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">{t('inventory.in_stock')}</Badge>
-    }
+const getStockStatus = (
+  product: Product,
+  t: (key: string, options?: any) => string
+) => {
+  const threshold = product.lowStockThreshold || 10
+  const stock = product.stock || 0
+  if (stock === 0) {
+    return <Badge variant="destructive">{t('pos.out_of_stock')}</Badge>
+  } else if (stock <= threshold) {
+    return <Badge variant="outline" className="bg-yellow-300 border-yellow-400 text-yellow-800">{t('pos.low_stock')}</Badge>
+  } else {
+    return <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">{t('pos.in_stock')}</Badge>
   }
+}
 
   return (
     <div className="space-y-6">
@@ -270,7 +269,7 @@ export default function Inventory() {
             </div>
           </div>
 
-          {/* Table */}
+          {/* Table - SalePOS style */}
           <div className="rounded-md border">
             <Table>
               <TableHeader>
@@ -285,25 +284,13 @@ export default function Inventory() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-                        <span className="text-muted-foreground">{t('app.loading')}</span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : filteredItems.length === 0 ? (
+                {filteredItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
                       <div className="text-center space-y-2">
                         <Box className="mx-auto h-12 w-12 text-muted-foreground/50" />
                         <p className="text-muted-foreground">
-                          {searchTerm ? 
-                            t('inventory.no_items_found') :
-                            t('inventory.no_items')
-                          }
+                          {searchTerm ? t('inventory.no_items_found') : t('inventory.no_items')}
                         </p>
                         {!searchTerm && (
                           <Button 
@@ -326,37 +313,25 @@ export default function Inventory() {
                     <TableRow key={item.id} className="hover:bg-muted/50">
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="font-medium">{item.name}</div>
-                          {item.description && (
-                            <div className="text-xs text-muted-foreground truncate max-w-48">
-                              {item.description}
-                            </div>
-                          )}
+                          
+                          <div className="font-medium">{t(item.nameKey, item.name)}</div>
                         </div>
                       </TableCell>
                       <TableCell className="font-mono text-sm font-medium">
-                        <div className="flex items-center space-x-2">
-                          <Box className="h-3 w-3 text-muted-foreground" />
-                          <span>{item.sku}</span>
-                        </div>
+                        <span>{item.sku}</span>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {t(`categories.${item.category?.toLowerCase()}`, item.category)}
+                          {t(`pos.categories.${item.category}`, categories.find(c => c.id === item.category)?.name || item.category)}
                         </Badge>
                       </TableCell>
                       <TableCell className="font-semibold">
                         ${item.price.toFixed(2)}
                       </TableCell>
                       <TableCell className="font-semibold">
-                        <div className="flex items-center space-x-2">
-                          <span>{item.stock}</span>
-                          {item.stock <= (item.lowStockThreshold || 10) && (
-                            <AlertTriangle className="h-3 w-3 text-destructive" />
-                          )}
-                        </div>
+                        <span>{item.stock}</span>
                       </TableCell>
-                      <TableCell>{getStockStatus(item)}</TableCell>
+                      <TableCell>{getStockStatus(item, t)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end space-x-1">
                           <Button
@@ -379,10 +354,7 @@ export default function Inventory() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>{t('inventory.delete_item')}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  {t('inventory.delete_item_confirmation', { 
-                                    name: item.name, 
-                                    sku: item.sku 
-                                  })}
+                                  {t('inventory.delete_item_confirmation', { name: item.name, sku: item.sku })}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -415,12 +387,12 @@ function ItemEditor({
   onSave, 
   onClose 
 }: { 
-  item: Item | null
-  onSave: (item: Item) => void
+  item: Product | null
+  onSave: (item: Product) => void
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const [form, setForm] = useState<Partial<Item>>(
+  const [form, setForm] = useState<Partial<Product>>(
     item || { 
       name: '', 
       sku: '', 
@@ -464,17 +436,19 @@ function ItemEditor({
       await new Promise(resolve => setTimeout(resolve, 500))
       
       onSave({
-        id: item?.id || '',
+        id: item?.id ?? 0,
         name: form.name?.trim() || '',
         sku: form.sku?.trim() || '',
         price: form.price || 0,
         stock: form.stock || 0,
-        category: form.category?.trim(),
+        category: form.category?.trim() || '',
         lowStockThreshold: form.lowStockThreshold || 10,
         description: form.description?.trim(),
         supplier: form.supplier?.trim(),
         location: form.location?.trim(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        nameKey: '',
+        image: ''
       })
     } catch (error) {
       console.error('Failed to save item:', error)
@@ -526,16 +500,6 @@ function ItemEditor({
                   className="font-mono uppercase"
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">{t('inventory.description')}</Label>
-              <Input
-                id="description"
-                value={form.description || ''}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder={t('inventory.description_placeholder')}
-              />
             </div>
           </div>
         </Card>
@@ -602,8 +566,8 @@ function ItemEditor({
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {t(`categories.${cat.toLowerCase()}`, cat)}
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {t(`categories.${cat.id.toLowerCase()}`, cat.name)}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -12,6 +12,7 @@ import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Search, Plus, Edit2, Trash2, User, Calendar, MapPin, Heart, CreditCard, Loader2 } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../components/ui/alert-dialog'
+import { toast } from 'sonner'
 
 type Customer = {
   id: string
@@ -370,6 +371,7 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
     }
   }, [item])
 
+
   // Simular consulta a RENIEC
   async function consultarReniec(dni: string) {
     if (dni.length !== 8) return
@@ -378,10 +380,8 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
     try {
       // Simular delay de API
       await new Promise(resolve => setTimeout(resolve, 1500))
-      
       // Usar datos mock
       const reniecData = mockReniecData[dni as keyof typeof mockReniecData]
-      
       if (reniecData) {
         setForm(prevForm => ({
           ...prevForm,
@@ -389,11 +389,37 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
         }))
       } else {
         // Simular DNI no encontrado
-        alert(t('app.dni_not_found'))
+        toast.error(t('app.dni_not_found'))
       }
     } catch (error) {
       console.error('Error consultando RENIEC:', error)
-      alert(t('app.reniec_error'))
+      toast.error(t('app.dni_not_found'))
+    } finally {
+      setLoadingReniec(false)
+    }
+  }
+
+  // Simular consulta a BD
+  async function consultarBD(dni: string) {
+    if (dni.length !== 8) return
+
+    setLoadingReniec(true)
+    try {
+      // Simular delay de API
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Usar datos mock (simulación igual que RENIEC)
+      const bdData = mockReniecData[dni as keyof typeof mockReniecData]
+      if (bdData) {
+        setForm(prevForm => ({
+          ...prevForm,
+          ...bdData
+        }))
+      } else {
+        showToast(t('app.dni_not_found'), 'error')
+      }
+    } catch (error) {
+      console.error('Error consultando BD:', error)
+      showToast(t('app.reniec_error'), 'error')
     } finally {
       setLoadingReniec(false)
     }
@@ -448,45 +474,56 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">
-                {t('app.dni')} <span className="text-destructive">*</span>
+          {t('app.dni')} <span className="text-destructive">*</span>
               </Label>
               {!item && (
-                <Badge variant="outline" className="text-xs">
-                  {t('app.auto_complete')}
-                </Badge>
+          <Badge variant="outline" className="text-xs">
+            {t('app.auto_complete')}
+          </Badge>
               )}
             </div>
             
             <div className="flex space-x-2">
               <Input
-                placeholder="12345678"
-                value={dniInput}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 8)
-                  setDniInput(value)
-                  setForm(prev => ({ ...prev, dni: value }))
-                }}
-                className="font-mono"
-                maxLength={8}
-                disabled={loadingReniec || !!item}
+          placeholder="12345678"
+          value={dniInput}
+          onChange={(e) => {
+            const value = e.target.value.replace(/\D/g, '').slice(0, 8)
+            setDniInput(value)
+            setForm(prev => ({ ...prev, dni: value }))
+          }}
+          className="font-mono"
+          maxLength={8}
+          disabled={loadingReniec || !!item}
               />
               {!item && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => consultarReniec(dniInput)}
-                  disabled={dniInput.length !== 8 || loadingReniec}
-                  className="whitespace-nowrap"
-                >
-                  {loadingReniec ? (
-                    <div className="flex items-center space-x-2">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      <span>{t('app.consulting')}</span>
-                    </div>
-                  ) : (
-                    t('app.consult_reniec')
-                  )}
-                </Button>
+          <>
+            <Button
+              type="button"
+           
+              onClick={() => consultarReniec(dniInput)}
+              disabled={dniInput.length !== 8 || loadingReniec}
+              className="whitespace-nowrap"
+            >
+              {loadingReniec ? (
+                <div className="flex items-center space-x-2">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>{t('app.consulting')}</span>
+                </div>
+              ) : (
+                t('app.consult_reniec')
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => consultarBD(dniInput)}
+              disabled={dniInput.length !== 8 || loadingReniec}
+              className="whitespace-nowrap"
+            >
+              {t('app.manual_entry')}
+            </Button>
+          </>
               )}
             </div>
           </div>

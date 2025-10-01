@@ -104,7 +104,8 @@
     "select_all": "Select All",
     "unselect_all": "Unselect All",
     "saving": "Saving...",
-    "update": "Update"
+    "update": "Update",
+    "manual_entry": "Consult Database"
   },
   "inventory": {
     "title": "Inventory Management",
@@ -144,13 +145,13 @@
     "basic_information": "Basic Information",
     "created_at": "Created At",
     "updated_at": "Updated At",
-    "product_name_placeholder": "iPhone 15 Pro",
-    "sku_placeholder": "IPH15PRO-128",
-    "description_placeholder": "Latest iPhone model with 128GB storage",
+    "product_name_placeholder": "Cerveza Heineken",
+    "sku_placeholder": "BER-HEI-001",
+    "description_placeholder": "Beer, lager, 330ml bottle",
     "price_placeholder": "0.00",
     "stock_placeholder": "0",
     "threshold_placeholder": "10",
-    "supplier_placeholder": "Apple Inc.",
+    "supplier_placeholder": "Heineken International",
     "location_placeholder": "Shelf A1-001"
   },
   "categories": {
@@ -174,6 +175,11 @@
     "out_of_stock": "Out of Stock",
     "products_title": "Products",
     "product_title": "Product",
+    "add_to_cart": "Add to cart",
+"delete_product": "Delete Product", 
+"delete_product_confirmation": "Are you sure you want to delete {{name}} (SKU: {{sku}})?",
+"in_stock": "In Stock",
+"category": "Category",
 
     "sections": {
       "categories": "Categories",
@@ -275,7 +281,48 @@
       "allergens": "Allergens",
       "allergens_placeholder": "Gluten, dairy",
       "product_icon": "Product Icon"
-    }
+    },
+"checkout": {
+  "title": "Checkout",
+  "customer": {
+    "title": "Customer Information",
+    "name": "Full name",
+    "email": "Email address",
+    "phone": "Phone number",
+    "document": "ID document",
+    "address": "Address",
+    "notes": "Additional notes"
+  },
+  "receipt_type": {
+    "title": "Receipt Type",
+    "ticket": "Ticket",
+    "receipt": "Receipt",
+    "invoice": "Invoice"
+  },
+  "cart": {
+    "title": "Order Summary",
+    "empty": "Cart is empty",
+    "items_count_one": "{{count}} item",
+    "items_count_other": "{{count}} items",
+    "price_each": "${{price}} each",
+    "subtotal": "Subtotal",
+    "tax": "Tax (18%)",
+    "total": "Total Amount"
+  },
+  "buttons": {
+    "cancel": "Cancel",
+    "process": "Process Payment"
+  },
+  "messages": {
+    "invoice_requirements": "Invoice: Requires customer's full name, ID document and address.",
+    "processing": "Processing payment...",
+    "success": "Payment processed successfully!",
+    "error": "Error processing payment",
+    "stock_error": "Error: Some products don't have enough stock"
+  }
+}
+
+
   },
   "settings": {
     "title": "Settings",

@@ -104,7 +104,8 @@
     "select_all": "Seleccionar Todo",
     "unselect_all": "Deseleccionar Todo",
     "saving": "Guardando...",
-    "update": "Actualizar"
+    "update": "Actualizar",
+    "manual_entry": "Consultar Base de Datos"
   },
   "inventory": {
     "title": "Gestión de Inventario",
@@ -144,13 +145,13 @@
     "basic_information": "Información Básica",
     "created_at": "Creado en",
     "updated_at": "Actualizado en",
-    "product_name_placeholder": "iPhone 15 Pro",
-    "sku_placeholder": "IPH15PRO-128",
-    "description_placeholder": "Último modelo de iPhone con 128GB de almacenamiento",
+    "product_name_placeholder": "Cerveza Heineken",
+    "sku_placeholder": "BER-HEI-001",
+    "description_placeholder": "Cerveza, lager, botella de 330ml",
     "price_placeholder": "0.00",
     "stock_placeholder": "0",
     "threshold_placeholder": "10",
-    "supplier_placeholder": "Apple Inc.",
+    "supplier_placeholder": "Heineken International",
     "location_placeholder": "Estante A1-001"
   },
   "categories": {
@@ -173,8 +174,14 @@
     "low_stock": "Stock Bajo",
     "out_of_stock": "Sin Stock",
     "products_title": "Productos",
+    "add_to_cart": "Agregar al carrito",
+    "delete_product": "Eliminar Producto",
+    "delete_product_confirmation": "¿Estás seguro de que quieres eliminar {{name}} (SKU: {{sku}})?",
+    "in_stock": "Disponible",
     "product_title": "Producto",
+    "category": "Categoría",
 
+    
     "sections": {
       "categories": "Categorías",
       "products": "Productos"
@@ -208,7 +215,7 @@
       "phone_cards": "Tarjetas Telefónicas"
     },
     "products": {
-       "red_wine": "Vino Tinto",
+      "red_wine": "Vino Tinto",
       "whiskey": "Whiskey",
       "lager_beer": "Cerveza Lager",
       "ipa_beer": "Cerveza IPA",
@@ -275,6 +282,45 @@
       "allergens": "Alérgenos",
       "allergens_placeholder": "Gluten, lácteos",
       "product_icon": "Icono del Producto"
+    },
+    "checkout": {
+      "title": "Finalizar Compra",
+      "customer": {
+        "title": "Datos del Cliente",
+        "name": "Nombre completo",
+        "email": "Correo electrónico",
+        "phone": "Teléfono",
+        "document": "Documento de identidad",
+        "address": "Dirección",
+        "notes": "Notas adicionales"
+      },
+      "receipt_type": {
+        "title": "Tipo de Comprobante",
+        "ticket": "Ticket",
+        "receipt": "Recibo",
+        "invoice": "Factura"
+      },
+      "cart": {
+        "title": "Resumen del Pedido",
+        "empty": "Carrito vacío",
+        "items_count_one": "{{count}} artículo",
+        "items_count_other": "{{count}} artículos",
+        "price_each": "${{price}} c/u",
+        "subtotal": "Subtotal",
+        "tax": "Impuestos (18%)",
+        "total": "Total a Pagar"
+      },
+      "buttons": {
+        "cancel": "Cancelar",
+        "process": "Procesar Pago"
+      },
+      "messages": {
+        "invoice_requirements": "Factura: Requiere nombre completo, documento y dirección del cliente.",
+        "processing": "Procesando pago...",
+        "success": "¡Pago procesado exitosamente!",
+        "error": "Error al procesar el pago",
+        "stock_error": "Error: Algunos productos no tienen stock suficiente"
+      }
     }
   },
   "settings": {

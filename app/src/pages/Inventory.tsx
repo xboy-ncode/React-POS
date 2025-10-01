@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -48,18 +48,6 @@ type Product = {
 }
 
 
-  // Common product icons by category
-  const categoryIcons = {
-    alcohol: ['🍷', '🥃', '🍸', '🍹', '🍾', '🥂'],
-    beer: ['🍺', '🍻', '🍺', '🍻'],
-    cigarettes: ['🚬'],
-    snacks: ['🥜', '🥔', '🍿', '🥨', '🍪', '🍘'],
-    beverages: ['🥤', '🧃', '☕', '🧋', '🍵', '🥛'],
-    candy: ['🍫', '🍬', '🧸', '🍭', '🍩', '🧁'],
-    personal_care: ['🧴', '🦷', '🪥', '🧼', '🪒', '💄'],
-    household: ['🧽', '🧼', '🧹', '🪣', '🧺', '🧻'],
-    phone_cards: ['📱', '📞', '💳', '📶']
-  }
 
 
 const categories: Category[] = [
@@ -130,7 +118,7 @@ export default function Inventory() {
   const [searchTerm, setSearchTerm] = useState('')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
-  const [loading, setLoading] = useState(false)
+
 
   useEffect(() => {
     const filtered = items.filter(item =>

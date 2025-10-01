@@ -48,7 +48,7 @@ export const ROLE_DEFAULT_PERMS: Record<Role, Permission[]> = {
 // ⚡ Variable para saber si estamos en modo mock
 const DISABLE_AUTH = import.meta.env.VITE_DISABLE_AUTH === 'true'
 
-export const useAuth = create<AuthState>((set, get) => ({
+export const useAuth = create<AuthState>((set) => ({
   user: null,
   token: null,
   loading: false,

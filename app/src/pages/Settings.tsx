@@ -130,7 +130,12 @@ export default function Settings() {
     }
   }
 
-  const SettingItem = ({ icon, title, description, children }) => (
+ const SettingItem = ({ icon, title, description, children }: {
+    icon: React.ReactNode
+    title: string
+    description: string
+    children: React.ReactNode
+  }) => (
     <div className="flex items-center justify-between space-x-4 py-3">
       <div className="flex items-start space-x-3 flex-1">
         <div className="mt-0.5 text-muted-foreground">

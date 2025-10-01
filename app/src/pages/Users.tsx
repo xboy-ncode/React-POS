@@ -441,7 +441,7 @@ function UserEditor({ item, onClose }: { item: User | null, onClose: () => void 
   }
 
   const isValid = form.name?.trim() && form.email?.trim()
-  const allPerms: Permission[] = Object.values(permissionCategories).flat() as Permission[]
+
 
   return (
     <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -596,7 +596,7 @@ function UserEditor({ item, onClose }: { item: User | null, onClose: () => void 
               <div className="space-y-4">
                 {Object.entries(permissionCategories).map(([category, perms]) => {
                   const hasAll = perms.every(p => form.permissions?.includes(p as Permission))
-                  const hasAny = perms.some(p => form.permissions?.includes(p as Permission))
+
                   
                   return (
                     <div key={category} className="space-y-2">

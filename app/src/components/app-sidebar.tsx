@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Link } from "react-router-dom"
+
 import {
   Home,
   ShoppingCart,
@@ -10,7 +10,6 @@ import {
   Users,
   UserCog,
   Settings,
-  Palette,
   LifeBuoy,
   Send,
   Command,
@@ -31,6 +30,11 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
+// Import or define the Permission type
+import type { Permission } from "../lib/permissions" // Adjust path as needed
+// OR define it here if it doesn't exist:
+// type Permission = 'sales:read' | 'inventory:read' | 'customers:read' | 'users:read'
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -39,7 +43,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     user: {
       name: user?.name || "Usuario",
       email: user?.email || "usuario@ejemplo.com",
-      avatar: "/avatars/user.jpg", // Puedes agregar tu lógica de avatar aquí
+      avatar: "/avatars/user.jpg",
     },
     navMain: [
       {
@@ -53,25 +57,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: t('app.sales'),
         url: "/sales",
         icon: ShoppingCart,
-        permissions: ['sales:read'],
+        permissions: ['sales:read'] as Permission[],
       },
       {
         title: t('app.inventory'),
         url: "/inventory", 
         icon: Package,
-        permissions: ['inventory:read'],
+        permissions: ['inventory:read'] as Permission[],
       },
       {
         title: t('app.customers'),
         url: "/customers",
         icon: Users,
-        permissions: ['customers:read'],
+        permissions: ['customers:read'] as Permission[],
       },
       {
         title: t('app.users'),
         url: "/users",
         icon: UserCog,
-        permissions: ['users:read'],
+        permissions: ['users:read'] as Permission[],
       },
     ],
     navSecondary: [

@@ -1,5 +1,5 @@
 // components/dashboard/WeeklyPerformance.tsx
-import React from "react";
+
 import {
     ResponsiveContainer,
     BarChart,

@@ -1,5 +1,5 @@
 // components/dashboard/RecentTransactions.tsx
-import React from "react";
+
 import { DollarSign, Receipt } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";

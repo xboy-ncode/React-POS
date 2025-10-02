@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
-const pool = require('../config/database');
+const { pool } = require('../config/database'); 
 const { generarToken } = require('../utils/jwt');
 
 const router = express.Router();

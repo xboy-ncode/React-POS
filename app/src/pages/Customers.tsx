@@ -10,24 +10,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../components/ui/badge'
 import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Search, Plus, Edit2, Trash2, User, Calendar, MapPin, Heart, CreditCard, Loader2 } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, User, Calendar, MapPin, CreditCard, Loader2 } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../components/ui/alert-dialog'
 import { toast } from 'sonner'
 
 type Customer = {
-  id: string
+  id: number
   dni: string
   nombres: string
   apellidos: string
   nombreCompleto: string
-  fechaNacimiento: string
-  sexo: 'M' | 'F'
-  estadoCivil: string
-  direccion: string
+  fechaNacimiento?: string
+  sexo?: 'M' | 'F'
+  estadoCivil?: string
+  direccion?: string
   telefono?: string
   email?: string
-  createdAt?: string
-  updatedAt?: string
+  fecha_registro?: string
+  fuente_datos?: string
+  datos_completos?: any
 }
 
 // Mock data para simular respuesta de RENIEC
@@ -89,7 +90,11 @@ export default function Customers() {
     try {
       setLoading(true)
       const d = await api('/customers?limit=100')
-      setItems(d?.items || [])
+      const mapped = (d?.items || []).map((c: any) => ({
+        ...c,
+        nombreCompleto: `${c.apellidos || ''}, ${c.nombres || ''}`.trim()
+      }))
+      setItems(mapped)
     } catch {
       setItems([])
     } finally {
@@ -97,7 +102,7 @@ export default function Customers() {
     }
   }
 
-  async function removeItem(id: string) {
+  async function removeItem(id: number) {
     try {
       await api(`/customers/${id}`, { method: 'DELETE' })
       await load()
@@ -114,12 +119,14 @@ export default function Customers() {
     }
   }
 
-  const formatAge = (fechaNacimiento: string) => {
+  const formatAge = (fechaNacimiento?: string) => {
+    if (!fechaNacimiento) return '-'
+    
     const today = new Date()
     const birthDate = new Date(fechaNacimiento)
     const age = today.getFullYear() - birthDate.getFullYear()
     const monthDiff = today.getMonth() - birthDate.getMonth()
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       return age - 1
     }
@@ -139,7 +146,7 @@ export default function Customers() {
         <IfCan permission={['customers:write']}>
           <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
-              <Button 
+              <Button
                 onClick={() => setEditing(null)}
                 className="flex items-center gap-2"
               >
@@ -202,15 +209,15 @@ export default function Customers() {
                     <TableCell colSpan={5} className="text-center py-8">
                       <div className="text-center space-y-2">
                         <p className="text-muted-foreground">
-                          {searchTerm ? 
+                          {searchTerm ?
                             t('app.no_customers_found') :
                             t('app.no_customers')
                           }
                         </p>
                         {!searchTerm && (
                           <IfCan permission={['customers:write']}>
-                            <Button 
-                              variant="outline" 
+                            <Button
+                              variant="outline"
                               size="sm"
                               onClick={() => {
                                 setEditing(null)
@@ -235,23 +242,22 @@ export default function Customers() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-medium">{customer.nombreCompleto}</div>
-                          <div className="text-xs text-muted-foreground flex items-center space-x-1">
-                            <Heart className="h-3 w-3" />
-                            <span>{customer.estadoCivil}</span>
-                          </div>
+                        <div className="font-medium">
+                          {customer.nombreCompleto}
                         </div>
                       </TableCell>
+
                       <TableCell>
                         <div className="space-y-1">
                           <div className="flex items-center space-x-2">
                             <Calendar className="h-3 w-3 text-muted-foreground" />
                             <span className="text-sm">{formatAge(customer.fechaNacimiento)} años</span>
                           </div>
-                          <Badge variant={customer.sexo === 'M' ? 'default' : 'secondary'} className="text-xs">
-                            {customer.sexo === 'M' ? t('app.male') : t('app.female')}
-                          </Badge>
+                          {customer.sexo && (
+                            <Badge variant={customer.sexo === 'M' ? 'default' : 'secondary'} className="text-xs">
+                              {customer.sexo === 'M' ? t('app.male') : t('app.female')}
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -298,15 +304,15 @@ export default function Customers() {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>{t('app.delete_customer')}</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    {t('app.delete_customer_confirmation_dni', { 
-                                      name: customer.nombreCompleto, 
-                                      dni: customer.dni 
+                                    {t('app.delete_customer_confirmation_dni', {
+                                      name: customer.nombreCompleto,
+                                      dni: customer.dni
                                     })}
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>{t('app.cancel')}</AlertDialogCancel>
-                                  <AlertDialogAction 
+                                  <AlertDialogAction
                                     onClick={() => removeItem(customer.id)}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                   >
@@ -332,47 +338,45 @@ export default function Customers() {
 
 function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () => void }) {
   const { t } = useTranslation()
-  const [form, setForm] = useState<Partial<Customer>>(
-    item || { 
-      dni: '', 
-      nombres: '', 
-      apellidos: '', 
-      nombreCompleto: '', 
-      fechaNacimiento: '', 
-      sexo: 'M', 
-      estadoCivil: '', 
-      direccion: '',
-      telefono: '',
-      email: '' 
-    }
-  )
+  const [form, setForm] = useState<Partial<Customer>>({
+    dni: '',
+    nombres: '',
+    apellidos: '',
+    nombreCompleto: '',
+    fechaNacimiento: '',
+    sexo: 'M',
+    estadoCivil: '',
+    direccion: '',
+    telefono: '',
+    email: ''
+  })
+
   const [saving, setSaving] = useState(false)
   const [loadingReniec, setLoadingReniec] = useState(false)
-  const [dniInput, setDniInput] = useState(item?.dni || '')
+  const [dniInput, setDniInput] = useState('')
 
   useEffect(() => {
     if (item) {
       setForm(item)
       setDniInput(item.dni)
     } else {
-      setForm({ 
-        dni: '', 
-        nombres: '', 
-        apellidos: '', 
-        nombreCompleto: '', 
-        fechaNacimiento: '', 
-        sexo: 'M', 
-        estadoCivil: '', 
+      setForm({
+        dni: '',
+        nombres: '',
+        apellidos: '',
+        nombreCompleto: '',
+        fechaNacimiento: '',
+        sexo: 'M',
+        estadoCivil: '',
         direccion: '',
         telefono: '',
-        email: '' 
+        email: ''
       })
       setDniInput('')
     }
   }, [item])
 
-
-// Simular consulta a RENIEC
+  // Simular consulta a RENIEC
   async function consultarReniec(dni: string) {
     if (dni.length !== 8) return
 
@@ -393,7 +397,7 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
       }
     } catch (error) {
       console.error('Error consultando RENIEC:', error)
-      toast.error(t('app.dni_not_found'))
+      toast.error(t('app.reniec_error'))
     } finally {
       setLoadingReniec(false)
     }
@@ -426,7 +430,7 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
   }
 
   async function save() {
-    if (!form.dni?.trim() || !form.nombreCompleto?.trim()) {
+    if (!form.dni?.trim() || !form.nombres?.trim() || !form.apellidos?.trim()) {
       return
     }
 
@@ -434,19 +438,23 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
       setSaving(true)
       const method = item ? 'PUT' : 'POST'
       const path = item ? `/customers/${item.id}` : '/customers'
-      await api(path, { 
-        method, 
+      await api(path, {
+        method,
         body: JSON.stringify({
-          ...form,
           dni: form.dni?.trim(),
           nombres: form.nombres?.trim(),
           apellidos: form.apellidos?.trim(),
-          nombreCompleto: form.nombreCompleto?.trim(),
-          direccion: form.direccion?.trim(),
+          fechaNacimiento: form.fechaNacimiento?.trim() || undefined,
+          sexo: form.sexo,
+          estadoCivil: form.estadoCivil?.trim() || undefined,
+          direccion: form.direccion?.trim() || undefined,
           telefono: form.telefono?.trim() || undefined,
-          email: form.email?.trim() || undefined
+          email: form.email?.trim() || undefined,
+          fuente_datos: "RENIEC",
+          datos_completos: form.datos_completos || {}
         })
       })
+
       onClose()
     } catch (error) {
       console.error('Failed to save customer:', error)
@@ -455,7 +463,7 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
     }
   }
 
-  const isValid = form.dni?.trim() && form.nombreCompleto?.trim()
+  const isValid = form.dni?.trim() && form.nombres?.trim() && form.apellidos?.trim()
 
   return (
     <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -467,63 +475,62 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
           </span>
         </DialogTitle>
       </DialogHeader>
-      
+
       <div className="space-y-6 py-4">
         {/* DNI Section */}
         <Card className="p-4">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">
-          {t('app.dni')} <span className="text-destructive">*</span>
+                {t('app.dni')} <span className="text-destructive">*</span>
               </Label>
               {!item && (
-          <Badge variant="outline" className="text-xs">
-            {t('app.auto_complete')}
-          </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {t('app.auto_complete')}
+                </Badge>
               )}
             </div>
-            
+
             <div className="flex space-x-2">
               <Input
-          placeholder="12345678"
-          value={dniInput}
-          onChange={(e) => {
-            const value = e.target.value.replace(/\D/g, '').slice(0, 8)
-            setDniInput(value)
-            setForm(prev => ({ ...prev, dni: value }))
-          }}
-          className="font-mono"
-          maxLength={8}
-          disabled={loadingReniec || !!item}
+                placeholder="12345678"
+                value={dniInput}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 8)
+                  setDniInput(value)
+                  setForm(prev => ({ ...prev, dni: value }))
+                }}
+                className="font-mono"
+                maxLength={8}
+                disabled={loadingReniec || !!item}
               />
               {!item && (
-          <>
-            <Button
-              type="button"
-           
-              onClick={() => consultarReniec(dniInput)}
-              disabled={dniInput.length !== 8 || loadingReniec}
-              className="whitespace-nowrap"
-            >
-              {loadingReniec ? (
-                <div className="flex items-center space-x-2">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span>{t('app.consulting')}</span>
-                </div>
-              ) : (
-                t('app.consult_reniec')
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => consultarBD(dniInput)}
-              disabled={dniInput.length !== 8 || loadingReniec}
-              className="whitespace-nowrap"
-            >
-              {t('app.manual_entry')}
-            </Button>
-          </>
+                <>
+                  <Button
+                    type="button"
+                    onClick={() => consultarReniec(dniInput)}
+                    disabled={dniInput.length !== 8 || loadingReniec}
+                    className="whitespace-nowrap"
+                  >
+                    {loadingReniec ? (
+                      <div className="flex items-center space-x-2">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>{t('app.consulting')}</span>
+                      </div>
+                    ) : (
+                      t('app.consult_reniec')
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => consultarBD(dniInput)}
+                    disabled={dniInput.length !== 8 || loadingReniec}
+                    className="whitespace-nowrap"
+                  >
+                    {t('app.consult_bd')}
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -544,7 +551,7 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
               readOnly={loadingReniec}
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="apellidos">
               {t('app.last_names')} <span className="text-destructive">*</span>
@@ -631,7 +638,7 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
                 placeholder="999 888 777"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="email">
                 {t('app.email')} <span className="text-muted-foreground text-xs">({t('app.optional')})</span>
@@ -652,8 +659,8 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
         <Button variant="outline" onClick={onClose} disabled={saving || loadingReniec}>
           {t('app.cancel')}
         </Button>
-        <Button 
-          onClick={save} 
+        <Button
+          onClick={save}
           disabled={!isValid || saving || loadingReniec}
           className="min-w-[80px]"
         >

@@ -3,7 +3,8 @@
 // =============================
 const express = require('express');
 const Joi = require('joi');
-const pool = require('../config/database');
+const { pool } = require('../config/database'); 
+
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();

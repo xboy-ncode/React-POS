@@ -76,49 +76,34 @@ export const useAuth = create<AuthState>((set) => ({
   },
 
   signIn: async ({ nombre_usuario, clave }) => {
-    if (DISABLE_AUTH) {
-      // Simula login instantáneo
-      const mockUser: User = {
-        id: '1',
-        name: nombre_usuario || 'Dev User',
-        email: 'mock@example.com',
-        role: 'admin',
-        permissions: ROLE_DEFAULT_PERMS.admin
-      }
-      localStorage.setItem('user', JSON.stringify(mockUser))
-      localStorage.setItem('token', 'mock-token')
-      set({ user: mockUser, token: 'mock-token' })
-      return
+  set({ loading: true })
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre_usuario, clave })
+    })
+    if (!res.ok) throw new Error('Invalid credentials')
+    const data = await res.json()
+
+    const user: User = {
+      id: data.usuario.id_usuario.toString(),
+      name: data.usuario.nombre_usuario,
+      email: '',
+      role: data.usuario.rol as Role,
+      permissions: ROLE_DEFAULT_PERMS[data.usuario.rol as Role] || []
     }
 
-    set({ loading: true })
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre_usuario, clave })
-      })
-      if (!res.ok) throw new Error('Invalid credentials')
-      const data = await res.json()
+    // guarda en localStorage
+    localStorage.setItem('token', data.token)
+    localStorage.setItem('user', JSON.stringify(user))
 
-      const user: User = {
-        id: data.usuario.id_usuario.toString(),
-        name: data.usuario.nombre_usuario,
-        email: '', // opcional
-        role: data.usuario.rol as Role,
-        permissions: ROLE_DEFAULT_PERMS[data.usuario.rol as Role] || []
-      }
-
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(user))
-      set({ token: data.token, user })
-    } catch (e) {
-      console.error(e)
-      throw e
-    } finally {
-      set({ loading: false })
-    }
-  },
+    set({ token: data.token, user })
+  } finally {
+    set({ loading: false })
+  }
+}
+,
 
   signOut: () => {
     localStorage.removeItem('token')

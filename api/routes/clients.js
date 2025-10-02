@@ -1,8 +1,9 @@
 // routes/clientes.js
 const express = require('express');
 const Joi = require('joi');
-const pool = require('../config/database');
-const { authenticateToken } = require('../middleware/auth');
+const { pool, reniecDb } = require('../config/database.js');
+const { authenticateToken } = require('../middleware/auth.js');
+const { buscarClientePorDNI } = require('../utils/reniec.js');
 
 const router = express.Router();
 
@@ -48,7 +49,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
         if (search) {
             const searchCondition = ` WHERE (dni ILIKE $${paramCount} OR nombre ILIKE $${paramCount} OR 
-                               apellido_paterno ILIKE $${paramCount} OR apellido_materno ILIKE $${paramCount})`;
+                             apellido_paterno ILIKE $${paramCount} OR apellido_materno ILIKE $${paramCount})`;
             query += searchCondition;
             countQuery += searchCondition;
             queryParams.push(`%${search}%`);
@@ -104,27 +105,6 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// GET - Buscar cliente por DNI
-router.get('/dni/:dni', authenticateToken, async (req, res) => {
-    try {
-        const { dni } = req.params;
-
-        const result = await pool.query(
-            'SELECT * FROM clientes WHERE dni = $1',
-            [dni]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Cliente no encontrado' });
-        }
-
-        res.json(result.rows[0]);
-    } catch (error) {
-        console.error('Error al buscar cliente por DNI:', error);
-        res.status(500).json({ error: 'Error interno del servidor' });
-    }
-});
-
 // POST - Crear nuevo cliente
 router.post('/', authenticateToken, async (req, res) => {
     try {
@@ -150,7 +130,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
         const result = await pool.query(
             `INSERT INTO clientes (dni, nombre, apellido_paterno, apellido_materno, 
-                           direccion, telefono, correo, fuente_datos, datos_completos) 
+                     direccion, telefono, correo, fuente_datos, datos_completos) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
        RETURNING *`,
             [dni, nombre, apellido_paterno, apellido_materno,
@@ -269,6 +249,57 @@ router.delete('/:id', authenticateToken, async (req, res) => {
         });
     } catch (error) {
         console.error('Error al eliminar cliente:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// GET cliente por DNI (BD local + fallback RENIEC)
+router.get('/dni/:dni', authenticateToken, async (req, res) => {
+    const { dni } = req.params;
+
+    try {
+        // 1. Buscar en la BD local
+        const result = await pool.query('SELECT * FROM clientes WHERE dni = $1', [dni]);
+
+        if (result.rows.length > 0) {
+            return res.json(result.rows[0]); // ✅ encontrado en BD local
+        }
+
+        // 2. Buscar en RENIEC (mock)
+        const data = await buscarClientePorDNI(dni);
+        if (!data) {
+            return res.status(404).json({ error: 'Cliente no encontrado en BD local ni en RENIEC' });
+        }
+
+        // 3. Separar apellidos
+        let apellido_paterno = null;
+        let apellido_materno = null;
+        if (data.apellidos) {
+            const partes = data.apellidos.split(' ');
+            apellido_paterno = partes[0] || null;
+            apellido_materno = partes.slice(1).join(' ') || null;
+        }
+
+        // 4. Guardar en BD local (caché)
+        const insertResult = await pool.query(
+            `INSERT INTO clientes 
+        (dni, nombre, apellido_paterno, apellido_materno, direccion, fuente_datos, datos_completos) 
+       VALUES ($1,$2,$3,$4,$5,$6,$7) 
+       RETURNING *`,
+            [
+                data.dni,
+                data.nombres,
+                apellido_paterno,
+                apellido_materno,
+                data.direccion,
+                'RENIEC',
+                data
+            ]
+        );
+
+        return res.json(insertResult.rows[0]); // ✅ lo devuelve ya cacheado
+    } catch (error) {
+        console.error('Error al buscar cliente por DNI:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
     }
 });

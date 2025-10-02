@@ -2,7 +2,8 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
-const pool = require('../config/database');
+const { pool } = require('../config/database'); 
+
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
 const router = express.Router();

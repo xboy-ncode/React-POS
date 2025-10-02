@@ -1,5 +1,10 @@
-const { Pool } = require('pg');
-require('dotenv').config();
+// database.js
+const pg = require('pg');
+const dotenv = require('dotenv');
+
+dotenv.config();
+
+const { Pool } = pg;
 
 const pool = new Pool({
     host: process.env.DB_HOST,
@@ -9,4 +14,14 @@ const pool = new Pool({
     password: process.env.DB_PASSWORD,
 });
 
-module.exports = pool;
+// Conexión a la base que simula RENIEC
+const reniecDb = new Pool({
+    host: process.env.RENIEC_DB_HOST,
+    port: Number(process.env.RENIEC_DB_PORT),
+    database: process.env.RENIEC_DB_NAME,
+    user: process.env.RENIEC_DB_USER,
+    password: process.env.RENIEC_DB_PASSWORD,
+});
+
+// Exportar con CommonJS
+module.exports = { pool, reniecDb };

@@ -115,7 +115,11 @@
     "reniec_unavailable": "Servicio de RENIEC no disponible",
     "paternal_surname": "Apellido Paterno",
     "maternal_surname": "Apellido Materno",
-    "source": "Origen"
+    "source": "Origen",
+    "customer_information": "Información del Cliente",
+    "select_existing_customer": "Seleccionar Cliente Existente",
+    "select_customer_placeholder": "Buscar por DNI, nombre, teléfono o correo...",
+    "or_add_new": "O agregar nuevo cliente"
   },
   "inventory": {
     "title": "Gestión de Inventario",
@@ -293,6 +297,21 @@
     },
     "checkout": {
       "title": "Finalizar Compra",
+      "order_summary": "Resumen del Pedido",
+      "subtotal": "Subtotal",
+      "tax": "Impuestos",
+      "total": "Total a Pagar",
+      "select_payment_method": "Seleccionar Método de Pago",
+      "received_amount": "Monto Recibido",
+      "payment_methods": {
+        "cash": "Efectivo",
+        "credit_card": "Tarjeta de Crédito",
+        "debit_card": "Tarjeta de Débito",
+        "card": "Tarjeta",
+        "transfer": "Transferencia Bancaria",
+        "mobile_payment": "Pago Móvil",
+        "voucher": "Vale"
+      },
       "customer": {
         "title": "Datos del Cliente",
         "name": "Nombre completo",
@@ -320,7 +339,8 @@
       },
       "buttons": {
         "cancel": "Cancelar",
-        "process": "Procesar Pago"
+        "process": "Procesar Pago",
+        "processing": "Procesando..."
       },
       "messages": {
         "invoice_requirements": "Factura: Requiere nombre completo, documento y dirección del cliente.",

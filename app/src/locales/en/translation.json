@@ -115,7 +115,11 @@
     "reniec_unavailable": "Service unavailable. Please try again later.",
     "paternal_surname": "Paternal Surname",
     "maternal_surname": "Maternal Surname",
-    "source": "Source"
+    "source": "Source",
+    "customer_information": "Customer Information",
+    "select_existing_customer": "Select Existing Customer",
+    "select_customer_placeholder": "Search by DNI, name, phone or email...",
+    "or_add_new": "or add a new customer"
   },
   "inventory": {
     "title": "Inventory Management",
@@ -293,6 +297,21 @@
     },
     "checkout": {
       "title": "Checkout",
+      "order_summary": "Order Summary",
+      "subtotal": "Subtotal",
+      "tax": "Tax",
+      "total": "Total",
+      "select_payment_method": "Select Payment Method",
+      "received_amount": "Received Amount",
+      "payment_methods": {
+        "cash": "Cash",
+        "credit_card": "Credit Card",
+        "debit_card": "Debit Card",
+        "card": "Card",
+        "transfer": "Bank Transfer",
+        "mobile_payment": "Mobile Payment",
+        "voucher": "Voucher"
+      },
       "customer": {
         "title": "Customer Information",
         "name": "Full name",

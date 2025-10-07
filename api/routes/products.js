@@ -1,7 +1,7 @@
 // routes/productos.js
 const express = require('express');
 const Joi = require('joi');
-const pool = require('../config/database');
+const {pool} = require('../config/database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -39,7 +39,16 @@ const updateProductSchema = Joi.object({
 router.get('/', authenticateToken, async (req, res) => {
     try {
         const { page = 1, limit = 10, search = '', categoria = '', marca = '', activo = '' } = req.query;
-        const offset = (page - 1) * limit;
+        
+        // 🔹 Convertir a números enteros
+        const pageNum = parseInt(page, 10);
+        const limitNum = parseInt(limit, 10);
+        const offset = (pageNum - 1) * limitNum;
+
+        // Validar que sean números válidos
+        if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+            return res.status(400).json({ error: 'Parámetros de paginación inválidos' });
+        }
 
         let query = `
             SELECT p.*, c.nombre AS categoria_nombre, m.nombre AS marca_nombre
@@ -90,7 +99,7 @@ router.get('/', authenticateToken, async (req, res) => {
         }
 
         query += ` ORDER BY p.nombre LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
-        queryParams.push(limit, offset);
+        queryParams.push(limitNum, offset);
 
         const [result, countResult] = await Promise.all([
             pool.query(query, queryParams),
@@ -98,17 +107,17 @@ router.get('/', authenticateToken, async (req, res) => {
         ]);
 
         const total = parseInt(countResult.rows[0].count);
-        const totalPages = Math.ceil(total / limit);
+        const totalPages = Math.ceil(total / limitNum);
 
         res.json({
             productos: result.rows,
             pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit),
+                page: pageNum,
+                limit: limitNum,
                 total,
                 totalPages,
-                hasNext: page < totalPages,
-                hasPrev: page > 1
+                hasNext: pageNum < totalPages,
+                hasPrev: pageNum > 1
             }
         });
     } catch (error) {

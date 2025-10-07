@@ -9,60 +9,24 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { Badge } from '../components/ui/badge'
 import { Label } from '../components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Search, Plus, Edit2, Trash2, User, Calendar, MapPin, CreditCard, Loader2 } from 'lucide-react'
+
+import { Search, Plus, Edit2, Trash2, User, CreditCard, Loader2, AlertCircle } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../components/ui/alert-dialog'
 import { toast } from 'sonner'
 
 type Customer = {
-  id: number
+  id_cliente: number
   dni: string
-  nombres: string
-  apellidos: string
-  nombreCompleto: string
-  fechaNacimiento?: string
-  sexo?: 'M' | 'F'
-  estadoCivil?: string
+  nombre: string
+  apellido_paterno?: string
+  apellido_materno?: string
+  nombreCompleto?: string
   direccion?: string
   telefono?: string
-  email?: string
+  correo?: string
   fecha_registro?: string
-  fuente_datos?: string
+  fuente_datos?: 'RENIEC' | 'Manual'
   datos_completos?: any
-}
-
-// Mock data para simular respuesta de RENIEC
-const mockReniecData = {
-  '12345678': {
-    dni: '12345678',
-    nombres: 'JUAN CARLOS',
-    apellidos: 'PÉREZ GARCÍA',
-    nombreCompleto: 'PÉREZ GARCÍA, JUAN CARLOS',
-    fechaNacimiento: '1985-03-15',
-    sexo: 'M' as const,
-    estadoCivil: 'SOLTERO',
-    direccion: 'AV. AREQUIPA 1234 - LIMA - LIMA - PERÚ'
-  },
-  '87654321': {
-    dni: '87654321',
-    nombres: 'MARÍA ELENA',
-    apellidos: 'RODRIGUEZ LÓPEZ',
-    nombreCompleto: 'RODRIGUEZ LÓPEZ, MARÍA ELENA',
-    fechaNacimiento: '1990-07-22',
-    sexo: 'F' as const,
-    estadoCivil: 'CASADA',
-    direccion: 'JR. CUSCO 567 - CALLAO - CALLAO - PERÚ'
-  },
-  '11111111': {
-    dni: '11111111',
-    nombres: 'CARLOS ALBERTO',
-    apellidos: 'MENDOZA SILVA',
-    nombreCompleto: 'MENDOZA SILVA, CARLOS ALBERTO',
-    fechaNacimiento: '1975-12-03',
-    sexo: 'M' as const,
-    estadoCivil: 'DIVORCIADO',
-    direccion: 'CAL. LAS FLORES 890 - AREQUIPA - AREQUIPA - PERÚ'
-  }
 }
 
 export default function Customers() {
@@ -77,25 +41,30 @@ export default function Customers() {
   useEffect(() => { load() }, [])
 
   useEffect(() => {
-    const filtered = items.filter(item =>
-      item.dni.includes(searchTerm) ||
-      item.nombreCompleto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.telefono && item.telefono.includes(searchTerm)) ||
-      (item.email && item.email.toLowerCase().includes(searchTerm.toLowerCase()))
-    )
+    const filtered = items.filter(item => {
+      const nombreCompleto = `${item.apellido_paterno || ''} ${item.apellido_materno || ''}, ${item.nombre || ''}`.trim()
+      return (
+        item.dni.includes(searchTerm) ||
+        nombreCompleto.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.telefono && item.telefono.includes(searchTerm)) ||
+        (item.correo && item.correo.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+    })
     setFilteredItems(filtered)
   }, [items, searchTerm])
 
   async function load() {
     try {
       setLoading(true)
-      const d = await api('/customers?limit=100')
-      const mapped = (d?.items || []).map((c: any) => ({
+      const response = await api('/customers?limit=100')
+      const mapped = (response?.clientes || []).map((c: any) => ({
         ...c,
-        nombreCompleto: `${c.apellidos || ''}, ${c.nombres || ''}`.trim()
+        nombreCompleto: `${c.apellido_paterno || ''} ${c.apellido_materno || ''}, ${c.nombre || ''}`.trim()
       }))
       setItems(mapped)
-    } catch {
+    } catch (error) {
+      console.error('Failed to load customers:', error)
+      toast.error(t('app.load_error'))
       setItems([])
     } finally {
       setLoading(false)
@@ -105,9 +74,12 @@ export default function Customers() {
   async function removeItem(id: number) {
     try {
       await api(`/customers/${id}`, { method: 'DELETE' })
+      toast.success(t('app.customer_deleted'))
       await load()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete customer:', error)
+      const errorMsg = error?.error || t('app.delete_error')
+      toast.error(errorMsg)
     }
   }
 
@@ -117,20 +89,6 @@ export default function Customers() {
       setEditing(null)
       load()
     }
-  }
-
-  const formatAge = (fechaNacimiento?: string) => {
-    if (!fechaNacimiento) return '-'
-    
-    const today = new Date()
-    const birthDate = new Date(fechaNacimiento)
-    const age = today.getFullYear() - birthDate.getFullYear()
-    const monthDiff = today.getMonth() - birthDate.getMonth()
-
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      return age - 1
-    }
-    return age
   }
 
   return (
@@ -189,7 +147,7 @@ export default function Customers() {
                 <TableRow className="bg-muted/50">
                   <TableHead className="font-semibold">{t('app.dni')}</TableHead>
                   <TableHead className="font-semibold">{t('app.full_name')}</TableHead>
-                  <TableHead className="font-semibold">{t('app.age_gender')}</TableHead>
+                  <TableHead className="font-semibold">{t('app.source')}</TableHead>
                   <TableHead className="font-semibold">{t('app.contact')}</TableHead>
                   <TableHead className="font-semibold text-right">{t('app.actions')}</TableHead>
                 </TableRow>
@@ -234,7 +192,7 @@ export default function Customers() {
                   </TableRow>
                 ) : (
                   filteredItems.map((customer) => (
-                    <TableRow key={customer.id} className="hover:bg-muted/50">
+                    <TableRow key={customer.id_cliente} className="hover:bg-muted/50">
                       <TableCell className="font-mono text-sm font-medium">
                         <div className="flex items-center space-x-2">
                           <CreditCard className="h-3 w-3 text-muted-foreground" />
@@ -246,19 +204,10 @@ export default function Customers() {
                           {customer.nombreCompleto}
                         </div>
                       </TableCell>
-
                       <TableCell>
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-2">
-                            <Calendar className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-sm">{formatAge(customer.fechaNacimiento)} años</span>
-                          </div>
-                          {customer.sexo && (
-                            <Badge variant={customer.sexo === 'M' ? 'default' : 'secondary'} className="text-xs">
-                              {customer.sexo === 'M' ? t('app.male') : t('app.female')}
-                            </Badge>
-                          )}
-                        </div>
+                        <Badge variant={customer.fuente_datos === 'RENIEC' ? 'default' : 'secondary'} className="text-xs">
+                          {customer.fuente_datos || 'Manual'}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1 text-sm">
@@ -268,13 +217,13 @@ export default function Customers() {
                               <span>{customer.telefono}</span>
                             </div>
                           )}
-                          {customer.email && (
+                          {customer.correo && (
                             <div className="flex items-center space-x-1">
                               <span className="text-muted-foreground">✉️</span>
-                              <span className="truncate max-w-32">{customer.email}</span>
+                              <span className="truncate max-w-32">{customer.correo}</span>
                             </div>
                           )}
-                          {!customer.telefono && !customer.email && (
+                          {!customer.telefono && !customer.correo && (
                             <span className="text-muted-foreground">-</span>
                           )}
                         </div>
@@ -313,7 +262,7 @@ export default function Customers() {
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>{t('app.cancel')}</AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => removeItem(customer.id)}
+                                    onClick={() => removeItem(customer.id_cliente)}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                   >
                                     {t('app.delete')}
@@ -340,15 +289,12 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
   const { t } = useTranslation()
   const [form, setForm] = useState<Partial<Customer>>({
     dni: '',
-    nombres: '',
-    apellidos: '',
-    nombreCompleto: '',
-    fechaNacimiento: '',
-    sexo: 'M',
-    estadoCivil: '',
+    nombre: '',
+    apellido_paterno: '',
+    apellido_materno: '',
     direccion: '',
     telefono: '',
-    email: ''
+    correo: ''
   })
 
   const [saving, setSaving] = useState(false)
@@ -362,108 +308,101 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
     } else {
       setForm({
         dni: '',
-        nombres: '',
-        apellidos: '',
-        nombreCompleto: '',
-        fechaNacimiento: '',
-        sexo: 'M',
-        estadoCivil: '',
+        nombre: '',
+        apellido_paterno: '',
+        apellido_materno: '',
         direccion: '',
         telefono: '',
-        email: ''
+        correo: ''
       })
       setDniInput('')
     }
   }, [item])
 
-  // Simular consulta a RENIEC
-  async function consultarReniec(dni: string) {
-    if (dni.length !== 8) return
-
-    setLoadingReniec(true)
-    try {
-      // Simular delay de API
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      // Usar datos mock
-      const reniecData = mockReniecData[dni as keyof typeof mockReniecData]
-      if (reniecData) {
-        setForm(prevForm => ({
-          ...prevForm,
-          ...reniecData
-        }))
-      } else {
-        // Simular DNI no encontrado
-        toast.error(t('app.dni_not_found'))
-      }
-    } catch (error) {
-      console.error('Error consultando RENIEC:', error)
-      toast.error(t('app.reniec_error'))
-    } finally {
-      setLoadingReniec(false)
+  // Consultar DNI en la API (que internamente consulta BD local y RENIEC)
+  async function consultarDNI(dni: string) {
+    if (dni.length !== 8) {
+      toast.error(t('app.dni_must_be_8_digits'))
+      return
     }
-  }
-
-  // Simular consulta a BD
-  async function consultarBD(dni: string) {
-    if (dni.length !== 8) return
 
     setLoadingReniec(true)
     try {
-      // Simular delay de API
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      // Usar datos mock (simulación igual que RENIEC)
-      const bdData = mockReniecData[dni as keyof typeof mockReniecData]
-      if (bdData) {
-        setForm(prevForm => ({
-          ...prevForm,
-          ...bdData
-        }))
-      } else {
-        toast.error(t('app.dni_not_found'))
+      const data = await api(`/customers/dni/${dni}`)
+      
+      if (data) {
+        setForm({
+          dni: data.dni,
+          nombre: data.nombre,
+          apellido_paterno: data.apellido_paterno,
+          apellido_materno: data.apellido_materno,
+          direccion: data.direccion,
+          telefono: data.telefono,
+          correo: data.correo,
+          fuente_datos: data.fuente_datos,
+          datos_completos: data.datos_completos
+        })
+        
+        if (data.fuente_datos === 'RENIEC') {
+          toast.success(t('app.data_from_reniec'))
+        } else {
+          toast.success(t('app.data_from_database'))
+        }
       }
-    } catch (error) {
-      console.error('Error consultando BD:', error)
-      toast.error(t('app.reniec_error'))
+    } catch (error: any) {
+      console.error('Error consultando DNI:', error)
+      if (error?.error?.includes('no encontrado')) {
+        toast.error(t('app.dni_not_found'))
+      } else if (error?.error?.includes('Token')) {
+        toast.error(t('app.reniec_token_error'))
+      } else if (error?.error?.includes('no disponible')) {
+        toast.error(t('app.reniec_unavailable'))
+      } else {
+        toast.error(t('app.reniec_error'))
+      }
     } finally {
       setLoadingReniec(false)
     }
   }
 
   async function save() {
-    if (!form.dni?.trim() || !form.nombres?.trim() || !form.apellidos?.trim()) {
+    if (!form.dni?.trim() || !form.nombre?.trim()) {
+      toast.error(t('app.fill_required_fields'))
       return
     }
 
     try {
       setSaving(true)
       const method = item ? 'PUT' : 'POST'
-      const path = item ? `/customers/${item.id}` : '/customers'
+      const path = item ? `/customers/${item.id_cliente}` : '/customers'
+      
       await api(path, {
         method,
         body: JSON.stringify({
-          dni: form.dni?.trim(),
-          nombres: form.nombres?.trim(),
-          apellidos: form.apellidos?.trim(),
-          fechaNacimiento: form.fechaNacimiento?.trim() || undefined,
-          sexo: form.sexo,
-          estadoCivil: form.estadoCivil?.trim() || undefined,
-          direccion: form.direccion?.trim() || undefined,
-          telefono: form.telefono?.trim() || undefined,
-          email: form.email?.trim() || undefined,
-          fuente_datos: "RENIEC",
-          datos_completos: form.datos_completos || {}
+          dni: form.dni.trim(),
+          nombre: form.nombre.trim(),
+          apellido_paterno: form.apellido_paterno?.trim() || null,
+          apellido_materno: form.apellido_materno?.trim() || null,
+          direccion: form.direccion?.trim() || null,
+          telefono: form.telefono?.trim() || null,
+          correo: form.correo?.trim() || null,
+          fuente_datos: form.fuente_datos || 'Manual',
+          datos_completos: form.datos_completos || null
         })
       })
 
+      toast.success(item ? t('app.customer_updated') : t('app.customer_created'))
       onClose()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save customer:', error)
+      const errorMsg = error?.error || t('app.save_error')
+      toast.error(errorMsg)
     } finally {
       setSaving(false)
     }
   }
 
-  const isValid = form.dni?.trim() && form.nombres?.trim() && form.apellidos?.trim()
+  const isValid = form.dni?.trim() && form.nombre?.trim()
 
   return (
     <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -505,102 +444,70 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
                 disabled={loadingReniec || !!item}
               />
               {!item && (
-                <>
-                  <Button
-                    type="button"
-                    onClick={() => consultarReniec(dniInput)}
-                    disabled={dniInput.length !== 8 || loadingReniec}
-                    className="whitespace-nowrap"
-                  >
-                    {loadingReniec ? (
-                      <div className="flex items-center space-x-2">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        <span>{t('app.consulting')}</span>
-                      </div>
-                    ) : (
-                      t('app.consult_reniec')
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => consultarBD(dniInput)}
-                    disabled={dniInput.length !== 8 || loadingReniec}
-                    className="whitespace-nowrap"
-                  >
-                    {t('app.consult_bd')}
-                  </Button>
-                </>
+                <Button
+                  type="button"
+                  onClick={() => consultarDNI(dniInput)}
+                  disabled={dniInput.length !== 8 || loadingReniec}
+                  className="whitespace-nowrap"
+                >
+                  {loadingReniec ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>{t('app.consulting')}</span>
+                    </div>
+                  ) : (
+                    t('app.search_dni')
+                  )}
+                </Button>
               )}
             </div>
+            
+            {!item && (
+              <div className="flex items-start space-x-2 text-xs text-muted-foreground">
+                <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                <p>{t('app.dni_search_info')}</p>
+              </div>
+            )}
           </div>
         </Card>
 
         {/* Personal Information */}
+        <Card className="p-4">  
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="nombres">
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="nombre">
               {t('app.first_names')} <span className="text-destructive">*</span>
             </Label>
             <Input
-              id="nombres"
-              value={form.nombres || ''}
-              onChange={(e) => setForm({ ...form, nombres: e.target.value.toUpperCase() })}
+              id="nombre"
+              value={form.nombre || ''}
+              onChange={(e) => setForm({ ...form, nombre: e.target.value.toUpperCase() })}
               placeholder="JUAN CARLOS"
               className="uppercase"
               readOnly={loadingReniec}
-            />
+              />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="apellidos">
-              {t('app.last_names')} <span className="text-destructive">*</span>
-            </Label>
+            <Label htmlFor="apellido_paterno">{t('app.paternal_surname')}</Label>
             <Input
-              id="apellidos"
-              value={form.apellidos || ''}
-              onChange={(e) => setForm({ ...form, apellidos: e.target.value.toUpperCase() })}
-              placeholder="PÉREZ GARCÍA"
+              id="apellido_paterno"
+              value={form.apellido_paterno || ''}
+              onChange={(e) => setForm({ ...form, apellido_paterno: e.target.value.toUpperCase() })}
+              placeholder="PÉREZ"
               className="uppercase"
               readOnly={loadingReniec}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="fechaNacimiento">{t('app.birth_date')}</Label>
+            <Label htmlFor="apellido_materno">{t('app.maternal_surname')}</Label>
             <Input
-              id="fechaNacimiento"
-              type="date"
-              value={form.fechaNacimiento || ''}
-              onChange={(e) => setForm({ ...form, fechaNacimiento: e.target.value })}
-              readOnly={loadingReniec}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="sexo">{t('app.gender')}</Label>
-            <Select
-              value={form.sexo || 'M'}
-              onValueChange={(value: 'M' | 'F') => setForm({ ...form, sexo: value })}
-              disabled={loadingReniec}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="M">{t('app.male')}</SelectItem>
-                <SelectItem value="F">{t('app.female')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="estadoCivil">{t('app.marital_status')}</Label>
-            <Input
-              id="estadoCivil"
-              value={form.estadoCivil || ''}
-              onChange={(e) => setForm({ ...form, estadoCivil: e.target.value.toUpperCase() })}
-              placeholder="SOLTERO"
+              id="apellido_materno"
+              value={form.apellido_materno || ''}
+              onChange={(e) => setForm({ ...form, apellido_materno: e.target.value.toUpperCase() })}
+              placeholder="GARCÍA"
               className="uppercase"
               readOnly={loadingReniec}
             />
@@ -608,21 +515,22 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
         </div>
 
         {/* Address */}
-        <div className="space-y-2">
+        {/* <div className="space-y-2">
           <Label htmlFor="direccion" className="flex items-center space-x-1">
-            <MapPin className="h-3 w-3" />
-            <span>{t('app.address')}</span>
+          <MapPin className="h-3 w-3" />
+          <span>{t('app.address')}</span>
           </Label>
           <Input
-            id="direccion"
-            value={form.direccion || ''}
-            onChange={(e) => setForm({ ...form, direccion: e.target.value.toUpperCase() })}
-            placeholder="AV. AREQUIPA 1234 - LIMA - LIMA - PERÚ"
-            className="uppercase"
-            readOnly={loadingReniec}
+          id="direccion"
+          value={form.direccion || ''}
+          onChange={(e) => setForm({ ...form, direccion: e.target.value.toUpperCase() })}
+          placeholder="AV. AREQUIPA 1234 - LIMA - LIMA - PERÚ"
+          className="uppercase"
+          readOnly={loadingReniec}
           />
-        </div>
+        </div> */}
 
+          </Card>
         {/* Contact Information */}
         <Card className="p-4">
           <h4 className="font-medium mb-3">{t('app.additional_contact')}</h4>
@@ -640,14 +548,14 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">
+              <Label htmlFor="correo">
                 {t('app.email')} <span className="text-muted-foreground text-xs">({t('app.optional')})</span>
               </Label>
               <Input
-                id="email"
+                id="correo"
                 type="email"
-                value={form.email || ''}
-                onChange={(e) => setForm({ ...form, email: e.target.value.toLowerCase() })}
+                value={form.correo || ''}
+                onChange={(e) => setForm({ ...form, correo: e.target.value.toLowerCase() })}
                 placeholder="cliente@ejemplo.com"
               />
             </div>

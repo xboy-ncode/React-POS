@@ -1,5 +1,5 @@
 // middleware/auth.js
-const pool = require('../config/database');
+const { pool } = require('../config/database'); 
 const { verificarToken } = require('../utils/jwt');
 
 const authenticateToken = async (req, res, next) => {

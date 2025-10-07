@@ -14,14 +14,7 @@ const pool = new Pool({
     password: process.env.DB_PASSWORD,
 });
 
-// Conexión a la base que simula RENIEC
-const reniecDb = new Pool({
-    host: process.env.RENIEC_DB_HOST,
-    port: Number(process.env.RENIEC_DB_PORT),
-    database: process.env.RENIEC_DB_NAME,
-    user: process.env.RENIEC_DB_USER,
-    password: process.env.RENIEC_DB_PASSWORD,
-});
+
 
 // Exportar con CommonJS
-module.exports = { pool, reniecDb };
+module.exports = { pool };

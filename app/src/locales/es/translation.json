@@ -105,7 +105,17 @@
     "unselect_all": "Deseleccionar Todo",
     "saving": "Guardando...",
     "update": "Actualizar",
-    "manual_entry": "Consultar Base de Datos"
+    "manual_entry": "Consultar Base de Datos",
+    "search_dni": "Buscar DNI",
+    "dni_search_info": "Busca primero en la base de datos local, luego en RENIEC automáticamente",
+    "data_from_reniec": "Datos obtenidos de RENIEC",
+    "data_from_database": "Datos obtenidos de la base de datos local",
+    "dni_must_be_8_digits": "El DNI debe tener 8 dígitos",
+    "reniec_token_error": "Error con el token de RENIEC",
+    "reniec_unavailable": "Servicio de RENIEC no disponible",
+    "paternal_surname": "Apellido Paterno",
+    "maternal_surname": "Apellido Materno",
+    "source": "Origen"
   },
   "inventory": {
     "title": "Gestión de Inventario",
@@ -180,8 +190,6 @@
     "in_stock": "Disponible",
     "product_title": "Producto",
     "category": "Categoría",
-
-    
     "sections": {
       "categories": "Categorías",
       "products": "Productos"

@@ -1,3 +1,4 @@
+// /store/auth.ts
 import { create } from 'zustand'
 
 // Types for auth
@@ -22,6 +23,7 @@ interface AuthState {
   user: User | null;
   token: string | null;
   loading: boolean;
+  isHydrated: boolean;
   signIn: (payload: { nombre_usuario: string; clave: string }) => Promise<void>;
   signOut: () => void;
   hydrate: () => void;
@@ -45,17 +47,16 @@ export const ROLE_DEFAULT_PERMS: Record<Role, Permission[]> = {
   cashier: ['sales:read','sales:write','customers:read']
 }
 
-// ⚡ Variable para saber si estamos en modo mock
 const DISABLE_AUTH = import.meta.env.VITE_DISABLE_AUTH === 'true'
 
 export const useAuth = create<AuthState>((set) => ({
   user: null,
   token: null,
   loading: false,
+  isHydrated: false,
 
   hydrate: () => {
     if (DISABLE_AUTH) {
-      // Usuario falso en modo mock
       const mockUser: User = {
         id: '1',
         name: 'Dev Admin',
@@ -63,47 +64,61 @@ export const useAuth = create<AuthState>((set) => ({
         role: 'admin',
         permissions: ROLE_DEFAULT_PERMS.admin
       }
-      set({ user: mockUser, token: 'mock-token' })
+      set({ user: mockUser, token: 'mock-token', isHydrated: true })
       return
     }
 
-    // Restore desde localStorage
     const token = localStorage.getItem('token')
-    const user = localStorage.getItem('user')
-    if (token && user) {
-      set({ token, user: JSON.parse(user) })
+    const userStr = localStorage.getItem('user')
+    
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(userStr) as User
+        
+        if (!user.permissions || user.permissions.length === 0) {
+          user.permissions = ROLE_DEFAULT_PERMS[user.role] || []
+        }
+        
+        set({ token, user, isHydrated: true })
+      } catch (error) {
+        console.error('Error parsing user from localStorage:', error)
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        set({ isHydrated: true })
+      }
+    } else {
+      set({ isHydrated: true })
     }
   },
 
   signIn: async ({ nombre_usuario, clave }) => {
-  set({ loading: true })
-  try {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre_usuario, clave })
-    })
-    if (!res.ok) throw new Error('Invalid credentials')
-    const data = await res.json()
+    set({ loading: true })
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre_usuario, clave })
+      })
+      if (!res.ok) throw new Error('Invalid credentials')
+      const data = await res.json()
 
-    const user: User = {
-      id: data.usuario.id_usuario.toString(),
-      name: data.usuario.nombre_usuario,
-      email: '',
-      role: data.usuario.rol as Role,
-      permissions: ROLE_DEFAULT_PERMS[data.usuario.rol as Role] || []
+      const role = (data.usuario.rol as string).toLowerCase() as Role
+      const user: User = {
+        id: data.usuario.id_usuario.toString(),
+        name: data.usuario.nombre_usuario,
+        email: data.usuario.email || '',
+        role: role,
+        permissions: ROLE_DEFAULT_PERMS[role] || []
+      }
+
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(user))
+
+      set({ token: data.token, user })
+    } finally {
+      set({ loading: false })
     }
-
-    // guarda en localStorage
-    localStorage.setItem('token', data.token)
-    localStorage.setItem('user', JSON.stringify(user))
-
-    set({ token: data.token, user })
-  } finally {
-    set({ loading: false })
-  }
-}
-,
+  },
 
   signOut: () => {
     localStorage.removeItem('token')

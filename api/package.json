@@ -16,7 +16,8 @@
         "helmet": "^7.0.0",
         "joi": "^17.9.2",
         "jsonwebtoken": "^9.0.2",
-        "pg": "^8.11.3"
+        "pg": "^8.11.3",
+        "postgres": "^3.4.7"
     },
     "devDependencies": {
         "nodemon": "^3.0.1"

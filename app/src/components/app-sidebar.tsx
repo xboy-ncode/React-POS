@@ -1,8 +1,5 @@
 // components/app-sidebar.tsx
-"use client"
-
 import * as React from "react"
-
 import {
   Home,
   ShoppingCart,
@@ -16,6 +13,7 @@ import {
 } from "lucide-react"
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../store/auth'
+import type { Permission } from '../lib/permissions'
 
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
@@ -29,11 +27,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-
-// Import or define the Permission type
-import type { Permission } from "../lib/permissions" // Adjust path as needed
-// OR define it here if it doesn't exist:
-// type Permission = 'sales:read' | 'inventory:read' | 'customers:read' | 'users:read'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation()

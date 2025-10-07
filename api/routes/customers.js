@@ -1,7 +1,7 @@
-// routes/clientes.js
+// routes/customers.js
 const express = require('express');
 const Joi = require('joi');
-const { pool, reniecDb } = require('../config/database.js');
+const { pool } = require('../config/database.js'); // ← Removido reniecDb
 const { authenticateToken } = require('../middleware/auth.js');
 const { buscarClientePorDNI } = require('../utils/reniec.js');
 
@@ -253,7 +253,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// GET cliente por DNI (BD local + fallback RENIEC)
+// GET cliente por DNI (BD local + fallback API RENIEC)
 router.get('/dni/:dni', authenticateToken, async (req, res) => {
     const { dni } = req.params;
 
@@ -265,41 +265,41 @@ router.get('/dni/:dni', authenticateToken, async (req, res) => {
             return res.json(result.rows[0]); // ✅ encontrado en BD local
         }
 
-        // 2. Buscar en RENIEC (mock)
+        // 2. Buscar en API RENIEC
         const data = await buscarClientePorDNI(dni);
         if (!data) {
             return res.status(404).json({ error: 'Cliente no encontrado en BD local ni en RENIEC' });
         }
 
-        // 3. Separar apellidos
-        let apellido_paterno = null;
-        let apellido_materno = null;
-        if (data.apellidos) {
-            const partes = data.apellidos.split(' ');
-            apellido_paterno = partes[0] || null;
-            apellido_materno = partes.slice(1).join(' ') || null;
-        }
-
-        // 4. Guardar en BD local (caché)
+        // 3. Guardar en BD local (caché) - Los apellidos ya vienen separados de la API
         const insertResult = await pool.query(
             `INSERT INTO clientes 
         (dni, nombre, apellido_paterno, apellido_materno, direccion, fuente_datos, datos_completos) 
-       VALUES ($1,$2,$3,$4,$5,$6,$7) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) 
        RETURNING *`,
             [
                 data.dni,
                 data.nombres,
-                apellido_paterno,
-                apellido_materno,
+                data.apellido_paterno,  // ← Ya viene separado de la API
+                data.apellido_materno,  // ← Ya viene separado de la API
                 data.direccion,
                 'RENIEC',
-                data
+                data  // Guarda toda la respuesta de la API
             ]
         );
 
         return res.json(insertResult.rows[0]); // ✅ lo devuelve ya cacheado
     } catch (error) {
         console.error('Error al buscar cliente por DNI:', error);
+        
+        // Manejar errores específicos de RENIEC
+        if (error.message.includes('Token de RENIEC')) {
+            return res.status(503).json({ error: 'Servicio de RENIEC no disponible: Token inválido' });
+        }
+        if (error.message.includes('Servicio de RENIEC')) {
+            return res.status(503).json({ error: error.message });
+        }
+        
         res.status(500).json({ error: 'Error interno del servidor' });
     }
 });

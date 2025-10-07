@@ -105,7 +105,17 @@
     "unselect_all": "Unselect All",
     "saving": "Saving...",
     "update": "Update",
-    "manual_entry": "Consult Database"
+    "manual_entry": "Consult Database",
+    "search_dni": "Search DNI",
+    "dni_search_info": "Search DNI in RENIEC database or enter data manually",
+    "data_from_reniec": "Data obtained from RENIEC",
+    "data_from_database": "Data obtained from local database",
+    "dni_must_be_8_digits": "The DNI must be 8 digits",
+    "reniec_token_error": "Error: RENIEC API token is not configured",
+    "reniec_unavailable": "Service unavailable. Please try again later.",
+    "paternal_surname": "Paternal Surname",
+    "maternal_surname": "Maternal Surname",
+    "source": "Source"
   },
   "inventory": {
     "title": "Inventory Management",
@@ -176,11 +186,10 @@
     "products_title": "Products",
     "product_title": "Product",
     "add_to_cart": "Add to cart",
-"delete_product": "Delete Product", 
-"delete_product_confirmation": "Are you sure you want to delete {{name}} (SKU: {{sku}})?",
-"in_stock": "In Stock",
-"category": "Category",
-
+    "delete_product": "Delete Product",
+    "delete_product_confirmation": "Are you sure you want to delete {{name}} (SKU: {{sku}})?",
+    "in_stock": "In Stock",
+    "category": "Category",
     "sections": {
       "categories": "Categories",
       "products": "Products"
@@ -214,7 +223,7 @@
       "phone_cards": "Phone Cards"
     },
     "products": {
-       "red_wine": "Red Wine",
+      "red_wine": "Red Wine",
       "whiskey": "Whiskey",
       "lager_beer": "Lager Beer",
       "ipa_beer": "IPA Beer",
@@ -282,47 +291,45 @@
       "allergens_placeholder": "Gluten, dairy",
       "product_icon": "Product Icon"
     },
-"checkout": {
-  "title": "Checkout",
-  "customer": {
-    "title": "Customer Information",
-    "name": "Full name",
-    "email": "Email address",
-    "phone": "Phone number",
-    "document": "ID document",
-    "address": "Address",
-    "notes": "Additional notes"
-  },
-  "receipt_type": {
-    "title": "Receipt Type",
-    "ticket": "Ticket",
-    "receipt": "Receipt",
-    "invoice": "Invoice"
-  },
-  "cart": {
-    "title": "Order Summary",
-    "empty": "Cart is empty",
-    "items_count_one": "{{count}} item",
-    "items_count_other": "{{count}} items",
-    "price_each": "${{price}} each",
-    "subtotal": "Subtotal",
-    "tax": "Tax (18%)",
-    "total": "Total Amount"
-  },
-  "buttons": {
-    "cancel": "Cancel",
-    "process": "Process Payment"
-  },
-  "messages": {
-    "invoice_requirements": "Invoice: Requires customer's full name, ID document and address.",
-    "processing": "Processing payment...",
-    "success": "Payment processed successfully!",
-    "error": "Error processing payment",
-    "stock_error": "Error: Some products don't have enough stock"
-  }
-}
-
-
+    "checkout": {
+      "title": "Checkout",
+      "customer": {
+        "title": "Customer Information",
+        "name": "Full name",
+        "email": "Email address",
+        "phone": "Phone number",
+        "document": "ID document",
+        "address": "Address",
+        "notes": "Additional notes"
+      },
+      "receipt_type": {
+        "title": "Receipt Type",
+        "ticket": "Ticket",
+        "receipt": "Receipt",
+        "invoice": "Invoice"
+      },
+      "cart": {
+        "title": "Order Summary",
+        "empty": "Cart is empty",
+        "items_count_one": "{{count}} item",
+        "items_count_other": "{{count}} items",
+        "price_each": "${{price}} each",
+        "subtotal": "Subtotal",
+        "tax": "Tax (18%)",
+        "total": "Total Amount"
+      },
+      "buttons": {
+        "cancel": "Cancel",
+        "process": "Process Payment"
+      },
+      "messages": {
+        "invoice_requirements": "Invoice: Requires customer's full name, ID document and address.",
+        "processing": "Processing payment...",
+        "success": "Payment processed successfully!",
+        "error": "Error processing payment",
+        "stock_error": "Error: Some products don't have enough stock"
+      }
+    }
   },
   "settings": {
     "title": "Settings",

@@ -1,9 +1,9 @@
-// components/nav-main.tsx
-"use client"
-
-import { Link, useLocation } from 'react-router-dom'
-import { ChevronRight, type LucideIcon } from "lucide-react"
-import { useCan, type Permission } from '../lib/permissions'
+import { ChevronRight } from "lucide-react"
+import { Link, useLocation } from "react-router-dom"
+import { useCan } from "../lib/permissions"
+import { useAuth } from "../store/auth"
+import type { Permission } from "../lib/permissions"
+import type { LucideIcon } from "lucide-react"
 
 import {
   Collapsible,
@@ -14,7 +14,6 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -22,66 +21,82 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 
-export function NavMain({
-  items,
-}: {
-  items: {
+interface NavItem {
+  title: string
+  url: string
+  icon?: LucideIcon
+  isActive?: boolean
+  permissions?: Permission[]
+  items?: {
     title: string
     url: string
-    icon: LucideIcon
-    isActive?: boolean
-    permissions?: Permission[]
-    items?: {
-      title: string
-      url: string
-    }[]
   }[]
-}) {
+}
+
+export function NavMain({ items }: { items: NavItem[] }) {
   const location = useLocation()
+  const user = useAuth((s) => s.user)
+  
+  // 🐛 DEBUG: Ver qué está pasando
+  console.log('🔍 NavMain - User permissions:', user?.permissions)
+  console.log('🔍 NavMain - Items to render:', items.length)
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Navegación Principal</SidebarGroupLabel>
+      <SidebarGroupLabel>Platform</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => {
-          // Verificar permisos si existen
-          const can = item.permissions ? useCan(item.permissions) : true
-          if (!can) return null
+          const hasPermission = item.permissions ? useCan(item.permissions) : true
+          
+          // 🐛 DEBUG: Ver cada item
+          console.log(`📋 ${item.title}:`, {
+            required: item.permissions,
+            hasPermission
+          })
+          
+          if (!hasPermission) return null
 
+          // 🔥 DEFINIR isActive AQUÍ
           const isActive = location.pathname === item.url
 
           return (
-            <Collapsible key={item.title} asChild defaultOpen={item.isActive || isActive}>
+            <Collapsible
+              key={item.title}
+              asChild
+              defaultOpen={item.isActive}
+              className="group/collapsible"
+            >
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip={item.title} isActive={isActive}>
-                  <Link to={item.url}>
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-                {item.items?.length ? (
-                  <>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuAction className="data-[state=open]:rotate-90">
-                        <ChevronRight />
-                        <span className="sr-only">Toggle</span>
-                      </SidebarMenuAction>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {item.items?.map((subItem) => (
-                          <SidebarMenuSubItem key={subItem.title}>
-                            <SidebarMenuSubButton asChild>
-                              <Link to={subItem.url}>
-                                <span>{subItem.title}</span>
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </>
-                ) : null}
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton 
+                    tooltip={item.title}
+                    isActive={isActive}
+                    asChild
+                  >
+                    <Link to={item.url}>
+                      {item.icon && <item.icon />}
+                      <span>{item.title}</span>
+                      {item.items && (
+                        <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                      )}
+                    </Link>
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                {item.items && (
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {item.items.map((subItem) => (
+                        <SidebarMenuSubItem key={subItem.title}>
+                          <SidebarMenuSubButton asChild>
+                            <Link to={subItem.url}>
+                              <span>{subItem.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                )}
               </SidebarMenuItem>
             </Collapsible>
           )

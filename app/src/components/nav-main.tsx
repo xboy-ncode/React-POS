@@ -36,10 +36,6 @@ interface NavItem {
 export function NavMain({ items }: { items: NavItem[] }) {
   const location = useLocation()
   const user = useAuth((s) => s.user)
-  
-  // 🐛 DEBUG: Ver qué está pasando
-  console.log('🔍 NavMain - User permissions:', user?.permissions)
-  console.log('🔍 NavMain - Items to render:', items.length)
 
   return (
     <SidebarGroup>
@@ -48,15 +44,8 @@ export function NavMain({ items }: { items: NavItem[] }) {
         {items.map((item) => {
           const hasPermission = item.permissions ? useCan(item.permissions) : true
           
-          // 🐛 DEBUG: Ver cada item
-          console.log(`📋 ${item.title}:`, {
-            required: item.permissions,
-            hasPermission
-          })
-          
           if (!hasPermission) return null
 
-          // 🔥 DEFINIR isActive AQUÍ
           const isActive = location.pathname === item.url
 
           return (

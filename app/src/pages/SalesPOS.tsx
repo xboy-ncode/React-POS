@@ -42,6 +42,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 import CheckoutDialog from '../components/pos/CheckoutDialog'
 
+import { usePOSProducts } from '../hooks/usePOSProducts'
+import { processCheckout, validateStock } from '../lib/checkout-adapter'
+import { toast } from 'sonner'
+
 // Types
 type Category = {
   id: string
@@ -414,28 +418,131 @@ function ProductEditor({
 
 export default function POSSystem() {
   const { t } = useTranslation()
+
+  const {
+    products,
+    loading,
+    error,
+    refetch,
+    createProduct: handleCreateProductAPI,
+    updateProduct: handleUpdateProductAPI,
+    deleteProduct: handleDeleteProductAPI,
+    validateStock: validateCartStock
+  } = usePOSProducts()
+
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
-  const [products, setProducts] = useState<Product[]>(initialProducts)
   const [showAddProduct, setShowAddProduct] = useState<boolean>(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [showCheckout, setShowCheckout] = useState<boolean>(false)
 
-  const filteredProducts = products.filter(product => {
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory
-    const productName = t(product.nameKey, product.name)
-    const matchesSearch = productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) 
-    const isAvailable = product.isAvailable !== false
-    return matchesCategory && matchesSearch && isAvailable
-  })
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">{t('pos.loading_products')}</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <p className="text-lg font-semibold mb-2">Error al cargar productos</p>
+          <p className="text-muted-foreground">{error}</p>
+          <Button className="mt-4" onClick={() => window.location.reload()}>
+            {t('pos.try_again')}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+
+
+
+  const handleSaveProduct = async (productData: Partial<Product>) => {
+    try {
+      if (editingProduct) {
+        await handleUpdateProductAPI(editingProduct.id, productData)
+      } else {
+        await handleCreateProductAPI(productData)
+      }
+      setEditingProduct(null)
+      setShowAddProduct(false)
+    } catch (error) {
+      // El error ya se muestra en el hook
+      console.error('Failed to save product:', error)
+    }
+  }
+
+
+
+
+
+  const handleDeleteProduct = async (id: number) => {
+    try {
+      await handleDeleteProductAPI(id)
+    } catch (error) {
+      // El error ya se muestra en el hook
+      console.error('Failed to delete product:', error)
+    }
+  }
+
+  const handleProcessPayment = async (checkoutData: any) => {
+    try {
+      // Validar stock antes de procesar
+      const cartItems = cart.map(item => ({
+        id: item.id,
+        quantity: item.quantity
+      }))
+
+      const isValid = await validateCartStock(cartItems)
+
+      if (!isValid) {
+        throw new Error('Stock insuficiente para algunos productos')
+      }
+
+      // Procesar el checkout
+      const result = await processCheckout(checkoutData)
+
+      toast.success(result.message)
+
+      // Limpiar carrito
+      setCart([])
+      setShowCheckout(false)
+
+
+      await refetch()
+
+      return result
+    } catch (error: any) {
+      console.error('Error processing payment:', error)
+      toast.error(error.message || 'Error al procesar el pago')
+      throw error
+    }
+  }
+
 
   const addToCart = (product: Product) => {
-    if (product.isAvailable === false) return
+    if (product.isAvailable === false) {
+      toast.error('Producto no disponible')
+      return
+    }
 
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.id === product.id)
+      const newQuantity = existingItem ? existingItem.quantity + 1 : 1
+
+      // Verificar stock
+      if (newQuantity > (product.stock || 0)) {
+        toast.error(`Stock insuficiente. Disponible: ${product.stock || 0}`)
+        return prevCart
+      }
+
       if (existingItem) {
         return prevCart.map(item =>
           item.id === product.id
@@ -447,15 +554,20 @@ export default function POSSystem() {
     })
   }
 
-  const removeFromCart = (productId: string | number) => {
-    setCart(prevCart => prevCart.filter(item => item.id !== productId))
-  }
 
   const updateQuantity = (productId: string | number, newQuantity: number) => {
     if (newQuantity === 0) {
       removeFromCart(productId)
       return
     }
+
+    // Buscar producto para verificar stock
+    const product = products.find(p => p.id === productId)
+    if (product && newQuantity > (product.stock || 0)) {
+      toast.error(`Stock máximo disponible: ${product.stock || 0}`)
+      return
+    }
+
     setCart(prevCart =>
       prevCart.map(item =>
         item.id === productId
@@ -465,338 +577,312 @@ export default function POSSystem() {
     )
   }
 
-  const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0)
-
-  const handleSaveProduct = (productData: Partial<Product>) => {
-    if (editingProduct) {
-      setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...productData } : p))
-    } else {
-      const newProduct = {
-        ...productData,
-        id: Date.now(),
-        image: '/api/placeholder/200/200'
-      } as Product
-      setProducts(prev => [...prev, newProduct])
-    }
-    setEditingProduct(null)
+  const removeFromCart = (productId: string | number) => {
+    setCart(prevCart => prevCart.filter(item => item.id !== productId))
   }
+
+  const filteredProducts = products.filter(product => {
+    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory
+    const productName = t(product.nameKey, product.name)
+    const matchesSearch = productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.sku?.toLowerCase().includes(searchQuery.toLowerCase())
+    const isAvailable = product.isAvailable !== false
+    return matchesCategory && matchesSearch && isAvailable
+  })
+
+  const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0)
 
   const handleCloseEditor = () => {
     setEditingProduct(null)
     setShowAddProduct(false)
   }
 
-  // If you need a custom handler for setShowCheckout, rename it to avoid shadowing.
-  // For now, you can use setShowCheckout directly, or if you want a wrapper, do:
-  
-    // Example: Custom handler (optional)
-    // const handleShowCheckout = (open: boolean) => {
-    //   setShowCheckout(open);
-    //   // Add any additional logic here if needed.
-    // };
-
-  function handleDeleteProduct(id: number): void {
-    setProducts(prev => prev.filter(product => product.id !== id));
-  }
-
-  function handleProcessPayment(checkoutData: any): void {
-    // Simulate payment processing
-    setTimeout(() => {
-      // Clear the cart after successful payment
-      setCart([]);
-      setShowCheckout(false);
-
-      // Show a success message (replace with toast/snackbar in production)
-      alert(`¡Pago de $${checkoutData.total.toFixed(2)} procesado exitosamente!`);
-    }, 1000);
-  }
-
-return (
-  <div className="space-y-6">
-    {/* Header */}
-    <Card className="p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">{t('pos.title')}</h1>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <Button
-            className="gap-2"
-            onClick={() => {
-              setEditingProduct(null)
-              setShowAddProduct(true)
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            {t('pos.buttons.add_product')}
-          </Button>
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t('pos.search_placeholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 w-full sm:w-[300px]"
-            />
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <Card className="p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-3xl font-bold tracking-tight">{t('pos.title')}</h1>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <Button
+              className="gap-2"
+              onClick={() => {
+                setEditingProduct(null)
+                setShowAddProduct(true)
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              {t('pos.buttons.add_product')}
+            </Button>
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder={t('pos.search_placeholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 w-full sm:w-[300px]"
+              />
+            </div>
           </div>
         </div>
-      </div>
-    </Card>
+      </Card>
 
-    {/* First Row: Categories and Cart */}
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Categories - Takes 2/3 of the width */}
-      <div className="lg:col-span-2">
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">{t('pos.sections.categories')}</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
-            {categories.map(category => (
-              <Button
-                key={category.id}
-                variant={selectedCategory === category.id ? "default" : "outline"}
-                onClick={() => setSelectedCategory(category.id)}
-                className="flex flex-col h-auto py-4 px-3 gap-2"
-              >
-                <span className="text-2xl">{category.icon}</span>
-                <span className="text-xs font-medium">{t(category.nameKey, category.name)}</span>
-              </Button>
-            ))}
-          </div>
-        </Card>
+      {/* First Row: Categories and Cart */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Categories - Takes 2/3 of the width */}
+        <div className="lg:col-span-2">
+          <Card className="p-6">
+            <h2 className="text-lg font-semibold mb-4">{t('pos.sections.categories')}</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+              {categories.map(category => (
+                <Button
+                  key={category.id}
+                  variant={selectedCategory === category.id ? "default" : "outline"}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className="flex flex-col h-auto py-4 px-3 gap-2"
+                >
+                  <span className="text-2xl">{category.icon}</span>
+                  <span className="text-xs font-medium">{t(category.nameKey, category.name)}</span>
+                </Button>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        {/* Cart - Takes 1/3 of the width */}
+        <div className="lg:col-span-1">
+          <Card className="p-5 h-full">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold">{t('pos.cart.title')}</h2>
+              <Badge variant="secondary">
+                {t('pos.cart.items_count', { count: cart.length })}
+              </Badge>
+            </div>
+
+            {cart.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-6xl mb-4">🛒</div>
+                <p className="text-muted-foreground">{t('pos.cart.empty')}</p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-4 mb-6 max-h-80 overflow-y-auto">
+                  {cart.map(item => (
+                    <div key={item.id} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-sm truncate">
+                          {t(item.nameKey, item.name)}
+                        </h4>
+                        <p className="text-muted-foreground text-xs">
+                          {t('pos.cart.price_each', { price: item.price.toFixed(2) })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 w-6 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            updateQuantity(item.id, item.quantity - 1)
+                          }}
+                        >
+                          <Minus className="w-3 h-3" />
+                        </Button>
+                        <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 w-6 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            updateQuantity(item.id, item.quantity + 1)
+                          }}
+                        >
+                          <Plus className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-6 w-6 p-0 ml-1"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            removeFromCart(item.id)
+                          }}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-4">
+                  <div className="border-t pt-4">
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="font-semibold">{t('pos.cart.total')}:</span>
+                      <span className="text-xl font-bold">${cartTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={() => setShowCheckout(true)}
+                    disabled={cart.length === 0}
+                  >
+                    {t('pos.buttons.checkout')}
+                  </Button>
+                </div>
+              </>
+            )}
+          </Card>
+        </div>
       </div>
 
-      {/* Cart - Takes 1/3 of the width */}
-      <div className="lg:col-span-1">
-        <Card className="p-5 h-full">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold">{t('pos.cart.title')}</h2>
-            <Badge variant="secondary">
-              {t('pos.cart.items_count', { count: cart.length })}
+      {/* Second Row: Product Table - Full Width */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">{t('pos.products_title')}</CardTitle>
+            <Badge variant="secondary" className="text-sm">
+              {filteredProducts.length} {t('app.total')}
             </Badge>
           </div>
-
-          {cart.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-6xl mb-4">🛒</div>
-              <p className="text-muted-foreground">{t('pos.cart.empty')}</p>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-2 mb-6">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder={t('pos.search_placeholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
             </div>
-          ) : (
-            <>
-              <div className="space-y-4 mb-6 max-h-80 overflow-y-auto">
-                {cart.map(item => (
-                  <div key={item.id} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-sm truncate">
-                        {t(item.nameKey, item.name)}
-                      </h4>
-                      <p className="text-muted-foreground text-xs">
-                        {t('pos.cart.price_each', { price: item.price.toFixed(2) })}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 w-6 p-0"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          updateQuantity(item.id, item.quantity - 1)
-                        }}
-                      >
-                        <Minus className="w-3 h-3" />
-                      </Button>
-                      <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 w-6 p-0"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          updateQuantity(item.id, item.quantity + 1)
-                        }}
-                      >
-                        <Plus className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="h-6 w-6 p-0 ml-1"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          removeFromCart(item.id)
-                        }}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-4">
-                <div className="border-t pt-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="font-semibold">{t('pos.cart.total')}:</span>
-                    <span className="text-xl font-bold">${cartTotal.toFixed(2)}</span>
-                  </div>
-                </div>
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={() => setShowCheckout(true)}
-                  disabled={cart.length === 0}
-                >
-                  {t('pos.buttons.checkout')}
-                </Button>
-              </div>
-            </>
-          )}
-        </Card>
-      </div>
-    </div>
-
-    {/* Second Row: Product Table - Full Width */}
-    <Card>
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">{t('pos.products_title')}</CardTitle>
-          <Badge variant="secondary" className="text-sm">
-            {filteredProducts.length} {t('app.total')}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center space-x-2 mb-6">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder={t('pos.search_placeholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
           </div>
-        </div>
 
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="font-semibold">{t('pos.product_title')}</TableHead>
-                <TableHead className="font-semibold">{t('app.sku')}</TableHead>
-                <TableHead className="font-semibold">{t('pos.category')}</TableHead>
-                <TableHead className="font-semibold">{t('app.price')}</TableHead>
-                <TableHead className="font-semibold">{t('app.stock')}</TableHead>
-                <TableHead className="font-semibold">{t('app.status')}</TableHead>
-                <TableHead className="font-semibold text-right">{t('app.actions')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProducts.map((product) => (
-                <TableRow key={product.id} className="hover:bg-muted/50">
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="font-medium">{t(product.nameKey, product.name)}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm font-medium">
-                    <div className="flex items-center space-x-2">
-                      <Box className="h-3 w-3 text-muted-foreground" />
-                      <span>{product.sku}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {t(`pos.categories.${product.category}`, categories.find(c => c.id === product.category)?.name || product.category)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-semibold">
-                    ${product.price.toFixed(2)}
-                  </TableCell>
-                  <TableCell className="font-semibold">
-                    <div className="flex items-center space-x-2">
-                      <span>{product.stock || 0}</span>
-                      {(product.stock || 0) <= (product.lowStockThreshold || 10) && (
-                        <AlertTriangle className="h-3 w-3 text-destructive" />
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>{getStockStatus(product, t)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end space-x-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => addToCart(product)}
-                        title={t('pos.add_to_cart')}
-                      >
-                        <ShoppingCart className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditingProduct(product)
-                          setShowAddProduct(true)
-                        }}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>{t('pos.delete_product')}</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              {t('pos.delete_product_confirmation', {
-                                name: t(product.nameKey, product.name),
-                                sku: product.sku
-                              })}
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>{t('app.cancel')}</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteProduct(product.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              {t('app.delete')}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="font-semibold">{t('pos.product_title')}</TableHead>
+                  <TableHead className="font-semibold">{t('app.sku')}</TableHead>
+                  <TableHead className="font-semibold">{t('pos.category')}</TableHead>
+                  <TableHead className="font-semibold">{t('app.price')}</TableHead>
+                  <TableHead className="font-semibold">{t('app.stock')}</TableHead>
+                  <TableHead className="font-semibold">{t('app.status')}</TableHead>
+                  <TableHead className="font-semibold text-right">{t('app.actions')}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+              </TableHeader>
+              <TableBody>
+                {filteredProducts.map((product) => (
+                  <TableRow key={product.id} className="hover:bg-muted/50">
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-medium">{t(product.nameKey, product.name)}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        <Box className="h-3 w-3 text-muted-foreground" />
+                        <span>{product.sku}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">
+                        {t(`pos.categories.${product.category}`, categories.find(c => c.id === product.category)?.name || product.category)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-semibold">
+                      ${product.price.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="font-semibold">
+                      <div className="flex items-center space-x-2">
+                        <span>{product.stock || 0}</span>
+                        {(product.stock || 0) <= (product.lowStockThreshold || 10) && (
+                          <AlertTriangle className="h-3 w-3 text-destructive" />
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>{getStockStatus(product, t)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => addToCart(product)}
+                          title={t('pos.add_to_cart')}
+                        >
+                          <ShoppingCart className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingProduct(product)
+                            setShowAddProduct(true)
+                          }}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>{t('pos.delete_product')}</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {t('pos.delete_product_confirmation', {
+                                  name: t(product.nameKey, product.name),
+                                  sku: product.sku
+                                })}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>{t('app.cancel')}</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteProduct(product.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                {t('app.delete')}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
-    {/* Checkout Dialog */}
-    <CheckoutDialog
-      open={showCheckout}
-      onOpenChange={setShowCheckout}
-      cart={cart}
-      updateQuantity={updateQuantity}
-      removeFromCart={removeFromCart}
-      onProcessPayment={handleProcessPayment}
-    />
+      {/* Checkout Dialog */}
+      <CheckoutDialog
+        open={showCheckout}
+        onOpenChange={setShowCheckout}
+        cart={cart}
+        updateQuantity={updateQuantity}
+        removeFromCart={removeFromCart}
+        onProcessPayment={handleProcessPayment}
+      />
 
-    {/* Product Editor Dialog */}
-    <ProductEditor
-      product={editingProduct}
-      onSave={handleSaveProduct}
-      onClose={handleCloseEditor}
-      open={showAddProduct}
-      onOpenChange={setShowAddProduct}
-    />
+      {/* Product Editor Dialog */}
+      <ProductEditor
+        product={editingProduct}
+        onSave={handleSaveProduct}
+        onClose={handleCloseEditor}
+        open={showAddProduct}
+        onOpenChange={setShowAddProduct}
+      />
 
-  </div>
-)
+    </div>
+  )
 }
 

@@ -10,19 +10,11 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { Search, Plus, Edit2, Trash2, Package, DollarSign, AlertTriangle, Loader2, Box } from 'lucide-react'
+import { useInventory } from '@/hooks/useInventory'
+import { toast } from 'sonner'
+import { api } from '@/lib/api' // 👈 Agregar import
 
-
-
-// Types
-type Category = {
-  toLowerCase(): unknown
-  id: string
-  name: string
-  nameKey: string
-  icon: string
-}
-
-
+// Types - 👇 Actualizado con los campos necesarios
 type Product = {
   id: number
   name: string
@@ -45,116 +37,9 @@ type Product = {
   location?: string
   createdAt?: string
   updatedAt?: string
+  id_categoria?: number | null  // 👈 Agregar
+  id_marca?: number | null       // 👈 Agregar
 }
-
-
-
-
-const categories: Category[] = [
-  {
-    id: 'all', name: 'Todos', nameKey: 'pos.categories.all', icon: '🏪',
-    toLowerCase: function (): unknown {
-      throw new Error('Function not implemented.')
-    }
-  },
-  { id: 'alcohol', name: 'Liquor', nameKey: 'pos.categories.liquor', icon: '🍷', toLowerCase: function () { return undefined; } },
-  { id: 'beer', name: 'Beer', nameKey: 'pos.categories.beer', icon: '🍺', toLowerCase: function () { return undefined; } },
-  { id: 'cigarettes', name: 'Cigarrettes', nameKey: 'pos.categories.cigarettes', icon: '🚬', toLowerCase: function () { return undefined; } },
-  { id: 'snacks', name: 'Snacks', nameKey: 'pos.categories.snacks', icon: '🥜', toLowerCase: function () { return undefined; } },
-  { id: 'beverages', name: 'Beverages', nameKey: 'pos.categories.beverages', icon: '🥤', toLowerCase: function () { return undefined; } },
-  { id: 'candy', name: 'Candy', nameKey: 'pos.categories.candy', icon: '🍬', toLowerCase: function () { return undefined; } },
-  { id: 'personal_care', name: 'Personal Care', nameKey: 'pos.categories.personal_care', icon: '🧴', toLowerCase: function () { return undefined; } },
-  { id: 'household', name: 'Household', nameKey: 'pos.categories.household', icon: '🧽', toLowerCase: function () { return undefined; } },
-  { id: 'phone_cards', name: 'Phone Cards', nameKey: 'pos.categories.phone_cards', icon: '📱', toLowerCase: function () { return undefined; } }
-]
-
-
-
-// Mock data for demonstration
-const initialProducts: Product[] = [
-  // Alcohol
-  { id: 1, name: 'Red Wine', nameKey: 'pos.products.red_wine', price: 15.00, category: 'alcohol', image: '/api/placeholder/200/200', sku: 'ALC-RED-001', isAvailable: true, productIcon: '🍷', stock: 5 },
-  { id: 2, name: 'Whiskey', nameKey: 'pos.products.whiskey', price: 25.00, category: 'alcohol', image: '/api/placeholder/200/200', sku: 'ALC-WHI-001', isAvailable: true, productIcon: '🥃', stock: 12 },
-
-  // Beer
-  { id: 3, name: 'Lager Beer', nameKey: 'pos.products.lager_beer', price: 3.50, category: 'beer', image: '/api/placeholder/200/200', sku: 'BER-LAG-001', isAvailable: true, productIcon: '🍺', stock: 20 },
-  { id: 4, name: 'IPA Beer', nameKey: 'pos.products.ipa_beer', price: 4.20, category: 'beer', image: '/api/placeholder/200/200', sku: 'BER-IPA-001', isAvailable: true, productIcon: '🍻', stock: 7 },
-
-  // Cigarettes
-  { id: 5, name: 'Marlboro Pack', nameKey: 'pos.products.marlboro_pack', price: 6.00, category: 'cigarettes', image: '/api/placeholder/200/200', sku: 'CIG-MAR-001', isAvailable: true, productIcon: '🚬', stock: 30 },
-  { id: 6, name: 'Camel Pack', nameKey: 'pos.products.camel_pack', price: 5.50, category: 'cigarettes', image: '/api/placeholder/200/200', sku: 'CIG-CAM-001', isAvailable: true, productIcon: '🚬', stock: 2 },
-
-  // Snacks
-  { id: 7, name: 'Potato Chips', nameKey: 'pos.products.potato_chips', price: 2.00, category: 'snacks', image: '/api/placeholder/200/200', sku: 'SNK-POT-001', isAvailable: true, productIcon: '🥔', stock: 15 },
-  { id: 8, name: 'Salted Peanuts', nameKey: 'pos.products.salted_peanuts', price: 1.50, category: 'snacks', image: '/api/placeholder/200/200', sku: 'SNK-PEA-001', isAvailable: true, productIcon: '🥜', stock: 8 },
-
-  // Beverages
-  { id: 9, name: 'Coca-Cola', nameKey: 'pos.products.coca_cola', price: 1.80, category: 'beverages', image: '/api/placeholder/200/200', sku: 'BEV-COC-001', isAvailable: true, productIcon: '🥤', stock: 50 },
-  { id: 10, name: 'Orange Juice', nameKey: 'pos.products.orange_juice', price: 2.50, category: 'beverages', image: '/api/placeholder/200/200', sku: 'BEV-ORA-001', isAvailable: true, productIcon: '🧃', stock: 3 },
-
-  // Candy
-  { id: 11, name: 'Chocolate Bar', nameKey: 'pos.products.chocolate_bar', price: 1.20, category: 'candy', image: '/api/placeholder/200/200', sku: 'CAN-CHO-001', isAvailable: true, productIcon: '🍫', stock: 18 },
-  { id: 12, name: 'Gummy Bears', nameKey: 'pos.products.gummy_bears', price: 1.00, category: 'candy', image: '/api/placeholder/200/200', sku: 'CAN-GUM-001', isAvailable: true, productIcon: '🧸', stock: 0 },
-
-  // Personal Care
-  { id: 13, name: 'Shampoo', nameKey: 'pos.products.shampoo', price: 5.00, category: 'personal_care', image: '/api/placeholder/200/200', sku: 'PER-SHA-001', isAvailable: true, productIcon: '🧴', stock: 6 },
-  { id: 14, name: 'Toothpaste', nameKey: 'pos.products.toothpaste', price: 2.50, category: 'personal_care', image: '/api/placeholder/200/200', sku: 'PER-TOO-001', isAvailable: true, productIcon: '🦷', stock: 25 },
-
-  // Household
-  { id: 15, name: 'Laundry Detergent', nameKey: 'pos.products.laundry_detergent', price: 8.00, category: 'household', image: '/api/placeholder/200/200', sku: 'HOU-LAU-001', isAvailable: true, productIcon: '🧽', stock: 10 },
-  { id: 16, name: 'Dish Soap', nameKey: 'pos.products.dish_soap', price: 3.00, category: 'household', image: '/api/placeholder/200/200', sku: 'HOU-DIS-001', isAvailable: true, productIcon: '🧼', stock: 1 },
-
-  // Phone Cards
-  { id: 17, name: 'Phone Card $10', nameKey: 'pos.products.phone_card_10', price: 10.00, category: 'phone_cards', image: '/api/placeholder/200/200', sku: 'PHC-010-001', isAvailable: true, productIcon: '📱', stock: 40 },
-  { id: 18, name: 'Phone Card $20', nameKey: 'pos.products.phone_card_20', price: 20.00, category: 'phone_cards', image: '/api/placeholder/200/200', sku: 'PHC-020-001', isAvailable: true, productIcon: '📞', stock: 9 }
-]
-
-
-
-export default function Inventory() {
-  const { t } = useTranslation()
-  const [items, setItems] = useState<Product[]>(initialProducts)
-  const [filteredItems, setFilteredItems] = useState<Product[]>(initialProducts)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState<Product | null>(null)
-
-
-  useEffect(() => {
-    const filtered = items.filter(item =>
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.sku?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
-      item.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.supplier?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    setFilteredItems(filtered)
-  }, [items, searchTerm])
-
-  const totalValue = items.reduce((sum, item) => sum + (item.price * (item.stock ?? 0)), 0)
-  const lowStockItems = items.filter(item => (item.stock ?? 0) <= (item.lowStockThreshold || 10))
-
-  const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen)
-    if (!isOpen) {
-      setEditing(null)
-    }
-  }
-
-  const handleSaveItem = (item: Product) => {
-    if (item.id && editing) {
-      setItems(prev => prev.map(i => i.id === item.id ? item : i))
-    } else {
-      const newItem = { ...item, id: Date.now(), createdAt: new Date().toISOString() }
-      setItems(prev => [...prev, newItem as Product])
-    }
-    setOpen(false)
-    setEditing(null)
-  }
-
-  const handleDeleteItem = (id: number) => {
-    setItems(prev => prev.filter(item => item.id !== id))
-  }
 
 const getStockStatus = (
   product: Product,
@@ -171,6 +56,97 @@ const getStockStatus = (
   }
 }
 
+export default function Inventory() {
+  const { t } = useTranslation()
+
+  // Hook personalizado para gestionar inventario
+  const {
+    products,
+    loading,
+    error,
+    stats,
+    createProduct,
+    updateProduct,
+    deleteProduct
+  } = useInventory()
+
+  // Estados locales
+  const [filteredItems, setFilteredItems] = useState<Product[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<Product | null>(null)
+
+  // Filtrar productos según búsqueda
+  useEffect(() => {
+    const filtered = products.filter(item =>
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.sku?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+      item.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.supplier?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    setFilteredItems(filtered)
+  }, [products, searchTerm])
+
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen)
+    if (!isOpen) {
+      setEditing(null)
+    }
+  }
+
+  const handleSaveItem = async (item: Product) => {
+    try {
+      if (item.id && editing) {
+        // Actualizar producto existente
+        await updateProduct(item.id, item)
+      } else {
+        // Crear nuevo producto
+        await createProduct(item)
+      }
+      setOpen(false)
+      setEditing(null)
+    } catch (error) {
+      console.error('Error saving item:', error)
+      // El error ya se muestra en el hook con toast
+    }
+  }
+
+  const handleDeleteItem = async (id: number) => {
+    try {
+      await deleteProduct(id)
+    } catch (error) {
+      console.error('Error deleting item:', error)
+      // El error ya se muestra en el hook con toast
+    }
+  }
+
+  // Mostrar estado de carga
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">{t('app.loading')}</span>
+      </div>
+    )
+  }
+
+  // Mostrar error si existe
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <p className="text-lg font-semibold mb-2">Error al cargar inventario</p>
+          <p className="text-muted-foreground">{error}</p>
+          <Button className="mt-4" onClick={() => window.location.reload()}>
+            {t('pos.try_again')}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -183,7 +159,7 @@ const getStockStatus = (
         </div>
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
-            <Button 
+            <Button
               onClick={() => setEditing(null)}
               className="flex items-center gap-2"
             >
@@ -202,31 +178,31 @@ const getStockStatus = (
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">{t('inventory.total_items')}</p>
-                <p className="text-2xl font-bold">{items.length}</p>
+                <p className="text-2xl font-bold">{stats.totalItems}</p>
               </div>
               <Package className="h-8 w-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">{t('inventory.total_value')}</p>
-                <p className="text-2xl font-bold">${totalValue.toFixed(2)}</p>
+                <p className="text-2xl font-bold">${stats.totalValue.toFixed(2)}</p>
               </div>
               <DollarSign className="h-8 w-8 text-green-500" />
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">{t('inventory.low_stock_alerts')}</p>
-                <p className="text-2xl font-bold text-destructive">{lowStockItems.length}</p>
+                <p className="text-2xl font-bold text-destructive">{stats.lowStockItems}</p>
               </div>
               <AlertTriangle className="h-8 w-8 text-destructive" />
             </div>
@@ -257,7 +233,6 @@ const getStockStatus = (
             </div>
           </div>
 
-          {/* Table - SalePOS style */}
           <div className="rounded-md border">
             <Table>
               <TableHeader>
@@ -281,8 +256,8 @@ const getStockStatus = (
                           {searchTerm ? t('inventory.no_items_found') : t('inventory.no_items')}
                         </p>
                         {!searchTerm && (
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => {
                               setEditing(null)
@@ -301,8 +276,7 @@ const getStockStatus = (
                     <TableRow key={item.id} className="hover:bg-muted/50">
                       <TableCell>
                         <div className="space-y-1">
-                          
-                          <div className="font-medium">{t(item.nameKey, item.name)}</div>
+                          <div className="font-medium">{item.name}</div>
                         </div>
                       </TableCell>
                       <TableCell className="font-mono text-sm font-medium">
@@ -310,7 +284,7 @@ const getStockStatus = (
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {t(`pos.categories.${item.category}`, categories.find(c => c.id === item.category)?.name || item.category)}
+                          {item.category || 'Sin categoría'}
                         </Badge>
                       </TableCell>
                       <TableCell className="font-semibold">
@@ -347,7 +321,7 @@ const getStockStatus = (
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>{t('app.cancel')}</AlertDialogCancel>
-                                <AlertDialogAction 
+                                <AlertDialogAction
                                   onClick={() => handleDeleteItem(item.id)}
                                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                 >
@@ -370,76 +344,109 @@ const getStockStatus = (
   )
 }
 
-function ItemEditor({ 
-  item, 
-  onSave, 
-  onClose 
-}: { 
+function ItemEditor({
+  item,
+  onSave,
+  onClose
+}: {
   item: Product | null
   onSave: (item: Product) => void
   onClose: () => void
 }) {
   const { t } = useTranslation()
   const [form, setForm] = useState<Partial<Product>>(
-    item || { 
-      name: '', 
-      sku: '', 
-      price: 0, 
-      stock: 0, 
+    item || {
+      name: '',
+      sku: '',
+      price: 0,
+      stock: 0,
       category: '',
       lowStockThreshold: 10,
       description: '',
       supplier: '',
-      location: ''
+      cost: 0,
+      id_categoria: null,
+      id_marca: null
     }
   )
   const [saving, setSaving] = useState(false)
+  const [categories, setCategories] = useState<any[]>([])
+  const [brands, setBrands] = useState<any[]>([])
+
+  // Cargar categorías y marcas
+  useEffect(() => {
+    async function loadCategoriesAndBrands() {
+      try {
+        const [catResponse, brandResponse] = await Promise.all([
+          api('/categories'),
+          api('/brands')
+        ])
+        setCategories(catResponse.categorias || [])
+        setBrands(brandResponse.marcas || [])
+      } catch (error) {
+        console.error('Error loading categories/brands:', error)
+      }
+    }
+    loadCategoriesAndBrands()
+  }, [])
 
   useEffect(() => {
     if (item) {
+      console.log('Editando item:', item) // Debug
       setForm(item)
     } else {
-      setForm({ 
-        name: '', 
-        sku: '', 
-        price: 0, 
-        stock: 0, 
+      setForm({
+        name: '',
+        sku: '',
+        price: 0,
+        stock: 0,
         category: '',
         lowStockThreshold: 10,
         description: '',
         supplier: '',
-        location: ''
+        cost: 0,
+        id_categoria: null,
+        id_marca: null
       })
     }
   }, [item])
 
   async function save() {
     if (!form.name?.trim() || !form.sku?.trim()) {
+      toast.error('Nombre y SKU son requeridos')
       return
     }
 
     try {
       setSaving(true)
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      onSave({
+
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      const productToSave: Product = {
         id: item?.id ?? 0,
         name: form.name?.trim() || '',
+        nameKey: form.nameKey || `pos.products.${form.name?.toLowerCase().replace(/\s+/g, '_')}`,
         sku: form.sku?.trim() || '',
         price: form.price || 0,
         stock: form.stock || 0,
-        category: form.category?.trim() || '',
+        category: form.category?.trim() || 'other',
         lowStockThreshold: form.lowStockThreshold || 10,
-        description: form.description?.trim(),
-        supplier: form.supplier?.trim(),
-        location: form.location?.trim(),
+        description: form.description?.trim() || '',
+        supplier: form.supplier?.trim() || '',
+        cost: form.cost || 0,
+        image: form.image || '/api/placeholder/200/200',
+        isAvailable: form.isAvailable ?? true,
         updatedAt: new Date().toISOString(),
-        nameKey: '',
-        image: ''
-      })
+        id_categoria: form.id_categoria,
+        id_marca: form.id_marca
+      }
+
+      console.log('Guardando producto:', productToSave)
+
+      onSave(productToSave)
     } catch (error) {
       console.error('Failed to save item:', error)
+      toast.error('Error al guardar el producto')
     } finally {
       setSaving(false)
     }
@@ -457,7 +464,7 @@ function ItemEditor({
           </span>
         </DialogTitle>
       </DialogHeader>
-      
+
       <div className="space-y-6 py-4">
         {/* Basic Information */}
         <Card className="p-4">
@@ -475,7 +482,7 @@ function ItemEditor({
                   placeholder={t('inventory.product_name_placeholder')}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="sku">
                   {t('inventory.sku_required')}
@@ -505,12 +512,15 @@ function ItemEditor({
                 type="number"
                 step="0.01"
                 min="0"
-                value={form.price || ''}
-                onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
+                value={form.price ?? ''}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setForm({ ...form, price: value === '' ? 0 : parseFloat(value) })
+                }}
                 placeholder={t('inventory.price_placeholder')}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="stock">
                 {t('inventory.stock_quantity_required')}
@@ -539,47 +549,49 @@ function ItemEditor({
           </div>
         </Card>
 
-        {/* Category and Details */}
+        {/* Category and Brand */}
         <Card className="p-4">
           <h4 className="font-medium mb-3">{t('inventory.category_details')}</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="category">{t('inventory.category')}</Label>
+              <Label htmlFor="id_categoria">{t('inventory.category')}</Label>
               <Select
-                value={form.category || ''}
-                onValueChange={(value) => setForm({ ...form, category: value })}
+                value={form.id_categoria?.toString() || 'none'}
+                onValueChange={(value) => setForm({ ...form, id_categoria: value === 'none' ? null : parseInt(value) })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={t('inventory.select_category')} />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">Sin categoría</SelectItem>
                   {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {t(`categories.${cat.id.toLowerCase()}`, cat.name)}
+                    <SelectItem key={cat.id_categoria} value={cat.id_categoria.toString()}>
+                      {cat.nombre}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="supplier">{t('inventory.supplier')}</Label>
-              <Input
-                id="supplier"
-                value={form.supplier || ''}
-                onChange={(e) => setForm({ ...form, supplier: e.target.value })}
-                placeholder={t('inventory.supplier_placeholder')}
-              />
-            </div>
 
             <div className="space-y-2">
-              <Label htmlFor="location">{t('inventory.location')}</Label>
-              <Input
-                id="location"
-                value={form.location || ''}
-                onChange={(e) => setForm({ ...form, location: e.target.value })}
-                placeholder={t('inventory.location_placeholder')}
-              />
+              <Label htmlFor="id_marca">{t('inventory.brand')}</Label>
+              <Select
+                value={form.id_marca?.toString() || 'none'}
+                onValueChange={(value) => setForm({ ...form, id_marca: value === 'none' ? null : parseInt(value) })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t('inventory.select_brand')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin marca</SelectItem>
+                  {brands.map((brand: any) => (
+                    <SelectItem key={brand.id_marca} value={brand.id_marca.toString()}>
+                      {brand.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
             </div>
           </div>
         </Card>
@@ -589,8 +601,8 @@ function ItemEditor({
         <Button variant="outline" onClick={onClose} disabled={saving}>
           {t('app.cancel')}
         </Button>
-        <Button 
-          onClick={save} 
+        <Button
+          onClick={save}
           disabled={!isValid || saving}
           className="min-w-[80px]"
         >

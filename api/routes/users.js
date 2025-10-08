@@ -1,4 +1,4 @@
-// routes/usuarios.js
+// routes/users.js
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');

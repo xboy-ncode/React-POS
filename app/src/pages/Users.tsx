@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { api } from '../lib/api'
 import { IfCan } from '../lib/permissions'
 import type { Role, Permission } from '../store/auth'
 import { ROLE_DEFAULT_PERMS } from '../store/auth'
@@ -16,6 +15,8 @@ import { Search, Plus, Edit2, Trash2, Users2, Mail, Shield, Eye, EyeOff, Copy, C
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../components/ui/alert-dialog'
 import { Checkbox } from '../components/ui/checkbox'
 import { Separator } from '../components/ui/separator'
+import { loadUsers, createUser, updateUser, deleteUser } from '../lib/users-adapter'
+import { toast } from 'sonner'
 
 type User = { 
   id: string
@@ -66,9 +67,11 @@ export default function Users() {
   async function load() {
     try {
       setLoading(true)
-      const d = await api('/users?limit=100')
-      setItems(d?.items || [])
-    } catch {
+      const data = await loadUsers()
+      setItems(data.items || [])
+    } catch (error: any) {
+      console.error('Error loading users:', error)
+      toast.error(error.message || 'Error al cargar usuarios')
       setItems([])
     } finally {
       setLoading(false)
@@ -77,10 +80,12 @@ export default function Users() {
 
   async function removeItem(id: string) {
     try {
-      await api(`/users/${id}`, { method: 'DELETE' })
+      await deleteUser(id)
+      toast.success('Usuario eliminado exitosamente')
       await load()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete user:', error)
+      toast.error(error.message || 'Error al eliminar usuario')
     }
   }
 
@@ -256,7 +261,7 @@ export default function Users() {
                       </TableCell>
                       <TableCell>
                         <div className="text-sm text-muted-foreground">
-                          {user.lastLogin ? formatDate(user.lastLogin) : t('app.never')}
+                          {formatDate(user.createdAt)}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
@@ -284,10 +289,7 @@ export default function Users() {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>{t('app.delete_user')}</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    {t('app.delete_user_confirmation', { 
-                                      name: user.name, 
-                                      email: user.email 
-                                    })}
+                                    ¿Estás seguro de eliminar al usuario <strong>{user.name}</strong>? Esta acción no se puede deshacer.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -407,41 +409,41 @@ function UserEditor({ item, onClose }: { item: User | null, onClose: () => void 
   }
 
   async function save() {
-    if (!form.name?.trim() || !form.email?.trim()) {
+    if (!form.name?.trim()) {
+      toast.error('El nombre de usuario es requerido')
       return
     }
 
     try {
       setSaving(true)
-      const method = item ? 'PUT' : 'POST'
-      const path = item ? `/users/${item.id}` : '/users'
       
-      const payload: any = {
-        ...form,
-        name: form.name?.trim(),
-        email: form.email?.trim(),
-        permissions: form.permissions ?? ROLE_DEFAULT_PERMS[form.role as Role]
+      if (item) {
+        // Actualizar usuario existente
+        await updateUser(item.id, {
+          ...form,
+          name: form.name?.trim()
+        })
+        toast.success('Usuario actualizado exitosamente')
+      } else {
+        // Crear nuevo usuario
+        await createUser({
+          ...form,
+          name: form.name?.trim(),
+          password: generatedPassword
+        })
+        toast.success('Usuario creado exitosamente')
       }
-
-      // Add password for new users
-      if (!item && generatedPassword) {
-        payload.password = generatedPassword
-      }
-
-      await api(path, { 
-        method, 
-        body: JSON.stringify(payload)
-      })
+      
       onClose()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save user:', error)
+      toast.error(error.message || 'Error al guardar usuario')
     } finally {
       setSaving(false)
     }
   }
 
-  const isValid = form.name?.trim() && form.email?.trim()
-
+  const isValid = form.name?.trim()
 
   return (
     <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -472,20 +474,7 @@ function UserEditor({ item, onClose }: { item: User | null, onClose: () => void 
                   id="name"
                   value={form.name || ''}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder={t('app.user_name_placeholder')}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="email">
-                  {t('app.email')} <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={form.email || ''}
-                  onChange={(e) => setForm({ ...form, email: e.target.value.toLowerCase() })}
-                  placeholder={t('app.user_email_placeholder')}
+                  placeholder="Nombre de usuario"
                 />
               </div>
 
@@ -505,22 +494,6 @@ function UserEditor({ item, onClose }: { item: User | null, onClose: () => void 
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center space-x-2">
-                  <span>{t('app.status')}</span>
-                </Label>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="isActive"
-                    checked={form.isActive !== false}
-                    onCheckedChange={(checked) => setForm({ ...form, isActive: !!checked })}
-                  />
-                  <Label htmlFor="isActive" className="text-sm">
-                    {t('app.user_is_active')}
-                  </Label>
-                </div>
-              </div>
             </div>
           </div>
         </Card>
@@ -532,7 +505,7 @@ function UserEditor({ item, onClose }: { item: User | null, onClose: () => void 
               <div className="flex items-center space-x-2">
                 <Shield className="h-4 w-4 text-green-600" />
                 <h4 className="font-medium text-green-800 dark:text-green-200">
-                  {t('app.generated_password')}
+                  Contraseña generada
                 </h4>
               </div>
               
@@ -568,7 +541,7 @@ function UserEditor({ item, onClose }: { item: User | null, onClose: () => void 
               </div>
               
               <p className="text-xs text-green-700 dark:text-green-300">
-                {t('app.password_instructions')}
+                Guarda esta contraseña. El usuario deberá usarla para iniciar sesión.
               </p>
             </div>
           </Card>
@@ -596,7 +569,6 @@ function UserEditor({ item, onClose }: { item: User | null, onClose: () => void 
               <div className="space-y-4">
                 {Object.entries(permissionCategories).map(([category, perms]) => {
                   const hasAll = perms.every(p => form.permissions?.includes(p as Permission))
-
                   
                   return (
                     <div key={category} className="space-y-2">

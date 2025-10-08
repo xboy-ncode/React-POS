@@ -119,7 +119,8 @@
     "customer_information": "Información del Cliente",
     "select_existing_customer": "Seleccionar Cliente Existente",
     "select_customer_placeholder": "Buscar por DNI, nombre, teléfono o correo...",
-    "or_add_new": "O agregar nuevo cliente"
+    "or_add_new": "O agregar nuevo cliente",
+    "try_again": "Intentar nuevamente"
   },
   "inventory": {
     "title": "Gestión de Inventario",
@@ -166,7 +167,9 @@
     "stock_placeholder": "0",
     "threshold_placeholder": "10",
     "supplier_placeholder": "Heineken International",
-    "location_placeholder": "Estante A1-001"
+    "location_placeholder": "Estante A1-001",
+        "brand": "Marca/Proveedor",
+    "select_brand": "Seleccionar marca"
   },
   "categories": {
     "electronics": "Electrónicos",
@@ -194,6 +197,7 @@
     "in_stock": "Disponible",
     "product_title": "Producto",
     "category": "Categoría",
+    "try_again": "Intentar nuevamente",
     "sections": {
       "categories": "Categorías",
       "products": "Productos"
@@ -303,6 +307,7 @@
       "total": "Total a Pagar",
       "select_payment_method": "Seleccionar Método de Pago",
       "received_amount": "Monto Recibido",
+      "change": "Cambio",
       "payment_methods": {
         "cash": "Efectivo",
         "credit_card": "Tarjeta de Crédito",

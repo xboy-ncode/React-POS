@@ -1,7 +1,7 @@
-// routes/productos.js
+// routes/products.js - Con soporte para categorías y marcas
 const express = require('express');
 const Joi = require('joi');
-const {pool} = require('../config/database');
+const { pool } = require('../config/database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -11,7 +11,8 @@ const router = express.Router();
 // =============================
 const createProductSchema = Joi.object({
     nombre: Joi.string().max(150).required(),
-    descripcion: Joi.string(),
+    descripcion: Joi.string().allow(null, ''),
+    codigo: Joi.string().max(50).allow(null, ''),
     id_categoria: Joi.number().integer().allow(null),
     id_marca: Joi.number().integer().allow(null),
     stock: Joi.number().integer().min(0).default(0),
@@ -22,7 +23,8 @@ const createProductSchema = Joi.object({
 
 const updateProductSchema = Joi.object({
     nombre: Joi.string().max(150),
-    descripcion: Joi.string(),
+    descripcion: Joi.string().allow(null, ''),
+    codigo: Joi.string().max(50).allow(null, ''),
     id_categoria: Joi.number().integer().allow(null),
     id_marca: Joi.number().integer().allow(null),
     stock: Joi.number().integer().min(0),
@@ -31,27 +33,26 @@ const updateProductSchema = Joi.object({
     activo: Joi.boolean()
 });
 
-// =============================
-// Rutas
-// =============================
-
-// GET - Obtener todos los productos (autenticado)
+// GET - Obtener todos los productos
 router.get('/', authenticateToken, async (req, res) => {
     try {
         const { page = 1, limit = 10, search = '', categoria = '', marca = '', activo = '' } = req.query;
         
-        // 🔹 Convertir a números enteros
         const pageNum = parseInt(page, 10);
         const limitNum = parseInt(limit, 10);
         const offset = (pageNum - 1) * limitNum;
 
-        // Validar que sean números válidos
         if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
             return res.status(400).json({ error: 'Parámetros de paginación inválidos' });
         }
 
         let query = `
-            SELECT p.*, c.nombre AS categoria_nombre, m.nombre AS marca_nombre
+            SELECT 
+                p.*,
+                c.nombre AS categoria_nombre,
+                c.id_categoria,
+                m.nombre AS marca_nombre,
+                m.id_marca
             FROM productos p
             LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
             LEFT JOIN marcas m ON p.id_marca = m.id_marca
@@ -69,7 +70,7 @@ router.get('/', authenticateToken, async (req, res) => {
         let paramCount = 1;
 
         if (search) {
-            conditions.push(`(p.nombre ILIKE $${paramCount} OR p.descripcion ILIKE $${paramCount})`);
+            conditions.push(`(p.nombre ILIKE $${paramCount} OR p.descripcion ILIKE $${paramCount} OR p.codigo ILIKE $${paramCount})`);
             queryParams.push(`%${search}%`);
             paramCount++;
         }
@@ -126,13 +127,18 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 });
 
-// GET - Obtener producto por ID (autenticado)
+// GET - Obtener producto por ID
 router.get('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
         const result = await pool.query(`
-            SELECT p.*, c.nombre AS categoria_nombre, m.nombre AS marca_nombre
+            SELECT 
+                p.*,
+                c.nombre AS categoria_nombre,
+                c.id_categoria,
+                m.nombre AS marca_nombre,
+                m.id_marca
             FROM productos p
             LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
             LEFT JOIN marcas m ON p.id_marca = m.id_marca
@@ -150,7 +156,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// POST - Crear producto (solo ADMIN)
+// POST - Crear producto
 router.post('/', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
     try {
         const { error } = createProductSchema.validate(req.body);
@@ -158,17 +164,29 @@ router.post('/', authenticateToken, requireRole(['ADMIN']), async (req, res) => 
             return res.status(400).json({ error: error.details[0].message });
         }
 
-        const { nombre, descripcion, id_categoria, id_marca, stock, precio_unitario, moneda, activo } = req.body;
+        const { nombre, descripcion, codigo, id_categoria, id_marca, stock, precio_unitario, moneda, activo } = req.body;
 
         const result = await pool.query(
-            `INSERT INTO productos (nombre, descripcion, id_categoria, id_marca, stock, precio_unitario, moneda, activo) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-            [nombre, descripcion, id_categoria, id_marca, stock || 0, precio_unitario, moneda || 'PEN', activo !== false]
+            `INSERT INTO productos (nombre, descripcion, codigo, id_categoria, id_marca, stock, precio_unitario, moneda, activo) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+            [nombre, descripcion, codigo, id_categoria, id_marca, stock || 0, precio_unitario, moneda || 'PEN', activo !== false]
         );
+
+        // Obtener el producto completo con relaciones
+        const fullProduct = await pool.query(`
+            SELECT 
+                p.*,
+                c.nombre AS categoria_nombre,
+                m.nombre AS marca_nombre
+            FROM productos p
+            LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+            LEFT JOIN marcas m ON p.id_marca = m.id_marca
+            WHERE p.id_producto = $1
+        `, [result.rows[0].id_producto]);
 
         res.status(201).json({
             message: 'Producto creado exitosamente',
-            producto: result.rows[0]
+            producto: fullProduct.rows[0]
         });
     } catch (error) {
         console.error('Error al crear producto:', error);
@@ -176,7 +194,7 @@ router.post('/', authenticateToken, requireRole(['ADMIN']), async (req, res) => 
     }
 });
 
-// PUT - Actualizar producto (solo ADMIN)
+// PUT - Actualizar producto
 router.put('/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
     try {
         const { id } = req.params;
@@ -189,8 +207,13 @@ router.put('/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) =
         const values = [];
         let paramCount = 1;
 
+        const allowedFields = [
+            'nombre', 'descripcion', 'codigo', 'id_categoria', 'id_marca',
+            'stock', 'precio_unitario', 'moneda', 'activo'
+        ];
+
         Object.entries(req.body).forEach(([key, value]) => {
-            if (value !== undefined) {
+            if (value !== undefined && allowedFields.includes(key)) {
                 updates.push(`${key} = $${paramCount}`);
                 values.push(value);
                 paramCount++;
@@ -203,10 +226,22 @@ router.put('/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) =
 
         values.push(id);
 
-        const result = await pool.query(
-            `UPDATE productos SET ${updates.join(', ')} WHERE id_producto = $${paramCount} RETURNING *`,
+        await pool.query(
+            `UPDATE productos SET ${updates.join(', ')} WHERE id_producto = $${paramCount}`,
             values
         );
+
+        // Obtener el producto actualizado con relaciones
+        const result = await pool.query(`
+            SELECT 
+                p.*,
+                c.nombre AS categoria_nombre,
+                m.nombre AS marca_nombre
+            FROM productos p
+            LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+            LEFT JOIN marcas m ON p.id_marca = m.id_marca
+            WHERE p.id_producto = $1
+        `, [id]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Producto no encontrado' });
@@ -222,7 +257,7 @@ router.put('/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) =
     }
 });
 
-// DELETE - Eliminar producto (solo ADMIN)
+// DELETE - Eliminar producto
 router.delete('/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
     try {
         const { id } = req.params;

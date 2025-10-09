@@ -1,6 +1,6 @@
 // lib/checkout-adapter.ts
 import { ventasService, productosService, invoiceService } from '@/lib/api-client'
-import { getNextInvoiceNumber } from '@/utils/invoiceUtils'
+import { getNextInvoiceNumber } from '@/utils/invoice/invoiceUtils'
 
 type CartItem = {
     id: number

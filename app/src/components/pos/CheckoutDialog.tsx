@@ -21,6 +21,10 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
+import { ventasService, invoiceService } from '@/lib/api-client'
+import { usePdfTicket } from '@/hooks/usePdfTicket'
+
+
 
 type CartItem = {
     id: number
@@ -52,6 +56,8 @@ type CheckoutDialogProps = {
     updateQuantity: (productId: number, newQuantity: number) => void
     removeFromCart: (productId: number) => void
     onProcessPayment: (checkoutData: any) => void
+    onClearCart?: () => void
+    onRefreshData?: () => Promise<void>
 }
 
 export default function CheckoutDialog({
@@ -60,12 +66,15 @@ export default function CheckoutDialog({
     cart,
     updateQuantity,
     removeFromCart,
-    onProcessPayment
+    onProcessPayment,
+    onClearCart,
+    onRefreshData
 }: CheckoutDialogProps) {
     const { t } = useTranslation()
     const [paymentMethod, setPaymentMethod] = useState<string>('cash')
     const [receivedAmount, setReceivedAmount] = useState<string>('')
     const [processing, setProcessing] = useState(false)
+
 
     // Receipt type state
     const [receiptType, setReceiptType] = useState('ticket')
@@ -84,11 +93,17 @@ export default function CheckoutDialog({
     const [loadingReniec, setLoadingReniec] = useState(false)
     const [customers, setCustomers] = useState<Customer[]>([])
     const [selectedCustomerId, setSelectedCustomerId] = useState<string>('')
+    const { generatePdfTicket } = usePdfTicket()
+    const [showTicketPreview, setShowTicketPreview] = useState(false)
+    const [ticketData, setTicketData] = useState<any>(null)
+
+
 
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
     const tax = subtotal * 0.18 // 18% IGV
     const total = subtotal + tax
     const change = receivedAmount ? Math.max(0, parseFloat(receivedAmount) - total) : 0
+
 
     useEffect(() => {
         if (open) {
@@ -211,14 +226,7 @@ export default function CheckoutDialog({
     }
 
     const handleProcessPayment = async () => {
-        if (!validateForm()) {
-            return
-        }
-
-        if (!customerForm.dni?.trim() || !customerForm.nombre?.trim()) {
-            toast.error(t('app.fill_required_fields'))
-            return
-        }
+        if (!validateForm()) return
 
         if (paymentMethod === 'cash' && parseFloat(receivedAmount) < total) {
             toast.error(t('pos.insufficient_amount'))
@@ -227,20 +235,17 @@ export default function CheckoutDialog({
 
         setProcessing(true)
         try {
-            // Save customer if new
             let customerId = selectedCustomerId
             if (!customerId && customerForm.dni) {
                 const newCustomerId = await saveCustomer()
-                if (newCustomerId) {
-                    customerId = newCustomerId.toString()
-                }
+                if (newCustomerId) customerId = newCustomerId.toString()
             }
 
             const checkoutData = {
                 cart,
                 customer: customerForm,
                 customerId,
-                receiptType, // Added receipt type
+                receiptType,
                 paymentMethod,
                 subtotal,
                 tax,
@@ -250,9 +255,72 @@ export default function CheckoutDialog({
                 timestamp: new Date().toISOString()
             }
 
+            // 🧾 1️⃣ Procesar pago localmente (UI/lógica frontend)
             await onProcessPayment(checkoutData)
 
-            // Reset form
+            // 🧾 2️⃣ SIEMPRE crear la venta primero en el backend
+            let ventaId: number | null = null
+            let facturaId: number | null = null
+
+            try {
+                const ventaData = {
+                    id_cliente: customerId ? parseInt(customerId) : null,
+                    metodo_pago: paymentMethod,
+                    moneda: 'PEN', // o la moneda que uses
+                    productos: cart.map(item => ({
+                        id_producto: item.id,
+                        cantidad: item.quantity,
+                        precio_unitario: item.price
+                    }))
+                }
+
+                // Crear la venta
+                const ventaResponse = await ventasService.create(ventaData)
+                ventaId = ventaResponse.venta?.id_venta || ventaResponse.id_venta
+                // console.log('✅ Venta creada con ID:', ventaId)
+
+                // 🧾 3️⃣ Si eligió factura, crear la factura usando el id_venta
+                if (receiptType === 'invoice' && ventaId) {
+                    const facturaData = {
+                        id_venta: ventaId,
+                        serie: 'F001', // Serie de factura - ajusta según tu negocio
+                        numero: Date.now(), // Número correlativo - idealmente deberías obtenerlo del backend
+                        ruc_emisor: '20123456789', // RUC de tu empresa
+                        razon_social_emisor: 'MI EMPRESA SAC', // Razón social de tu empresa
+                        direccion_emisor: 'Av. Principal 123',
+                        ruc_receptor: customerForm.dni || null, // RUC del cliente (si tiene)
+                        dni_receptor: customerForm.dni || null, // DNI del cliente
+                        razon_social_receptor: `${customerForm.nombre} ${customerForm.apellido_paterno}`,
+                        direccion_receptor: customerForm.direccion || null
+                    }
+
+                    const facturaResponse = await invoiceService.create(facturaData)
+                    facturaId = facturaResponse.factura?.id_factura || facturaResponse.id_factura
+                    //console.log('✅ Factura creada con ID:', facturaId)
+                }
+
+                // 🧾 4️⃣ Generar PDF según el tipo
+                const pdfId = receiptType === 'invoice' ? facturaId : ventaId
+
+                if (pdfId) {
+                    await generatePdfTicket(pdfId, receiptType === 'invoice' ? 'invoice' : 'sale')
+                    toast.success(
+                        receiptType === 'invoice'
+                            ? 'Factura generada exitosamente.'
+                            : 'Ticket generado exitosamente.'
+                    )
+                    if (onClearCart) onClearCart()
+                    // 🔄 Actualizar tabla si existe callback
+                    if (onRefreshData) await onRefreshData()
+                }
+
+            } catch (error) {
+                console.error('Error al crear venta/factura:', error)
+                toast.error('Error al procesar la venta.')
+                throw error
+            }
+
+            // ✅ Limpiar formulario y cerrar
             setCustomerForm({
                 dni: '',
                 nombre: '',
@@ -267,8 +335,8 @@ export default function CheckoutDialog({
             setPaymentMethod('cash')
             setReceivedAmount('')
             setReceiptType('ticket')
-
             onOpenChange(false)
+
         } catch (error) {
             console.error('Payment processing failed:', error)
             toast.error(t('pos.payment_error'))
@@ -461,7 +529,7 @@ export default function CheckoutDialog({
                                             placeholder="999 888 777"
                                         />
                                     </div>
-                                        <div className="space-y-2">
+                                    <div className="space-y-2">
                                         <Label htmlFor="direccion">{t('app.address')}</Label>
                                         <Input
                                             id="direccion"
@@ -672,6 +740,9 @@ export default function CheckoutDialog({
                     </div>
                 </div>
             </DialogContent>
+
         </Dialog>
+
     )
+
 }

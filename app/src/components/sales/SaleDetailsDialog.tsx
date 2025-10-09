@@ -115,21 +115,23 @@ export function SaleDetailsDialog({ saleId, open, onOpenChange }: SaleDetailsDia
                                     {t('sales.details.customer_info', 'Información del Cliente')}
                                 </h3>
 
-                                {sale.cliente_nombre ? (
+                                {sale.nombre ? (
                                     <>
                                         <div className="flex items-center gap-2 text-sm">
                                             <User className="h-4 w-4 text-muted-foreground" />
                                             <span className="text-muted-foreground">
                                                 {t('sales.customer', 'Cliente')}:
                                             </span>
-                                            <span className="font-medium">{sale.cliente_nombre}</span>
+                                            <span className="font-medium">
+                                                {sale.nombre} {sale.apellido_paterno} {sale.apellido_materno}
+                                            </span>
                                         </div>
 
-                                        {sale.cliente_dni && (
+                                        {sale.dni && (
                                             <div className="flex items-center gap-2 text-sm">
                                                 <Receipt className="h-4 w-4 text-muted-foreground" />
                                                 <span className="text-muted-foreground">DNI:</span>
-                                                <span className="font-medium">{sale.cliente_dni}</span>
+                                                <span className="font-medium">{sale.dni}</span>
                                             </div>
                                         )}
 

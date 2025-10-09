@@ -1,7 +1,7 @@
 // routes/customers.js
 const express = require('express');
 const Joi = require('joi');
-const { pool } = require('../config/database.js'); // ← Removido reniecDb
+const { pool } = require('../config/database.js');
 const { authenticateToken } = require('../middleware/auth.js');
 const { buscarClientePorDNI } = require('../utils/reniec.js');
 
@@ -14,10 +14,10 @@ const createClientSchema = Joi.object({
     apellido_paterno: Joi.string().max(100),
     apellido_materno: Joi.string().max(100),
     direccion: Joi.string(),
-    telefono: Joi.string().max(15),
-    correo: Joi.string().email().max(100),
+    telefono: Joi.string().max(15).allow(null, ''),
+    correo: Joi.string().email().max(100).allow(null, ''),
     fuente_datos: Joi.string().valid('RENIEC', 'Manual').default('Manual'),
-    datos_completos: Joi.object()
+    datos_completos: Joi.object().allow(null)
 });
 
 const updateClientSchema = Joi.object({
@@ -26,10 +26,10 @@ const updateClientSchema = Joi.object({
     apellido_paterno: Joi.string().max(100),
     apellido_materno: Joi.string().max(100),
     direccion: Joi.string(),
-    telefono: Joi.string().max(15),
-    correo: Joi.string().email().max(100),
+    telefono: Joi.string().max(15).allow(null, ''),
+    correo: Joi.string().email().max(100).allow(null, ''),
     fuente_datos: Joi.string().valid('RENIEC', 'Manual'),
-    datos_completos: Joi.object()
+    datos_completos: Joi.object().allow(null)
 });
 
 // GET - Obtener todos los clientes
@@ -291,7 +291,7 @@ router.get('/dni/:dni', authenticateToken, async (req, res) => {
         return res.json(insertResult.rows[0]); // ✅ lo devuelve ya cacheado
     } catch (error) {
         console.error('Error al buscar cliente por DNI:', error);
-        
+
         // Manejar errores específicos de RENIEC
         if (error.message.includes('Token de RENIEC')) {
             return res.status(503).json({ error: 'Servicio de RENIEC no disponible: Token inválido' });
@@ -299,7 +299,7 @@ router.get('/dni/:dni', authenticateToken, async (req, res) => {
         if (error.message.includes('Servicio de RENIEC')) {
             return res.status(503).json({ error: error.message });
         }
-        
+
         res.status(500).json({ error: 'Error interno del servidor' });
     }
 });

@@ -96,6 +96,7 @@
     "basic_information": "Basic Information",
     "user_name_placeholder": "John Doe",
     "user_email_placeholder": "user@example.com",
+    "address_placeholder": "123 Main St, Springfield, USA",
     "user_is_active": "User is active",
     "generated_password": "Generated Password",
     "password_instructions": "Save this password securely. The user will need it to sign in for the first time.",

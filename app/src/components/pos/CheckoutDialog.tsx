@@ -461,7 +461,16 @@ export default function CheckoutDialog({
                                             placeholder="999 888 777"
                                         />
                                     </div>
-
+                                        <div className="space-y-2">
+                                        <Label htmlFor="direccion">{t('app.address')}</Label>
+                                        <Input
+                                            id="direccion"
+                                            value={customerForm.direccion || ''}
+                                            onChange={(e) => setCustomerForm({ ...customerForm, direccion: e.target.value.toUpperCase() })}
+                                            placeholder={t('app.address_placeholder')}
+                                            className="uppercase"
+                                        />
+                                    </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="correo">{t('app.email')}</Label>
                                         <Input

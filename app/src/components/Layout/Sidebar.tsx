@@ -34,6 +34,7 @@ export default function Sidebar() {
       <nav className="flex flex-col gap-1">
         <NavItem to="/" label={t('app.dashboard')} />
         <NavItem to="/sales" label={t('app.sales')} perm={['sales:read']} />
+        <NavItem to="/movements" label={t('app.movements')} perm={['movements:read']} />
         <NavItem to="/inventory" label={t('app.inventory')} perm={['inventory:read']} />
         <NavItem to="/customers" label={t('app.customers')} perm={['customers:read']} />
         <NavItem to="/users" label={t('app.users')} perm={['users:read']} />

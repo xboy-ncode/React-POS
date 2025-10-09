@@ -5,6 +5,7 @@ import { create } from 'zustand'
 export type Permission = 
   | 'inventory:read' | 'inventory:write' 
   | 'sales:read' | 'sales:write'
+  | 'movements:read' | 'movements:write'
   | 'customers:read' | 'customers:write'
   | 'users:read' | 'users:write'
   | 'settings:write';
@@ -34,6 +35,7 @@ export const ROLE_DEFAULT_PERMS: Record<Role, Permission[]> = {
   admin: [
     'inventory:read','inventory:write',
     'sales:read','sales:write',
+    'movements:read','movements:write',
     'customers:read','customers:write',
     'users:read','users:write',
     'settings:write'
@@ -41,6 +43,7 @@ export const ROLE_DEFAULT_PERMS: Record<Role, Permission[]> = {
   manager: [
     'inventory:read','inventory:write',
     'sales:read','sales:write',
+    'movements:read','movements:write',
     'customers:read','customers:write',
     'users:read'
   ],

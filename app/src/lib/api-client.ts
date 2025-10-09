@@ -198,6 +198,37 @@ export const ventasService = {
   },
 };
 
+
+// ======================================================
+// INVOICEs SERVICE
+// ======================================================
+
+export const invoiceService = {
+  getAll: async (params?: {
+    page?: number;
+    limit?: number;
+    fecha_desde?: string;
+    fecha_hasta?: string;
+    cliente?: string;
+    serie?: string;
+  }) => {
+    const response = await apiClient.get('/invoices', { params }) 
+    return response.data
+  },
+
+  getById: async (id: number) => {
+    const response = await apiClient.get(`/invoices/${id}`) 
+    return response.data
+  },
+
+  create: async (data: any) => {
+    const response = await apiClient.post('/invoices/venta', data) 
+    return response.data
+  }
+}
+
+
+
 // ======================================================
 // COMPRAS SERVICE
 // ======================================================

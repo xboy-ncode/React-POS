@@ -1,4 +1,4 @@
-// routes/products.js - Con soporte para categorías y marcas
+// routes/products.js - Con soporte para código de barras
 const express = require('express');
 const Joi = require('joi');
 const { pool } = require('../config/database');
@@ -13,11 +13,12 @@ const createProductSchema = Joi.object({
     nombre: Joi.string().max(150).required(),
     descripcion: Joi.string().allow(null, ''),
     codigo: Joi.string().max(50).allow(null, ''),
+    codigo_barras: Joi.string().max(50).allow(null, '').pattern(/^[0-9A-Za-z-]*$/),
     id_categoria: Joi.number().integer().allow(null),
     id_marca: Joi.number().integer().allow(null),
     stock: Joi.number().integer().min(0).default(0),
     precio_unitario: Joi.number().positive().required(),
-    moneda: Joi.string().length(3).default('PEN'),
+    moneda: Joi.string().valid('USD', 'PEN').default('PEN'),
     activo: Joi.boolean().default(true)
 });
 
@@ -25,19 +26,29 @@ const updateProductSchema = Joi.object({
     nombre: Joi.string().max(150),
     descripcion: Joi.string().allow(null, ''),
     codigo: Joi.string().max(50).allow(null, ''),
+    codigo_barras: Joi.string().max(50).allow(null, '').pattern(/^[0-9A-Za-z-]*$/),
     id_categoria: Joi.number().integer().allow(null),
     id_marca: Joi.number().integer().allow(null),
     stock: Joi.number().integer().min(0),
     precio_unitario: Joi.number().positive(),
-    moneda: Joi.string().length(3),
+    moneda: Joi.string().valid('USD', 'PEN'),
     activo: Joi.boolean()
-});
+}).min(1);
+
 
 // GET - Obtener todos los productos
 router.get('/', authenticateToken, async (req, res) => {
     try {
-        const { page = 1, limit = 10, search = '', categoria = '', marca = '', activo = '' } = req.query;
-        
+        const {
+            page = 1,
+            limit = 10,
+            search = '',
+            categoria = '',
+            marca = '',
+            activo = '',
+            codigo_barras = '' // 👈 Agregar parámetro
+        } = req.query;
+
         const pageNum = parseInt(page, 10);
         const limitNum = parseInt(limit, 10);
         const offset = (pageNum - 1) * limitNum;
@@ -69,8 +80,15 @@ router.get('/', authenticateToken, async (req, res) => {
         const queryParams = [];
         let paramCount = 1;
 
+        // 👇 Agregar búsqueda por código de barras
+        if (codigo_barras) {
+            conditions.push(`p.codigo_barras = $${paramCount}`);
+            queryParams.push(codigo_barras);
+            paramCount++;
+        }
+
         if (search) {
-            conditions.push(`(p.nombre ILIKE $${paramCount} OR p.descripcion ILIKE $${paramCount} OR p.codigo ILIKE $${paramCount})`);
+            conditions.push(`(p.nombre ILIKE $${paramCount} OR p.descripcion ILIKE $${paramCount} OR p.codigo ILIKE $${paramCount} OR p.codigo_barras ILIKE $${paramCount})`);
             queryParams.push(`%${search}%`);
             paramCount++;
         }
@@ -164,12 +182,36 @@ router.post('/', authenticateToken, requireRole(['ADMIN']), async (req, res) => 
             return res.status(400).json({ error: error.details[0].message });
         }
 
-        const { nombre, descripcion, codigo, id_categoria, id_marca, stock, precio_unitario, moneda, activo } = req.body;
+        const {
+            nombre,
+            descripcion,
+            codigo,
+            codigo_barras, // 👈 Agregar
+            id_categoria,
+            id_marca,
+            stock,
+            precio_unitario,
+            moneda,
+            activo
+        } = req.body;
 
         const result = await pool.query(
-            `INSERT INTO productos (nombre, descripcion, codigo, id_categoria, id_marca, stock, precio_unitario, moneda, activo) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-            [nombre, descripcion, codigo, id_categoria, id_marca, stock || 0, precio_unitario, moneda || 'PEN', activo !== false]
+            `INSERT INTO productos 
+             (nombre, descripcion, codigo, codigo_barras, id_categoria, id_marca, stock, precio_unitario, moneda, activo) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+             RETURNING *`,
+            [
+                nombre,
+                descripcion,
+                codigo,
+                codigo_barras || null, // 👈 Agregar
+                id_categoria,
+                id_marca,
+                stock || 0,
+                precio_unitario,
+                moneda || 'PEN',
+                activo !== false
+            ]
         );
 
         // Obtener el producto completo con relaciones
@@ -190,6 +232,14 @@ router.post('/', authenticateToken, requireRole(['ADMIN']), async (req, res) => 
         });
     } catch (error) {
         console.error('Error al crear producto:', error);
+
+        // Manejar error de código de barras duplicado
+        if (error.code === '23505' && error.constraint === 'productos_codigo_barras_key') {
+            return res.status(400).json({
+                error: 'El código de barras ya existe en otro producto'
+            });
+        }
+
         res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
@@ -208,8 +258,16 @@ router.put('/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) =
         let paramCount = 1;
 
         const allowedFields = [
-            'nombre', 'descripcion', 'codigo', 'id_categoria', 'id_marca',
-            'stock', 'precio_unitario', 'moneda', 'activo'
+            'nombre',
+            'descripcion',
+            'codigo',
+            'codigo_barras',
+            'id_categoria',
+            'id_marca',
+            'stock',
+            'precio_unitario',
+            'moneda',
+            'activo'
         ];
 
         Object.entries(req.body).forEach(([key, value]) => {
@@ -253,6 +311,14 @@ router.put('/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) =
         });
     } catch (error) {
         console.error('Error al actualizar producto:', error);
+
+        // Manejar error de código de barras duplicado
+        if (error.code === '23505' && error.constraint === 'productos_codigo_barras_key') {
+            return res.status(400).json({
+                error: 'El código de barras ya existe en otro producto'
+            });
+        }
+
         res.status(500).json({ error: 'Error interno del servidor' });
     }
 });

@@ -168,8 +168,10 @@
     "threshold_placeholder": "10",
     "supplier_placeholder": "Heineken International",
     "location_placeholder": "Estante A1-001",
-        "brand": "Marca/Proveedor",
-    "select_brand": "Seleccionar marca"
+    "brand": "Marca/Proveedor",
+    "select_brand": "Seleccionar marca",
+            "barcode": "Código de Barras",
+    "barcode_placeholder": "Ej: 7501234567890"
   },
   "categories": {
     "electronics": "Electrónicos",
@@ -198,6 +200,8 @@
     "product_title": "Producto",
     "category": "Categoría",
     "try_again": "Intentar nuevamente",
+    "barcode_placeholder": "Escanear código de barras",
+    "barcode": "Código de Barras",
     "sections": {
       "categories": "Categorías",
       "products": "Productos"

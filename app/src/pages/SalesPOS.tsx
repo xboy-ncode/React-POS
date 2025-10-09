@@ -568,42 +568,41 @@ export default function POSSystem() {
     }
   }
 
-  const handleProcessPayment = async (checkoutData: any) => {
-    try {
-      // Validar stock antes de procesar
-      const cartItems = cart.map(item => ({
-        id: item.id,
-        quantity: item.quantity,
-        name: item.name,
-        nameKey: item.nameKey,
-        price: item.price
-      }))
+ const handleProcessPayment = async (checkoutData: any) => {
+  try {
+    // Validar stock antes de procesar
+    const cartItems = checkoutData.cart.map((item: any) => ({
+      id: item.id,
+      quantity: item.quantity,
+      name: item.name,
+      nameKey: item.nameKey,
+      price: item.price
+    }))
 
-      const isValid = await validateCartStock(cartItems)
+    const isValid = await validateCartStock(cartItems)
 
-      if (!isValid) {
-        throw new Error('Stock insuficiente para algunos productos')
-      }
-
-      // Procesar el checkout
-      const result = await processCheckout(checkoutData)
-
-      toast.success(result.message)
-
-      // Limpiar carrito
-      setCart([])
-      setShowCheckout(false)
-
-
-      await refetch()
-
-      return result
-    } catch (error: any) {
-      console.error('Error processing payment:', error)
-      toast.error(error.message || 'Error al procesar el pago')
-      throw error
+    if (!isValid) {
+      throw new Error('Stock insuficiente para algunos productos')
     }
+
+    // Procesar el checkout
+    const result = await processCheckout(checkoutData)
+
+    toast.success(result.message)
+
+    // Limpiar carrito
+    setCart([])
+    setShowCheckout(false)
+
+    await refetch()
+
+    return result
+  } catch (error: any) {
+    console.error('Error processing payment:', error)
+    toast.error(error.message || 'Error al procesar el pago')
+    throw error
   }
+}
 
 
 

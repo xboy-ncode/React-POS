@@ -121,7 +121,8 @@
     "select_existing_customer": "Seleccionar Cliente Existente",
     "select_customer_placeholder": "Buscar por DNI, nombre, teléfono o correo...",
     "or_add_new": "O agregar nuevo cliente",
-    "try_again": "Intentar nuevamente"
+    "try_again": "Intentar nuevamente",
+    "movements": "Movimientos"
   },
   "inventory": {
     "title": "Gestión de Inventario",
@@ -203,6 +204,7 @@
     "try_again": "Intentar nuevamente",
     "barcode_placeholder": "Escanear código de barras",
     "barcode": "Código de Barras",
+    "payment_error": "Error al procesar el pago",
     "sections": {
       "categories": "Categorías",
       "products": "Productos"

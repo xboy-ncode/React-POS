@@ -121,7 +121,8 @@
     "select_existing_customer": "Select Existing Customer",
     "select_customer_placeholder": "Search by DNI, name, phone or email...",
     "or_add_new": "or add a new customer",
-    "try_again": "Try again"
+    "try_again": "Try again",
+    "movements": "Movements"
   },
   "inventory": {
     "title": "Inventory Management",
@@ -203,6 +204,7 @@
     "try_again": "Try Again",
     "barcode_placeholder": "Scan barcode or enter SKU...",
     "barcode": "Barcode",
+    "payment_error": "Error processing payment",
     "sections": {
       "categories": "Categories",
       "products": "Products"

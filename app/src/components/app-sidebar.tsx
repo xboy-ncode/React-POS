@@ -10,6 +10,7 @@ import {
   LifeBuoy,
   Send,
   Command,
+  ArrowUpDown
 } from "lucide-react"
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../store/auth'
@@ -51,6 +52,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         url: "/sales",
         icon: ShoppingCart,
         permissions: ['sales:read'] as Permission[],
+      },
+      {
+        title: t('app.movements'),
+        url: "/movements",
+        icon: ArrowUpDown,
+        permissions: ['movements:read'] as Permission[],
       },
       {
         title: t('app.inventory'),

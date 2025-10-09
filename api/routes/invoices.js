@@ -1,7 +1,7 @@
 // routes/invoices.js
 const express = require('express');
 const Joi = require('joi');
-const { pool } = require('../config/database'); 
+const { pool } = require('../config/database');
 
 const { authenticateToken } = require('../middleware/auth');
 
@@ -33,11 +33,20 @@ const createFacturaCompraSchema = Joi.object({
     direccion_receptor: Joi.string().allow(null, '')
 });
 
-// GET - Obtener todas las facturas
+// GET - Listar facturas con filtros y paginación
 router.get('/', authenticateToken, async (req, res) => {
     try {
-        const { page = 1, limit = 10, tipo = '', fecha_desde = '', fecha_hasta = '', serie = '' } = req.query;
-        const offset = (page - 1) * limit;
+        const { 
+            page = 1, 
+            limit = 10, 
+            tipo = '', 
+            fecha_desde = '', 
+            fecha_hasta = '', 
+            serie = '' 
+        } = req.query;
+
+        const limitNum = parseInt(limit, 10);
+        const offsetNum = (parseInt(page, 10) - 1) * limitNum;
 
         let query = `
             SELECT f.*,
@@ -69,19 +78,19 @@ router.get('/', authenticateToken, async (req, res) => {
         }
 
         if (fecha_desde) {
-            conditions.push(`f.fecha >= ${paramCount}`);
+            conditions.push(`f.fecha >= $${paramCount}`);
             queryParams.push(fecha_desde);
             paramCount++;
         }
 
         if (fecha_hasta) {
-            conditions.push(`f.fecha <= ${paramCount}`);
+            conditions.push(`f.fecha <= $${paramCount}`);
             queryParams.push(fecha_hasta + ' 23:59:59');
             paramCount++;
         }
 
         if (serie) {
-            conditions.push(`f.serie ILIKE ${paramCount}`);
+            conditions.push(`f.serie ILIKE $${paramCount}`);
             queryParams.push(`%${serie}%`);
             paramCount++;
         }
@@ -92,8 +101,8 @@ router.get('/', authenticateToken, async (req, res) => {
             countQuery += whereClause;
         }
 
-        query += ` ORDER BY f.fecha DESC LIMIT ${paramCount} OFFSET ${paramCount + 1}`;
-        queryParams.push(limit, offset);
+        query += ` ORDER BY f.fecha DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+        queryParams.push(limitNum, offsetNum);
 
         const [result, countResult] = await Promise.all([
             pool.query(query, queryParams),
@@ -101,24 +110,25 @@ router.get('/', authenticateToken, async (req, res) => {
         ]);
 
         const total = parseInt(countResult.rows[0].count);
-        const totalPages = Math.ceil(total / limit);
+        const totalPages = Math.ceil(total / limitNum);
 
         res.json({
             facturas: result.rows,
             pagination: {
                 page: parseInt(page),
-                limit: parseInt(limit),
+                limit: limitNum,
                 total,
                 totalPages,
-                hasNext: page < totalPages,
-                hasPrev: page > 1
+                hasNext: parseInt(page) < totalPages,
+                hasPrev: parseInt(page) > 1
             }
         });
     } catch (error) {
         console.error('Error al obtener facturas:', error);
-        res.status(500).json({ error: 'Error interno del servidor' });
+        res.status(500).json({ error: error.message || 'Error interno del servidor' });
     }
 });
+
 
 // GET - Obtener factura por ID
 router.get('/:id', authenticateToken, async (req, res) => {
@@ -476,17 +486,17 @@ router.get('/reportes/resumen', authenticateToken, async (req, res) => {
         const conditions = [];
 
         if (fecha_desde) {
-            conditions.push(`fecha >= ${params.length + 1}`);
+            conditions.push(`fecha >= $${params.length + 1}`);
             params.push(fecha_desde);
         }
 
         if (fecha_hasta) {
-            conditions.push(`fecha <= ${params.length + 1}`);
+            conditions.push(`fecha <= $${params.length + 1}`);
             params.push(fecha_hasta + ' 23:59:59');
         }
 
         if (tipo) {
-            conditions.push(`tipo = ${params.length + 1}`);
+            conditions.push(`tipo = $${params.length + 1}`);
             params.push(tipo.toUpperCase());
         }
 

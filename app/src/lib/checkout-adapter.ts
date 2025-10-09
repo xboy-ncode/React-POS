@@ -1,5 +1,6 @@
 // lib/checkout-adapter.ts
-import { ventasService, productosService } from '@/lib/api-client'
+import { ventasService, productosService, invoiceService } from '@/lib/api-client'
+import { getNextInvoiceNumber } from '@/utils/invoiceUtils'
 
 type CartItem = {
     id: number
@@ -29,7 +30,6 @@ type CheckoutData = {
  */
 export async function processCheckout(checkoutData: CheckoutData) {
     try {
-        // Mapear método de pago al formato del backend
         const paymentMethodMap: Record<string, string> = {
             'cash': 'EFECTIVO',
             'card': 'TARJETA',
@@ -38,11 +38,11 @@ export async function processCheckout(checkoutData: CheckoutData) {
             'plin': 'PLIN'
         }
 
-        // Preparar datos de la venta
+        // 1️⃣ Crear la venta
         const ventaData = {
             id_cliente: checkoutData.customerId ? parseInt(checkoutData.customerId) : null,
             metodo_pago: paymentMethodMap[checkoutData.paymentMethod] || 'EFECTIVO',
-            moneda: 'PEN', // Puedes hacerlo dinámico si lo necesitas
+            moneda: 'PEN',
             productos: checkoutData.cart.map(item => ({
                 id_producto: item.id,
                 cantidad: item.quantity,
@@ -50,36 +50,39 @@ export async function processCheckout(checkoutData: CheckoutData) {
             }))
         }
 
-        // Crear la venta
-        const response = await ventasService.create(ventaData)
+        const ventaResponse = await ventasService.create(ventaData)
+        const venta = ventaResponse.venta
 
-        // Retornar datos de la venta creada
+        // 2️⃣ Determinar serie y número de factura
+        const serie = checkoutData.receiptType === 'factura' ? 'F001' : 'B001'
+        const numero = await getNextInvoiceNumber(serie)
+
+        // 3️⃣ Crear la factura
+        const facturaData = {
+            id_venta: venta.id_venta,
+            serie,
+            numero,
+            ruc_emisor: '12345678901',
+            razon_social_emisor: 'Mi Empresa SAC',
+            direccion_emisor: 'Av. Siempre Viva 123',
+            ruc_receptor: null,
+            dni_receptor: checkoutData.customer?.dni || null,
+            razon_social_receptor: `${checkoutData.customer?.nombre || ''} ${checkoutData.customer?.apellido_paterno || ''}`.trim(),
+            direccion_receptor: checkoutData.customer?.direccion || '',
+        }
+
+        const facturaResponse = await invoiceService.create(facturaData)
+
         return {
             success: true,
-            venta: response.venta,
-            message: `Venta #${response.venta.id_venta} registrada exitosamente`
+            venta,
+            factura: facturaResponse.factura,
+            message: `Factura ${facturaResponse.factura.serie}-${facturaResponse.factura.numero} creada exitosamente`
         }
 
     } catch (error: any) {
         console.error('Error al procesar checkout:', error)
-
-        // Manejar errores específicos del backend
-        let errorMessage = 'Error al procesar la venta'
-
-        if (error.response?.data?.error) {
-            errorMessage = error.response.data.error
-
-            // Traducir errores comunes
-            if (errorMessage.includes('Stock insuficiente')) {
-                errorMessage = 'Stock insuficiente para uno o más productos'
-            } else if (errorMessage.includes('Cliente no encontrado')) {
-                errorMessage = 'Cliente no encontrado'
-            } else if (errorMessage.includes('Producto') && errorMessage.includes('no encontrado')) {
-                errorMessage = 'Uno o más productos no están disponibles'
-            }
-        }
-
-        throw new Error(errorMessage)
+        throw new Error(error.response?.data?.error || 'Error al procesar la venta')
     }
 }
 

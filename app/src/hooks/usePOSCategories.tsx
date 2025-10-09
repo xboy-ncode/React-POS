@@ -81,7 +81,7 @@ export function usePOSCategories() {
 
             const data = await response.json()
             
-            console.log('📂 [usePOSCategories] Categorías recibidas del backend:', data)
+           // console.log('📂 [usePOSCategories] Categorías recibidas del backend:', data)
 
             if (!data.categorias || data.categorias.length === 0) {
                 console.warn('⚠️ No se encontraron categorías activas en el backend')
@@ -100,7 +100,7 @@ export function usePOSCategories() {
                 ...mappedCategories
             ])
 
-            console.log('✅ [usePOSCategories] Categorías mapeadas:', mappedCategories)
+           // console.log('✅ [usePOSCategories] Categorías mapeadas:', mappedCategories)
         } catch (err: any) {
             const errorMsg = err.message || 'Error al cargar categorías'
             setError(errorMsg)

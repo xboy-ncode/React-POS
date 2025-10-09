@@ -98,15 +98,15 @@ function getCombinedIconMap(): Record<string, string> {
  * Convierte producto del backend al formato del POS
  */
 export function mapProductToPos(backendProduct: any): Product {
-    console.log('🔍 [mapProductToPos] Producto recibido del backend:', {
-        id: backendProduct.id_producto,
-        nombre: backendProduct.nombre,
-        categoria: backendProduct.categoria_nombre,
-        id_categoria: backendProduct.id_categoria,
-        marca: backendProduct.marca_nombre,
-        id_marca: backendProduct.id_marca,
-        precio: backendProduct.precio_unitario
-    });
+    // console.log('🔍 [mapProductToPos] Producto recibido del backend:', {
+    //     id: backendProduct.id_producto,
+    //     nombre: backendProduct.nombre,
+    //     categoria: backendProduct.categoria_nombre,
+    //     id_categoria: backendProduct.id_categoria,
+    //     marca: backendProduct.marca_nombre,
+    //     id_marca: backendProduct.id_marca,
+    //     precio: backendProduct.precio_unitario
+    // });
 
     const categoryMap = getCombinedCategoryMap()
     const categoryIcons = getCombinedIconMap()
@@ -171,16 +171,16 @@ export function mapProductToPos(backendProduct: any): Product {
             productData: mappedProduct
         });
     } else {
-        console.log('✅ [mapProductToPos] Producto mapeado exitosamente:', {
-            id: mappedProduct.id,
-            name: mappedProduct.name,
-            price: mappedProduct.price,
-            category: mappedProduct.categoryName,
-            categoryId: mappedProduct.categoryId,
-            brand: mappedProduct.brandName,
-            brandId: mappedProduct.brandId,
-            stock: mappedProduct.stock
-        });
+        // console.log('✅ [mapProductToPos] Producto mapeado exitosamente:', {
+        //     id: mappedProduct.id,
+        //     name: mappedProduct.name,
+        //     price: mappedProduct.price,
+        //     category: mappedProduct.categoryName,
+        //     categoryId: mappedProduct.categoryId,
+        //     brand: mappedProduct.brandName,
+        //     brandId: mappedProduct.brandId,
+        //     stock: mappedProduct.stock
+        // });
     }
 
     return mappedProduct;
@@ -190,17 +190,17 @@ export function mapProductToPos(backendProduct: any): Product {
  * Convierte producto del POS al formato del backend
  */
 export function mapProductToBackend(posProduct: Partial<Product>) {
-    console.log('🔍 [mapProductToBackend] Producto recibido del POS:', {
-        id: posProduct.id,
-        name: posProduct.name,
-        price: posProduct.price,
-        stock: posProduct.stock,
-        supplier: posProduct.supplier,
-        brandName: posProduct.brandName,
-        brandId: posProduct.brandId,
-        categoryId: posProduct.categoryId,
-        rawProduct: posProduct
-    });
+    // console.log('🔍 [mapProductToBackend] Producto recibido del POS:', {
+    //     id: posProduct.id,
+    //     name: posProduct.name,
+    //     price: posProduct.price,
+    //     stock: posProduct.stock,
+    //     supplier: posProduct.supplier,
+    //     brandName: posProduct.brandName,
+    //     brandId: posProduct.brandId,
+    //     categoryId: posProduct.categoryId,
+    //     rawProduct: posProduct
+    // });
 
     const mappedProduct = {
         nombre: posProduct.name || '',
@@ -238,14 +238,14 @@ export function mapProductToBackend(posProduct: Partial<Product>) {
             mappedData: mappedProduct
         });
     } else {
-        console.log('✅ [mapProductToBackend] Producto mapeado para backend:', {
-            nombre: mappedProduct.nombre,
-            precio: mappedProduct.precio_unitario,
-            stock: mappedProduct.stock,
-            activo: mappedProduct.activo,
-            categoria: mappedProduct.id_categoria,
-            marca: mappedProduct.id_marca
-        });
+        // console.log('✅ [mapProductToBackend] Producto mapeado para backend:', {
+        //     nombre: mappedProduct.nombre,
+        //     precio: mappedProduct.precio_unitario,
+        //     stock: mappedProduct.stock,
+        //     activo: mappedProduct.activo,
+        //     categoria: mappedProduct.id_categoria,
+        //     marca: mappedProduct.id_marca
+        // });
     }
 
     return mappedProduct;
@@ -300,17 +300,17 @@ export async function findProductByBarcode(barcode: string): Promise<Product | n
  * Crea un nuevo producto
  */
 export async function createProduct(product: Partial<Product>): Promise<Product> {
-    console.log('➕ [createProduct] Creando producto:', product.name);
+   // console.log('➕ [createProduct] Creando producto:', product.name);
     
     try {
         const backendData = mapProductToBackend(product)
         
-        console.log('📤 [createProduct] Datos a enviar al backend:', backendData);
+       // console.log('📤 [createProduct] Datos a enviar al backend:', backendData);
         
         const response = await productosService.create(backendData)
 
         const createdProduct = mapProductToPos(response.producto)
-        console.log('✅ [createProduct] Producto creado:', { id: createdProduct.id });
+       // console.log('✅ [createProduct] Producto creado:', { id: createdProduct.id });
 
         return createdProduct
     } catch (error: any) {
@@ -323,17 +323,17 @@ export async function createProduct(product: Partial<Product>): Promise<Product>
  * Actualiza un producto existente
  */
 export async function updateProduct(id: number, product: Partial<Product>): Promise<Product> {
-    console.log('✏️ [updateProduct] Actualizando producto:', { id, name: product.name });
+    //console.log('✏️ [updateProduct] Actualizando producto:', { id, name: product.name });
     
     try {
         const backendData = mapProductToBackend(product)
         
-        console.log('📤 [updateProduct] Datos a enviar al backend:', backendData);
+     //   console.log('📤 [updateProduct] Datos a enviar al backend:', backendData);
         
         const response = await productosService.update(id, backendData)
 
         const updatedProduct = mapProductToPos(response.producto)
-        console.log('✅ [updateProduct] Producto actualizado exitosamente');
+      //  console.log('✅ [updateProduct] Producto actualizado exitosamente');
 
         return updatedProduct
     } catch (error: any) {

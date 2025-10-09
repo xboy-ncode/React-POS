@@ -11,7 +11,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-          <Toaster position="top-center" />
+          <Toaster position="top-center" expand={true}/>
         <App />
       </ThemeProvider>
     </BrowserRouter>

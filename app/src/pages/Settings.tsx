@@ -5,7 +5,10 @@ import { Button } from '../components/ui/button'
 import { Switch } from '../components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Separator } from '../components/ui/separator'
+import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
 import { useTheme } from '@/components/ThemeProvider'
+import { useDynamicCategories } from '../hooks/useDynamicsCategories'
 import {
   Palette,
   Globe,
@@ -18,19 +21,23 @@ import {
   Sun,
   Moon,
   Smartphone,
-  Circle
+  Circle,
+  Plus,
+  Tags,
+  X
 } from 'lucide-react'
 
 export default function Settings() {
   const { t, i18n } = useTranslation()
   const { theme, setTheme, colorTheme, setColorTheme } = useTheme()
+  const { customCategories, addCategory, removeCategory } = useDynamicCategories()
 
   // Settings state
   const [notifications, setNotifications] = useState(() =>
     localStorage.getItem('notifications') === 'true'
   )
   const [autoSave, setAutoSave] = useState(() =>
-    localStorage.getItem('autoSave') !== 'false' // default to true
+    localStorage.getItem('autoSave') !== 'false'
   )
   const [compactMode, setCompactMode] = useState(() =>
     localStorage.getItem('compactMode') === 'true'
@@ -41,6 +48,21 @@ export default function Settings() {
   const [fontSize, setFontSize] = useState(() =>
     localStorage.getItem('fontSize') || 'medium'
   )
+
+  // Category form state
+  const [isAddingCategory, setIsAddingCategory] = useState(false)
+  const [newCategory, setNewCategory] = useState({
+    backendName: '',
+    internalName: '',
+    icon: '📦'
+  })
+
+  // Common emojis for categories
+  const commonEmojis = [
+    '🍕', '🍔', '🥗', '🍜', '🍰', '☕', '🧃', '🍺', '🍷', '🥤',
+    '📱', '💻', '🎮', '📚', '👕', '👟', '💊', '🧴', '🧽', '🔧',
+    '🚗', '🏠', '🐾', '👶', '🎨', '⚽', '🎵', '🎬', '📦', '🛒'
+  ]
 
   // Save settings to localStorage
   useEffect(() => {
@@ -61,7 +83,6 @@ export default function Settings() {
 
   useEffect(() => {
     localStorage.setItem('fontSize', fontSize)
-    // Apply font size class to document
     document.documentElement.classList.remove('text-sm', 'text-base', 'text-lg')
     const fontClass = fontSize === 'small' ? 'text-sm' : fontSize === 'large' ? 'text-lg' : 'text-base'
     document.documentElement.classList.add(fontClass)
@@ -69,8 +90,7 @@ export default function Settings() {
 
   const handleClearData = () => {
     if (window.confirm(t('settings.confirmClearData'))) {
-      // Clear specific app data but keep theme and language preferences
-      const keysToKeep = ['vite-ui-theme', 'lang']
+      const keysToKeep = ['vite-ui-theme', 'lang', 'pos_custom_categories']
       const keysToRemove = []
 
       for (let i = 0; i < localStorage.length; i++) {
@@ -93,7 +113,8 @@ export default function Settings() {
       autoSave,
       compactMode,
       soundEffects,
-      fontSize
+      fontSize,
+      customCategories
     }
 
     const dataStr = JSON.stringify(settings, null, 2)
@@ -109,6 +130,17 @@ export default function Settings() {
     URL.revokeObjectURL(url)
   }
 
+  const handleAddCategory = () => {
+    if (!newCategory.backendName.trim() || !newCategory.internalName.trim()) {
+      alert('Por favor completa todos los campos')
+      return
+    }
+
+    addCategory(newCategory)
+    setNewCategory({ backendName: '', internalName: '', icon: '📦' })
+    setIsAddingCategory(false)
+  }
+
   const getColorThemeColor = (colorTheme: string) => {
     switch (colorTheme) {
       case "orange": return "#ff6b35"
@@ -120,7 +152,6 @@ export default function Settings() {
     }
   }
 
-
   const getThemeIcon = (themeName: string) => {
     switch (themeName) {
       case 'light': return <Sun className="h-4 w-4" />
@@ -130,7 +161,7 @@ export default function Settings() {
     }
   }
 
- const SettingItem = ({ icon, title, description, children }: {
+  const SettingItem = ({ icon, title, description, children }: {
     icon: React.ReactNode
     title: string
     description: string
@@ -258,7 +289,6 @@ export default function Settings() {
             </Select>
           </SettingItem>
 
-
           <Separator />
 
           <SettingItem
@@ -314,6 +344,170 @@ export default function Settings() {
               onCheckedChange={setCompactMode}
             />
           </SettingItem>
+        </CardContent>
+      </Card>
+
+      {/* 🆕 NUEVA SECCIÓN: Product Categories */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Tags className="h-5 w-5" />
+                Categorías de Productos
+              </CardTitle>
+              <CardDescription>
+                Gestiona las categorías personalizadas para tus productos
+              </CardDescription>
+            </div>
+            <Button
+              onClick={() => setIsAddingCategory(!isAddingCategory)}
+              size="sm"
+              variant={isAddingCategory ? "outline" : "default"}
+            >
+              {isAddingCategory ? (
+                <>
+                  <X className="h-4 w-4 mr-2" />
+                  Cancelar
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agregar
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Add Category Form */}
+          {isAddingCategory && (
+            <div className="p-4 border-2 border-primary/20 rounded-lg bg-accent/50 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="backendName">Nombre del Backend</Label>
+                  <Input
+                    id="backendName"
+                    placeholder="Ej: Electronics"
+                    value={newCategory.backendName}
+                    onChange={(e) => setNewCategory({
+                      ...newCategory,
+                      backendName: e.target.value
+                    })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Como viene de la API
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="internalName">Nombre Interno</Label>
+                  <Input
+                    id="internalName"
+                    placeholder="Ej: electronics"
+                    value={newCategory.internalName}
+                    onChange={(e) => setNewCategory({
+                      ...newCategory,
+                      internalName: e.target.value.toLowerCase().replace(/\s+/g, '_')
+                    })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Minúsculas, sin espacios
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="icon">Icono</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="icon"
+                      value={newCategory.icon}
+                      onChange={(e) => setNewCategory({
+                        ...newCategory,
+                        icon: e.target.value
+                      })}
+                      className="w-16 text-center text-2xl"
+                      maxLength={2}
+                    />
+                    <Select
+                      value={newCategory.icon}
+                      onValueChange={(value) => setNewCategory({
+                        ...newCategory,
+                        icon: value
+                      })}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Emoji" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {commonEmojis.map(emoji => (
+                          <SelectItem key={emoji} value={emoji}>
+                            <span className="text-lg">{emoji}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              <Button onClick={handleAddCategory} className="w-full">
+                Guardar Categoría
+              </Button>
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Category List */}
+          <div className="space-y-3">
+            {customCategories.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Tags className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No hay categorías personalizadas</p>
+                <p className="text-sm">Agrega una para empezar</p>
+              </div>
+            ) : (
+              customCategories.map((cat) => (
+                <div
+                  key={cat.backendName}
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{cat.icon}</span>
+                    <div>
+                      <p className="font-medium">{cat.backendName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        → {cat.internalName}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={() => {
+                      if (confirm(`¿Eliminar categoría "${cat.backendName}"?`)) {
+                        removeCategory(cat.backendName)
+                      }
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Help Info */}
+          {customCategories.length > 0 && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-sm text-blue-900 dark:text-blue-100">
+                💡 <strong>Tip:</strong> Las categorías personalizadas se aplicarán automáticamente cuando los productos del backend las usen.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

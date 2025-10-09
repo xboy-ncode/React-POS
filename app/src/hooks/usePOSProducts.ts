@@ -5,25 +5,11 @@ import {
     createProduct,
     updateProduct,
     deleteProduct,
-    validateCartStock
+    validateCartStock,
+    findProductByBarcode
 } from '@/lib/pos-adapter'
 import { toast } from 'sonner'
-
-type Product = {
-    id: number
-    name: string
-    nameKey: string
-    price: number
-    category: string
-    image: string
-    sku?: string
-    stock?: number
-    isAvailable?: boolean
-    productIcon?: string
-    lowStockThreshold?: number
-    supplier?: string
-    location?: string
-}
+import type { Product } from '@/types/pos' // ← Importar tipo compartido
 
 export function usePOSProducts() {
     const [products, setProducts] = useState<Product[]>([])
@@ -46,17 +32,14 @@ export function usePOSProducts() {
         }
     }, [])
 
-    // Cargar al montar
     useEffect(() => {
         fetchProducts()
     }, [fetchProducts])
 
-    // Crear producto
     const handleCreateProduct = async (productData: Partial<Product>) => {
         try {
             const newProduct = await createProduct(productData)
             toast.success('Producto creado exitosamente')
-            // Recargar todos los productos para obtener datos actualizados
             await fetchProducts()
             return newProduct
         } catch (err: any) {
@@ -65,12 +48,10 @@ export function usePOSProducts() {
         }
     }
 
-    // Actualizar producto
     const handleUpdateProduct = async (id: number, productData: Partial<Product>) => {
         try {
             const updatedProduct = await updateProduct(id, productData)
             toast.success('Producto actualizado exitosamente')
-            // Recargar todos los productos para obtener datos actualizados
             await fetchProducts()
             return updatedProduct
         } catch (err: any) {
@@ -79,12 +60,10 @@ export function usePOSProducts() {
         }
     }
 
-    // Eliminar producto
     const handleDeleteProduct = async (id: number) => {
         try {
             await deleteProduct(id)
             toast.success('Producto eliminado exitosamente')
-            // Recargar todos los productos
             await fetchProducts()
         } catch (err: any) {
             toast.error(err.message)
@@ -92,8 +71,7 @@ export function usePOSProducts() {
         }
     }
 
-    // Validar stock del carrito
-    const validateStock = async (cart: Array<{ id: number; quantity: number }>) => {
+    const validateStock = async (cart: Array<{ id: number; quantity: number; name: string; nameKey: string; price: number }>) => {
         const validation = await validateCartStock(cart)
 
         if (!validation.valid) {
@@ -106,6 +84,24 @@ export function usePOSProducts() {
         return validation.valid
     }
 
+    const searchByBarcode = async (barcode: string): Promise<Product | null> => {
+        try {
+            if (!barcode.trim()) return null
+
+            const product = await findProductByBarcode(barcode)
+
+            if (!product) {
+                toast.error('Producto no encontrado')
+                return null
+            }
+
+            return product
+        } catch (err: any) {
+            toast.error('Error al buscar producto')
+            return null
+        }
+    }
+
     return {
         products,
         loading,
@@ -114,6 +110,7 @@ export function usePOSProducts() {
         createProduct: handleCreateProduct,
         updateProduct: handleUpdateProduct,
         deleteProduct: handleDeleteProduct,
-        validateStock
+        validateStock,
+        searchByBarcode
     }
 }

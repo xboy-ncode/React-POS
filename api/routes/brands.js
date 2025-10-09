@@ -1,5 +1,5 @@
 // =============================
-// routes/marcas.js
+// routes/brands.js
 // =============================
 const express = require('express');
 const Joi = require('joi');

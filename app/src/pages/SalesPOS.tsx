@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Plus, ShoppingCart, X, Minus, Package, Loader2 } from 'lucide-react'
+import { Search, Plus, ShoppingCart, X, Minus, Package, Loader2, Barcode } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 
@@ -43,94 +44,71 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import CheckoutDialog from '../components/pos/CheckoutDialog'
 
 import { usePOSProducts } from '../hooks/usePOSProducts'
-import { processCheckout, validateStock } from '../lib/checkout-adapter'
+import { processCheckout } from '../lib/checkout-adapter'
+
 import { toast } from 'sonner'
+import { BrandSelector } from '@/components/BrandSelector'
+import { CategorySelector } from '@/components/CategorySelector'
+import { Switch } from '@/components/ui/switch'
+import { usePOSCategories } from '@/hooks/usePOSCategories'
 
-// Types
-type Category = {
-  id: string
-  name: string
-  nameKey: string
-  icon: string
-}
+import type { Category, Product } from '@/types/pos'
 
-type Product = {
-  id: number
-  name: string
-  nameKey: string
-  price: number
-  category: string
-  image: string
-  sku?: string
-  cost?: number
-  preparationTime?: number
-  ingredients?: string
-  allergens?: string
-  isAvailable?: boolean
-  popularity?: number
-  productIcon?: string
-  stock?: number
-  lowStockThreshold?: number
-  supplier?: string
-  location?: string
-  createdAt?: string
-  updatedAt?: string
-}
 
 type CartItem = Product & {
   quantity: number
 }
 
-const categories: Category[] = [
-  { id: 'all', name: 'Todos', nameKey: 'pos.categories.all', icon: '🏪' },
-  { id: 'alcohol', name: 'Liquor', nameKey: 'pos.categories.liquor', icon: '🍷' },
-  { id: 'beer', name: 'Beer', nameKey: 'pos.categories.beer', icon: '🍺' },
-  { id: 'cigarettes', name: 'Cigarrettes', nameKey: 'pos.categories.cigarettes', icon: '🚬' },
-  { id: 'snacks', name: 'Snacks', nameKey: 'pos.categories.snacks', icon: '🥜' },
-  { id: 'beverages', name: 'Beverages', nameKey: 'pos.categories.beverages', icon: '🥤' },
-  { id: 'candy', name: 'Candy', nameKey: 'pos.categories.candy', icon: '🍬' },
-  { id: 'personal_care', name: 'Personal Care', nameKey: 'pos.categories.personal_care', icon: '🧴' },
-  { id: 'household', name: 'Household', nameKey: 'pos.categories.household', icon: '🧽' },
-  { id: 'phone_cards', name: 'Phone Cards', nameKey: 'pos.categories.phone_cards', icon: '📱' }
+const categories_local: Category[] = [
+  { id: 0, name: 'Todos', nameKey: 'pos.categories.all', icon: '🏪' },
+  { id: 1, name: 'Liquor', nameKey: 'pos.categories.liquor', icon: '🍷' },
+  { id: 2, name: 'Beer', nameKey: 'pos.categories.beer', icon: '🍺' },
+  { id: 3, name: 'Cigarrettes', nameKey: 'pos.categories.cigarettes', icon: '🚬' },
+  { id: 4, name: 'Snacks', nameKey: 'pos.categories.snacks', icon: '🥜' },
+  { id: 5, name: 'Beverages', nameKey: 'pos.categories.beverages', icon: '🥤' },
+  { id: 6, name: 'Candy', nameKey: 'pos.categories.candy', icon: '🍬' },
+  { id: 7, name: 'Personal Care', nameKey: 'pos.categories.personal_care', icon: '🧴' },
+  { id: 8, name: 'Household', nameKey: 'pos.categories.household', icon: '🧽' },
+  { id: 9, name: 'Phone Cards', nameKey: 'pos.categories.phone_cards', icon: '📱' }
 ]
 
-const initialProducts: Product[] = [
-  // Alcohol
-  { id: 1, name: 'Red Wine', nameKey: 'pos.products.red_wine', price: 15.00, category: 'alcohol', image: '/api/placeholder/200/200', sku: 'ALC-RED-001', isAvailable: true, productIcon: '🍷', stock: 5 },
-  { id: 2, name: 'Whiskey', nameKey: 'pos.products.whiskey', price: 25.00, category: 'alcohol', image: '/api/placeholder/200/200', sku: 'ALC-WHI-001', isAvailable: true, productIcon: '🥃', stock: 12 },
+// const initialProducts: Product[] = [
+//   // Alcohol
+//   { id: 1, name: 'Red Wine', nameKey: 'pos.products.red_wine', price: 15.00, category: 'alcohol', image: '/api/placeholder/200/200', sku: 'ALC-RED-001', isAvailable: true, productIcon: '🍷', stock: 5 },
+//   { id: 2, name: 'Whiskey', nameKey: 'pos.products.whiskey', price: 25.00, category: 'alcohol', image: '/api/placeholder/200/200', sku: 'ALC-WHI-001', isAvailable: true, productIcon: '🥃', stock: 12 },
 
-  // Beer
-  { id: 3, name: 'Lager Beer', nameKey: 'pos.products.lager_beer', price: 3.50, category: 'beer', image: '/api/placeholder/200/200', sku: 'BER-LAG-001', isAvailable: true, productIcon: '🍺', stock: 20 },
-  { id: 4, name: 'IPA Beer', nameKey: 'pos.products.ipa_beer', price: 4.20, category: 'beer', image: '/api/placeholder/200/200', sku: 'BER-IPA-001', isAvailable: true, productIcon: '🍻', stock: 7 },
+//   // Beer
+//   { id: 3, name: 'Lager Beer', nameKey: 'pos.products.lager_beer', price: 3.50, category: 'beer', image: '/api/placeholder/200/200', sku: 'BER-LAG-001', isAvailable: true, productIcon: '🍺', stock: 20 },
+//   { id: 4, name: 'IPA Beer', nameKey: 'pos.products.ipa_beer', price: 4.20, category: 'beer', image: '/api/placeholder/200/200', sku: 'BER-IPA-001', isAvailable: true, productIcon: '🍻', stock: 7 },
 
-  // Cigarettes
-  { id: 5, name: 'Marlboro Pack', nameKey: 'pos.products.marlboro_pack', price: 6.00, category: 'cigarettes', image: '/api/placeholder/200/200', sku: 'CIG-MAR-001', isAvailable: true, productIcon: '🚬', stock: 30 },
-  { id: 6, name: 'Camel Pack', nameKey: 'pos.products.camel_pack', price: 5.50, category: 'cigarettes', image: '/api/placeholder/200/200', sku: 'CIG-CAM-001', isAvailable: true, productIcon: '🚬', stock: 2 },
+//   // Cigarettes
+//   { id: 5, name: 'Marlboro Pack', nameKey: 'pos.products.marlboro_pack', price: 6.00, category: 'cigarettes', image: '/api/placeholder/200/200', sku: 'CIG-MAR-001', isAvailable: true, productIcon: '🚬', stock: 30 },
+//   { id: 6, name: 'Camel Pack', nameKey: 'pos.products.camel_pack', price: 5.50, category: 'cigarettes', image: '/api/placeholder/200/200', sku: 'CIG-CAM-001', isAvailable: true, productIcon: '🚬', stock: 2 },
 
-  // Snacks
-  { id: 7, name: 'Potato Chips', nameKey: 'pos.products.potato_chips', price: 2.00, category: 'snacks', image: '/api/placeholder/200/200', sku: 'SNK-POT-001', isAvailable: true, productIcon: '🥔', stock: 15 },
-  { id: 8, name: 'Salted Peanuts', nameKey: 'pos.products.salted_peanuts', price: 1.50, category: 'snacks', image: '/api/placeholder/200/200', sku: 'SNK-PEA-001', isAvailable: true, productIcon: '🥜', stock: 8 },
+//   // Snacks
+//   { id: 7, name: 'Potato Chips', nameKey: 'pos.products.potato_chips', price: 2.00, category: 'snacks', image: '/api/placeholder/200/200', sku: 'SNK-POT-001', isAvailable: true, productIcon: '🥔', stock: 15 },
+//   { id: 8, name: 'Salted Peanuts', nameKey: 'pos.products.salted_peanuts', price: 1.50, category: 'snacks', image: '/api/placeholder/200/200', sku: 'SNK-PEA-001', isAvailable: true, productIcon: '🥜', stock: 8 },
 
-  // Beverages
-  { id: 9, name: 'Coca-Cola', nameKey: 'pos.products.coca_cola', price: 1.80, category: 'beverages', image: '/api/placeholder/200/200', sku: 'BEV-COC-001', isAvailable: true, productIcon: '🥤', stock: 50 },
-  { id: 10, name: 'Orange Juice', nameKey: 'pos.products.orange_juice', price: 2.50, category: 'beverages', image: '/api/placeholder/200/200', sku: 'BEV-ORA-001', isAvailable: true, productIcon: '🧃', stock: 3 },
+//   // Beverages
+//   { id: 9, name: 'Coca-Cola', nameKey: 'pos.products.coca_cola', price: 1.80, category: 'beverages', image: '/api/placeholder/200/200', sku: 'BEV-COC-001', isAvailable: true, productIcon: '🥤', stock: 50 },
+//   { id: 10, name: 'Orange Juice', nameKey: 'pos.products.orange_juice', price: 2.50, category: 'beverages', image: '/api/placeholder/200/200', sku: 'BEV-ORA-001', isAvailable: true, productIcon: '🧃', stock: 3 },
 
-  // Candy
-  { id: 11, name: 'Chocolate Bar', nameKey: 'pos.products.chocolate_bar', price: 1.20, category: 'candy', image: '/api/placeholder/200/200', sku: 'CAN-CHO-001', isAvailable: true, productIcon: '🍫', stock: 18 },
-  { id: 12, name: 'Gummy Bears', nameKey: 'pos.products.gummy_bears', price: 1.00, category: 'candy', image: '/api/placeholder/200/200', sku: 'CAN-GUM-001', isAvailable: true, productIcon: '🧸', stock: 0 },
+//   // Candy
+//   { id: 11, name: 'Chocolate Bar', nameKey: 'pos.products.chocolate_bar', price: 1.20, category: 'candy', image: '/api/placeholder/200/200', sku: 'CAN-CHO-001', isAvailable: true, productIcon: '🍫', stock: 18 },
+//   { id: 12, name: 'Gummy Bears', nameKey: 'pos.products.gummy_bears', price: 1.00, category: 'candy', image: '/api/placeholder/200/200', sku: 'CAN-GUM-001', isAvailable: true, productIcon: '🧸', stock: 0 },
 
-  // Personal Care
-  { id: 13, name: 'Shampoo', nameKey: 'pos.products.shampoo', price: 5.00, category: 'personal_care', image: '/api/placeholder/200/200', sku: 'PER-SHA-001', isAvailable: true, productIcon: '🧴', stock: 6 },
-  { id: 14, name: 'Toothpaste', nameKey: 'pos.products.toothpaste', price: 2.50, category: 'personal_care', image: '/api/placeholder/200/200', sku: 'PER-TOO-001', isAvailable: true, productIcon: '🦷', stock: 25 },
+//   // Personal Care
+//   { id: 13, name: 'Shampoo', nameKey: 'pos.products.shampoo', price: 5.00, category: 'personal_care', image: '/api/placeholder/200/200', sku: 'PER-SHA-001', isAvailable: true, productIcon: '🧴', stock: 6 },
+//   { id: 14, name: 'Toothpaste', nameKey: 'pos.products.toothpaste', price: 2.50, category: 'personal_care', image: '/api/placeholder/200/200', sku: 'PER-TOO-001', isAvailable: true, productIcon: '🦷', stock: 25 },
 
-  // Household
-  { id: 15, name: 'Laundry Detergent', nameKey: 'pos.products.laundry_detergent', price: 8.00, category: 'household', image: '/api/placeholder/200/200', sku: 'HOU-LAU-001', isAvailable: true, productIcon: '🧽', stock: 10 },
-  { id: 16, name: 'Dish Soap', nameKey: 'pos.products.dish_soap', price: 3.00, category: 'household', image: '/api/placeholder/200/200', sku: 'HOU-DIS-001', isAvailable: true, productIcon: '🧼', stock: 1 },
+//   // Household
+//   { id: 15, name: 'Laundry Detergent', nameKey: 'pos.products.laundry_detergent', price: 8.00, category: 'household', image: '/api/placeholder/200/200', sku: 'HOU-LAU-001', isAvailable: true, productIcon: '🧽', stock: 10 },
+//   { id: 16, name: 'Dish Soap', nameKey: 'pos.products.dish_soap', price: 3.00, category: 'household', image: '/api/placeholder/200/200', sku: 'HOU-DIS-001', isAvailable: true, productIcon: '🧼', stock: 1 },
 
-  // Phone Cards
-  { id: 17, name: 'Phone Card $10', nameKey: 'pos.products.phone_card_10', price: 10.00, category: 'phone_cards', image: '/api/placeholder/200/200', sku: 'PHC-010-001', isAvailable: true, productIcon: '📱', stock: 40 },
-  { id: 18, name: 'Phone Card $20', nameKey: 'pos.products.phone_card_20', price: 20.00, category: 'phone_cards', image: '/api/placeholder/200/200', sku: 'PHC-020-001', isAvailable: true, productIcon: '📞', stock: 9 }
-]
+//   // Phone Cards
+//   { id: 17, name: 'Phone Card $10', nameKey: 'pos.products.phone_card_10', price: 10.00, category: 'phone_cards', image: '/api/placeholder/200/200', sku: 'PHC-010-001', isAvailable: true, productIcon: '📱', stock: 40 },
+//   { id: 18, name: 'Phone Card $20', nameKey: 'pos.products.phone_card_20', price: 20.00, category: 'phone_cards', image: '/api/placeholder/200/200', sku: 'PHC-020-001', isAvailable: true, productIcon: '📞', stock: 9 }
+// ]
 
 
 
@@ -160,31 +138,36 @@ function ProductEditor({
   onSave,
   onClose,
   open,
-  onOpenChange
+  onOpenChange,
+  categories
 }: {
   product: Product | null
   onSave: (product: Partial<Product>) => void
   onClose: () => void
   open: boolean
   onOpenChange: (open: boolean) => void
+  categories: Category[]
 }) {
   const { t } = useTranslation()
-
-
-
 
   const [form, setForm] = useState<Partial<Product>>({
     name: '',
     price: 0,
-    category: '',
+    categoryId: undefined,
+    categoryName: '',
     sku: '',
+    barcode: '',
+    stock: 0,
     cost: 0,
     preparationTime: 0,
     ingredients: '',
     allergens: '',
     isAvailable: true,
-    productIcon: ''
+    productIcon: '',
+    supplier: '',
+    lowStockThreshold: 5
   })
+
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -194,14 +177,19 @@ function ProductEditor({
       setForm({
         name: '',
         price: 0,
-        category: '',
+        categoryId: undefined,
+        categoryName: '',
         sku: '',
+        barcode: '',
+        stock: 0,
         cost: 0,
         preparationTime: 0,
         ingredients: '',
         allergens: '',
         isAvailable: true,
-        productIcon: ''
+        productIcon: '',
+        supplier: '',
+        lowStockThreshold: 5
       })
     }
   }, [product, open])
@@ -214,19 +202,23 @@ function ProductEditor({
   }
 
   async function save() {
-    if (!form.name?.trim() || !form.category || (form.price || 0) <= 0) {
+    if (!form.name?.trim() || !form.categoryId || (form.price || 0) <= 0) {
       return
     }
 
     try {
       setSaving(true)
-      // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 800))
+
+      const categoryPrefix = form.categoryName?.substring(0, 3).toUpperCase() || 'PRD'
 
       onSave({
         ...form,
         name: form.name?.trim(),
-        sku: form.sku?.trim().toUpperCase() || `${form.category?.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-3)}`,
+        sku: form.sku?.trim().toUpperCase() || `${categoryPrefix}-${Date.now().toString().slice(-3)}`,
+        barcode: form.barcode?.trim() || '',
+        stock: form.stock || 0,
+        supplier: form.supplier?.trim() || '',
         nameKey: `pos.products.${form.name?.toLowerCase().replace(/\s+/g, '_')}` || '',
         id: product?.id || Date.now()
       })
@@ -239,22 +231,7 @@ function ProductEditor({
     }
   }
 
-  const isValid = form.name?.trim() && form.category && (form.price || 0) > 0
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  const isValid = form.name?.trim() && form.categoryId && (form.price || 0) > 0
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -296,6 +273,21 @@ function ProductEditor({
                     placeholder={t('inventory.sku_placeholder', 'e.g. ALC-RED-001')}
                     className="font-mono uppercase"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="barcode">{t('inventory.barcode', 'Código de Barras')}</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="barcode"
+                      value={form.barcode || ''}
+                      onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                      placeholder={t('inventory.barcode_placeholder', 'Ej: 7501234567890')}
+                      className="font-mono"
+                    />
+                    <Button variant="outline" size="icon" type="button">
+                      <Barcode className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -339,7 +331,7 @@ function ProductEditor({
                   type="number"
                   min="0"
                   value={form.lowStockThreshold || ''}
-                  onChange={(e) => setForm({ ...form, lowStockThreshold: parseInt(e.target.value) || 10 })}
+                  onChange={(e) => setForm({ ...form, lowStockThreshold: parseInt(e.target.value) || 5 })}
                   placeholder={t('inventory.threshold_placeholder', 'e.g. 5')}
                 />
               </div>
@@ -352,38 +344,31 @@ function ProductEditor({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="category">{t('inventory.category')}</Label>
-                <Select
-                  value={form.category || ''}
-                  onValueChange={(value) => setForm({ ...form, category: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('inventory.select_category', 'Select category')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.slice(1).map(category => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.icon} {t(category.nameKey, category.name)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="supplier">{t('inventory.supplier')}</Label>
-                <Input
-                  id="supplier"
-                  value={form.supplier || ''}
-                  onChange={(e) => setForm({ ...form, supplier: e.target.value })}
-                  placeholder={t('inventory.supplier_placeholder', 'e.g. Local Distributor')}
+                <CategorySelector
+                  value={form.categoryId}
+                  categoryName={form.categoryName}
+                  onChange={(id, name) => {
+                    setForm({
+                      ...form,
+                      categoryId: id,
+                      categoryName: name
+                    })
+                  }}
                 />
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="location">{t('inventory.location')}</Label>
-                <Input
-                  id="location"
-                  value={form.location || ''}
-                  onChange={(e) => setForm({ ...form, location: e.target.value })}
-                  placeholder={t('inventory.location_placeholder', 'e.g. Shelf A1-001')}
+                <Label htmlFor="supplier">{t('inventory.supplier')}</Label>
+                <BrandSelector
+                  value={form.brandId}          
+                  brandName={form.brandName}     
+                  onChange={(id, name) => {
+                    setForm({
+                      ...form,
+                      brandId: id,     
+                      brandName: name  
+                    })
+                  }}
                 />
               </div>
             </div>
@@ -415,10 +400,10 @@ function ProductEditor({
 }
 
 
-
 export default function POSSystem() {
   const { t } = useTranslation()
 
+  const { categories, loading: loadingCategories } = usePOSCategories()
   const {
     products,
     loading,
@@ -430,12 +415,103 @@ export default function POSSystem() {
     validateStock: validateCartStock
   } = usePOSProducts()
 
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [selectedCategory, setSelectedCategory] = useState<number>(0)
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
   const [showAddProduct, setShowAddProduct] = useState<boolean>(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [showCheckout, setShowCheckout] = useState<boolean>(false)
+  const [barcodeInput, setBarcodeInput] = useState('')
+  const barcodeInputRef = useRef<HTMLInputElement | null>(null)
+  const barcodeBufferRef = useRef('')
+  const barcodeTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+
+
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      const matchesCategory = selectedCategory === 0 || product.categoryId === selectedCategory
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase())
+      return matchesCategory && matchesSearch
+    })
+  }, [products, selectedCategory, searchQuery])
+
+
+
+
+
+
+
+
+
+
+
+  const handleBarcodeSearch = useCallback(async (barcode: string) => {
+    if (!barcode.trim()) return
+
+    const product = products.find(p => p.barcode === barcode)
+    if (!product) {
+      toast.error('Producto no encontrado')
+      return
+    }
+
+    const validation = await validateCartStock([
+      {
+        id: product.id,
+        name: product.name,
+        nameKey: product.nameKey,
+        price: product.price,
+        quantity: 1
+      }
+    ])
+
+    if (validation) {
+      addToCart(product)
+      setBarcodeInput('')
+    } else {
+      toast.error((', '))
+    }
+  }, [products, validateCartStock])
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return
+      }
+
+      if (e.key === 'Enter' && barcodeBufferRef.current) {
+        e.preventDefault()
+        const scannedCode = barcodeBufferRef.current.trim()
+        barcodeBufferRef.current = ''
+        handleBarcodeSearch(scannedCode)
+        return
+      }
+
+      if (e.key.length === 1) {
+        barcodeBufferRef.current += e.key
+      }
+
+      if (barcodeTimerRef.current) {
+        clearTimeout(barcodeTimerRef.current)
+      }
+      barcodeTimerRef.current = setTimeout(() => {
+        barcodeBufferRef.current = ''
+      }, 200)
+    }
+
+    window.addEventListener('keypress', handleKeyPress)
+    return () => {
+      window.removeEventListener('keypress', handleKeyPress)
+      if (barcodeTimerRef.current) {
+        clearTimeout(barcodeTimerRef.current)
+      }
+    }
+  }, [handleBarcodeSearch]) // 👈 aquí agregas la dependencia
+
+
 
   if (loading) {
     return (
@@ -497,7 +573,10 @@ export default function POSSystem() {
       // Validar stock antes de procesar
       const cartItems = cart.map(item => ({
         id: item.id,
-        quantity: item.quantity
+        quantity: item.quantity,
+        name: item.name,
+        nameKey: item.nameKey,
+        price: item.price
       }))
 
       const isValid = await validateCartStock(cartItems)
@@ -525,6 +604,12 @@ export default function POSSystem() {
       throw error
     }
   }
+
+
+
+
+
+
 
 
   const addToCart = (product: Product) => {
@@ -581,14 +666,6 @@ export default function POSSystem() {
     setCart(prevCart => prevCart.filter(item => item.id !== productId))
   }
 
-  const filteredProducts = products.filter(product => {
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory
-    const productName = t(product.nameKey, product.name)
-    const matchesSearch = productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku?.toLowerCase().includes(searchQuery.toLowerCase())
-    const isAvailable = product.isAvailable !== false
-    return matchesCategory && matchesSearch && isAvailable
-  })
 
   const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0)
 
@@ -597,13 +674,16 @@ export default function POSSystem() {
     setShowAddProduct(false)
   }
 
+
+
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <Card className="p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h1 className="text-3xl font-bold tracking-tight">{t('pos.title')}</h1>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h1 className="text-3xl font-bold tracking-tight">{t('pos.title')}</h1>
             <Button
               className="gap-2"
               onClick={() => {
@@ -614,13 +694,33 @@ export default function POSSystem() {
               <Plus className="w-4 h-4" />
               {t('pos.buttons.add_product')}
             </Button>
-            <div className="relative">
+          </div>
+
+          {/* Barra de búsqueda con código de barras */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder={t('pos.search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-full sm:w-[300px]"
+                className="pl-10"
+              />
+            </div>
+            <div className="relative w-full sm:w-64">
+              <Barcode className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+              <Input
+                ref={barcodeInputRef}
+                placeholder={t('pos.barcode_placeholder', 'Escanear código de barras')}
+                value={barcodeInput}
+                onChange={(e) => setBarcodeInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleBarcodeSearch(barcodeInput)
+                  }
+                }}
+                className="pl-10 font-mono"
               />
             </div>
           </div>
@@ -629,25 +729,22 @@ export default function POSSystem() {
 
       {/* First Row: Categories and Cart */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Categories - Takes 2/3 of the width */}
-        <div className="lg:col-span-2">
-          <Card className="p-6">
-            <h2 className="text-lg font-semibold mb-4">{t('pos.sections.categories')}</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
-              {categories.map(category => (
-                <Button
-                  key={category.id}
-                  variant={selectedCategory === category.id ? "default" : "outline"}
-                  onClick={() => setSelectedCategory(category.id)}
-                  className="flex flex-col h-auto py-4 px-3 gap-2"
-                >
-                  <span className="text-2xl">{category.icon}</span>
-                  <span className="text-xs font-medium">{t(category.nameKey, category.name)}</span>
-                </Button>
-              ))}
-            </div>
-          </Card>
+        {/* Categories */}
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {categories.map((cat) => (
+            <Button
+              key={cat.id}
+              variant={selectedCategory === cat.id ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedCategory(cat.id)}
+              className="flex-shrink-0 gap-2"
+            >
+              <span className="text-lg">{cat.icon}</span>
+              <span>{cat.name}</span>
+            </Button>
+          ))}
         </div>
+
 
         {/* Cart - Takes 1/3 of the width */}
         <div className="lg:col-span-1">
@@ -768,6 +865,7 @@ export default function POSSystem() {
                 <TableRow className="bg-muted/50">
                   <TableHead className="font-semibold">{t('pos.product_title')}</TableHead>
                   <TableHead className="font-semibold">{t('app.sku')}</TableHead>
+                  <TableHead className="font-semibold">{t('pos.barcode', 'Código Barras')}</TableHead>
                   <TableHead className="font-semibold">{t('pos.category')}</TableHead>
                   <TableHead className="font-semibold">{t('app.price')}</TableHead>
                   <TableHead className="font-semibold">{t('app.stock')}</TableHead>
@@ -790,8 +888,14 @@ export default function POSSystem() {
                       </div>
                     </TableCell>
                     <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <Barcode className="h-3 w-3 text-muted-foreground" />
+                        <span className="font-mono text-sm">{product.barcode || '-'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant="outline" className="text-xs">
-                        {t(`pos.categories.${product.category}`, categories.find(c => c.id === product.category)?.name || product.category)}
+                        {product.categoryName || 'Sin categoría'}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-semibold">
@@ -880,6 +984,7 @@ export default function POSSystem() {
         onClose={handleCloseEditor}
         open={showAddProduct}
         onOpenChange={setShowAddProduct}
+        categories={categories}
       />
 
     </div>

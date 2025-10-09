@@ -581,6 +581,7 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
             t('app.save')
           )}
         </Button>
+        
       </div>
     </DialogContent>
   )

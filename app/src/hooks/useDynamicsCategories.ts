@@ -40,7 +40,7 @@ export function useDynamicCategories() {
     const updated = [...customCategories, newCategory]
     saveCategories(updated)
 
-    console.log('✅ Nueva categoría agregada localmente:', newCategory)
+   // console.log('✅ Nueva categoría agregada localmente:', newCategory)
 
     // Enviar al backend
     try {
@@ -64,7 +64,7 @@ export function useDynamicCategories() {
       }
 
       const data = await res.json()
-      console.log('🌐 Categoría guardada en la base de datos:', data.categoria)
+    //  console.log('🌐 Categoría guardada en la base de datos:', data.categoria)
       return data.categoria
     } catch (error) {
       console.error('⚠️ Error al sincronizar con backend:', error)
@@ -77,7 +77,7 @@ export function useDynamicCategories() {
   const removeCategory = (backendName: string) => {
     const updated = customCategories.filter(c => c.backendName !== backendName)
     saveCategories(updated)
-    console.log('🗑️ Categoría eliminada localmente:', backendName)
+   // console.log('🗑️ Categoría eliminada localmente:', backendName)
   }
 
   const updateCategory = (backendName: string, updates: Partial<CategoryMapping>) => {
@@ -85,7 +85,7 @@ export function useDynamicCategories() {
       c.backendName === backendName ? { ...c, ...updates } : c
     )
     saveCategories(updated)
-    console.log('✏️ Categoría actualizada localmente:', backendName)
+    //console.log('✏️ Categoría actualizada localmente:', backendName)
   }
 
   return {

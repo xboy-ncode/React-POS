@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../components/ui/badge'
 import { Label } from '../components/ui/label'
 
-import { Search, Plus, Edit2, Trash2, User, CreditCard, Loader2, AlertCircle } from 'lucide-react'
+import { Search, Plus, Edit2, Trash2, User, CreditCard, Loader2, AlertCircle, MapPin } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../components/ui/alert-dialog'
 import { toast } from 'sonner'
 
@@ -22,7 +22,7 @@ type Customer = {
   apellido_materno?: string
   nombreCompleto?: string
   direccion?: string
-  telefono?: string
+  telefono?: string 
   correo?: string
   fecha_registro?: string
   fuente_datos?: 'RENIEC' | 'Manual'
@@ -293,7 +293,7 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
     apellido_paterno: '',
     apellido_materno: '',
     direccion: '',
-    telefono: '',
+    telefono: undefined,
     correo: ''
   })
 
@@ -312,7 +312,7 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
         apellido_paterno: '',
         apellido_materno: '',
         direccion: '',
-        telefono: '',
+        telefono: undefined,
         correo: ''
       })
       setDniInput('')
@@ -384,7 +384,7 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
           apellido_paterno: form.apellido_paterno?.trim() || null,
           apellido_materno: form.apellido_materno?.trim() || null,
           direccion: form.direccion?.trim() || null,
-          telefono: form.telefono?.trim() || null,
+          telefono: form.telefono? Number(form.telefono) : null,
           correo: form.correo?.trim() || null,
           fuente_datos: form.fuente_datos || 'Manual',
           datos_completos: form.datos_completos || null
@@ -515,7 +515,7 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
         </div>
 
         {/* Address */}
-        {/* <div className="space-y-2">
+         <div className="space-y-3 mt-4">
           <Label htmlFor="direccion" className="flex items-center space-x-1">
           <MapPin className="h-3 w-3" />
           <span>{t('app.address')}</span>
@@ -528,7 +528,7 @@ function CustomerEditor({ item, onClose }: { item: Customer | null, onClose: () 
           className="uppercase"
           readOnly={loadingReniec}
           />
-        </div> */}
+        </div>
 
           </Card>
         {/* Contact Information */}

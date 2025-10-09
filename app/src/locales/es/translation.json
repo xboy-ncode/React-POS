@@ -96,6 +96,7 @@
     "basic_information": "Información Básica",
     "user_name_placeholder": "Juan Pérez",
     "user_email_placeholder": "usuario@ejemplo.com",
+    "address_placeholder": "Av. Siempre Viva 123, Lima, Perú",
     "user_is_active": "Usuario está activo",
     "generated_password": "Contraseña Generada",
     "password_instructions": "Guarda esta contraseña de forma segura. El usuario la necesitará para iniciar sesión por primera vez.",

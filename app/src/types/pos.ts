@@ -4,6 +4,7 @@ export type Category = {
     name: string
     nameKey: string
     icon: string
+    isLocal?: boolean
 }
 
 export type Product = {
@@ -13,8 +14,8 @@ export type Product = {
     price: number
     categoryId?: number
     categoryName?: string
-    brandId?: number  
-    brandName?: string 
+    brandId?: number
+    brandName?: string
     image: string
     sku?: string
     barcode?: string
@@ -27,7 +28,7 @@ export type Product = {
     productIcon?: string
     stock?: number
     lowStockThreshold?: number
-    supplier?: string 
+    supplier?: string
     location?: string
     createdAt?: string
     updatedAt?: string

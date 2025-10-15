@@ -10,7 +10,7 @@ import TopProducts from '../components/dashboard/TopProducts'
 import RecentTransactions from '../components/dashboard/RecentTransactions'
 import SalesTrendChart from '../components/dashboard/SalesTrendChart'
 import WeeklyPerformance from '../components/dashboard/WeeklyPerformance'
-import QuickActions from '../components/dashboard/QuickActions'
+// import QuickActions from '../components/dashboard/QuickActions'
 
 import {
   useDashboardStats,
@@ -56,7 +56,7 @@ export default function Dashboard() {
               value={`$${stats.ventasHoy.toFixed(2)}`}
               icon={CreditCardFilled}
               color="blue"
-              change={12}
+              change={2}
             />
             <StatCard
               title={t('app.inventory')}
@@ -77,9 +77,9 @@ export default function Dashboard() {
       </Card>
 
       {/* 🔹 Quick Actions */}
-      <Card className="p-4">
+      {/* <Card className="p-4">
         <QuickActions />
-      </Card>
+      </Card> */}
 
       {/* 🔹 Charts Section */}
       <Card className="p-4">

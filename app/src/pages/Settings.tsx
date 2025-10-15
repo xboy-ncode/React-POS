@@ -8,7 +8,7 @@ import { Separator } from '../components/ui/separator'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { useTheme } from '@/components/ThemeProvider'
-import { useDynamicCategories } from '../hooks/useDynamicsCategories'
+import { useCategories } from '../hooks/useCategories'
 import {
   Palette,
   Globe,
@@ -30,7 +30,7 @@ import {
 export default function Settings() {
   const { t, i18n } = useTranslation()
   const { theme, setTheme, colorTheme, setColorTheme } = useTheme()
-  const { customCategories, addCategory, removeCategory } = useDynamicCategories()
+const { customCategories, addCategoryLocal, addCategoryToApi, removeRemoteCategory } = useCategories()
 
   // Settings state
   const [notifications, setNotifications] = useState(() =>
@@ -136,7 +136,7 @@ export default function Settings() {
       return
     }
 
-    addCategory(newCategory)
+    addCategoryToApi(newCategory)
     setNewCategory({ backendName: '', internalName: '', icon: '📦' })
     setIsAddingCategory(false)
   }
@@ -486,7 +486,7 @@ export default function Settings() {
                   <Button
                     onClick={() => {
                       if (confirm(`¿Eliminar categoría "${cat.backendName}"?`)) {
-                        removeCategory(cat.backendName)
+                        removeRemoteCategory(cat.backendName)
                       }
                     }}
                     variant="ghost"

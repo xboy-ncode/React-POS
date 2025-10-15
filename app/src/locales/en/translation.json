@@ -175,14 +175,26 @@
     "barcode": "Barcode",
     "barcode_placeholder": "Ej: 7501234567890"
   },
-  "categories": {
-    "electronics": "Electronics",
-    "computers": "Computers",
-    "tablets": "Tablets",
-    "audio": "Audio",
-    "accessories": "Accessories",
-    "gaming": "Gaming"
-  },
+    "categories": {
+      "all": "All",
+      "snack": "Snack",
+      "pizza": "Pizza",
+      "hamburger": "Hamburger",
+      "coffee": "Coffee",
+      "drink": "Drink",
+      "pasta": "Pasta",
+      "dessert": "Dessert",
+      "salad": "Salad",
+      "liquor": "Liquor",
+      "beer": "Beer",
+      "cigarettes": "Cigarettes",
+      "snacks": "Snacks",
+      "beverages": "Beverages",
+      "candy": "Candy",
+      "personal_care": "Personal Care",
+      "household": "Household",
+      "phone_cards": "Phone Cards"
+    },
   "pos": {
     "title": "Point of Sale",
     "search_placeholder": "Search menu...",
@@ -217,26 +229,7 @@
       "saving": "Saving...",
       "update": "Update"
     },
-    "categories": {
-      "all": "All",
-      "snack": "Snack",
-      "pizza": "Pizza",
-      "hamburger": "Hamburger",
-      "coffee": "Coffee",
-      "drink": "Drink",
-      "pasta": "Pasta",
-      "dessert": "Dessert",
-      "salad": "Salad",
-      "liquor": "Liquor",
-      "beer": "Beer",
-      "cigarettes": "Cigarettes",
-      "snacks": "Snacks",
-      "beverages": "Beverages",
-      "candy": "Candy",
-      "personal_care": "Personal Care",
-      "household": "Household",
-      "phone_cards": "Phone Cards"
-    },
+
     "products": {
       "red_wine": "Red Wine",
       "whiskey": "Whiskey",

@@ -31,6 +31,46 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 });
 
+// GET - Obtener categoría por nombre (usando query param)
+router.get('/by-name', authenticateToken, async (req, res) => {
+    try {
+        const { nombre } = req.query;
+        if (!nombre) {
+            return res.status(400).json({ error: 'El parámetro "nombre" es requerido' });
+        }
+
+        const result = await pool.query('SELECT * FROM categorias WHERE nombre = $1', [nombre]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Categoría no encontrada' });
+        }
+
+        res.json({ categoria: result.rows[0] });
+    } catch (error) {
+        console.error('Error al obtener categoría por nombre:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+// GET - Obtener categoría por ID
+router.get('/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            'SELECT * FROM categorias WHERE id_categoria = $1',
+            [id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Categoría no encontrada' });
+        }
+        res.json({ categoria: result.rows[0] });
+    } catch (error) {
+        console.error('Error al obtener categoría:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+
+
 // POST - Crear categoría
 router.post('/', authenticateToken, async (req, res) => {
     try {

@@ -113,7 +113,7 @@ export async function createUser(userData: Partial<User> & { password?: string }
             rol: mapRoleToAPI(userData.role || 'cashier')
         }
 
-        console.log('Creando usuario - Enviando a API:', payload)
+       // console.log('Creando usuario - Enviando a API:', payload)
 
         const response = await api('/users', {
             method: 'POST',
@@ -144,7 +144,7 @@ export async function updateUser(id: string, userData: Partial<User> & { passwor
             payload.rol = mapRoleToAPI(userData.role)
         }
 
-        console.log('Actualizando usuario - Enviando a API:', payload)
+       // console.log('Actualizando usuario - Enviando a API:', payload)
 
         const response = await api(`/users/${id}`, {
             method: 'PUT',
@@ -165,7 +165,7 @@ export async function deleteUser(id: string): Promise<void> {
             method: 'DELETE'
         })
     } catch (error: any) {
-        console.error('Error deleting user:', error)
+      //  console.error('Error deleting user:', error)
         throw new Error(error.message || 'Error al eliminar usuario')
     }
 }

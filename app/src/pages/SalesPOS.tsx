@@ -53,24 +53,19 @@ import { Switch } from '@/components/ui/switch'
 import { usePOSCategories } from '@/hooks/usePOSCategories'
 
 import type { Category, Product } from '@/types/pos'
+import { ProductsDataTable } from '@/components/pos/ProductDataTable'
+
+import { RefreshCw, AlertCircle } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+
+import { CategorySyncStatus } from '@/components/CategorySyncStatus'
 
 
 type CartItem = Product & {
   quantity: number
 }
 
-const categories_local: Category[] = [
-  { id: 0, name: 'Todos', nameKey: 'pos.categories.all', icon: '🏪' },
-  { id: 1, name: 'Liquor', nameKey: 'pos.categories.liquor', icon: '🍷' },
-  { id: 2, name: 'Beer', nameKey: 'pos.categories.beer', icon: '🍺' },
-  { id: 3, name: 'Cigarrettes', nameKey: 'pos.categories.cigarettes', icon: '🚬' },
-  { id: 4, name: 'Snacks', nameKey: 'pos.categories.snacks', icon: '🥜' },
-  { id: 5, name: 'Beverages', nameKey: 'pos.categories.beverages', icon: '🥤' },
-  { id: 6, name: 'Candy', nameKey: 'pos.categories.candy', icon: '🍬' },
-  { id: 7, name: 'Personal Care', nameKey: 'pos.categories.personal_care', icon: '🧴' },
-  { id: 8, name: 'Household', nameKey: 'pos.categories.household', icon: '🧽' },
-  { id: 9, name: 'Phone Cards', nameKey: 'pos.categories.phone_cards', icon: '📱' }
-]
+
 
 // const initialProducts: Product[] = [
 //   // Alcohol
@@ -345,14 +340,9 @@ function ProductEditor({
                 <CategorySelector
                   value={form.categoryId}
                   categoryName={form.categoryName}
-                  onChange={(id, name) => {
-                    setForm({
-                      ...form,
-                      categoryId: id,
-                      categoryName: name
-                    })
-                  }}
+                  onChange={(id, name) => setForm({ ...form, categoryId: id, categoryName: name })}
                 />
+
               </div>
 
               <div className="space-y-2">
@@ -401,7 +391,15 @@ function ProductEditor({
 export default function POSSystem() {
   const { t } = useTranslation()
 
-  const { categories, loading: loadingCategories } = usePOSCategories()
+  const {
+    categories,
+    loading: loadingCategories,
+    error: errorCategories,
+    getCategoryBackendId,
+    syncAllLocalCategories,
+    hasLocalCategories
+  } = usePOSCategories()
+
   const {
     products,
     loading,
@@ -545,11 +543,40 @@ export default function POSSystem() {
 
   const handleSaveProduct = async (productData: Partial<Product>) => {
     try {
-      if (editingProduct) {
-        await handleUpdateProductAPI(editingProduct.id, productData)
-      } else {
-        await handleCreateProductAPI(productData)
+      // Verificar si la categoría es local y sincronizarla primero
+      const category = categories.find(cat => cat.id === productData.categoryId)
+
+      let finalCategoryId = productData.categoryId
+
+      if (category?.isLocal && category.name) {
+        toast.loading('Sincronizando categoría con el servidor...')
+
+        const backendId = await getCategoryBackendId(category.name)
+
+        toast.dismiss()
+
+        if (!backendId) {
+          toast.error('No se pudo sincronizar la categoría. Por favor, inténtalo de nuevo.')
+          return
+        }
+
+        finalCategoryId = backendId
+        toast.success('Categoría sincronizada correctamente')
       }
+
+      // Crear objeto con el ID de categoría correcto
+      const finalProductData = {
+        ...productData,
+        categoryId: finalCategoryId
+      }
+
+      // Usar tus funciones existentes
+      if (editingProduct) {
+        await handleUpdateProductAPI(editingProduct.id, finalProductData)
+      } else {
+        await handleCreateProductAPI(finalProductData)
+      }
+
       setEditingProduct(null)
       setShowAddProduct(false)
     } catch (error) {
@@ -677,18 +704,35 @@ export default function POSSystem() {
       {/* Header */}
       <Card className="p-6">
         <div className="flex flex-col gap-4">
+          {/* Alert para categorías locales pendientes */}
+          {hasLocalCategories && (
+            <Alert variant="default" className="bg-amber-50 border-amber-200">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800 text-sm">
+                <div className="flex items-center justify-between">
+                  <span>
+                    Tienes categorías locales sin sincronizar. Se sincronizarán automáticamente al crear productos.
+                  </span>
+<CategorySyncStatus />
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h1 className="text-3xl font-bold tracking-tight">{t('pos.title')}</h1>
-            <Button
-              className="gap-2"
-              onClick={() => {
-                setEditingProduct(null)
-                setShowAddProduct(true)
-              }}
-            >
-              <Plus className="w-4 h-4" />
-              {t('pos.buttons.add_product')}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                className="gap-2"
+                onClick={() => {
+                  setEditingProduct(null)
+                  setShowAddProduct(true)
+                }}
+              >
+                <Plus className="w-4 h-4" />
+                {t('pos.buttons.add_product')}
+              </Button>
+            </div>
           </div>
 
           {/* Barra de búsqueda con código de barras */}
@@ -725,153 +769,22 @@ export default function POSSystem() {
       {/* Main Grid: Sidebar | Content | Cart */}
       <div className="grid grid-cols-1 lg:grid-cols-14 gap-4">
 
-        {/* Categories Sidebar - 2 columns */}
-        <div className="lg:col-span-2">
-          <Card className="p-3 sticky top-4">
-            <h3 className="text-sm font-semibold mb-3 px-2">{t('app.categories', 'Categorías')}</h3>
-            <div className="flex flex-col gap-1">
-              {categories.map((cat) => (
-                <Button
-                  key={cat.id}
-                  variant={selectedCategory === cat.id ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className="justify-start gap-2 h-9"
-                >
-                  <span className="text-base">{cat.icon}</span>
-                  <span className="text-xs">{cat.name}</span>
-                </Button>
-              ))}
-            </div>
-          </Card>
-        </div>
 
-        {/* Products Table - 9 columns */}
-        <div className="lg:col-span-9">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between mb-3">
-                <CardTitle className="text-lg">{t('pos.products_title')}</CardTitle>
-                <Badge variant="secondary" className="text-sm">
-                  {filteredProducts.length} {t('app.total')}
-                </Badge>
-              </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder={t('pos.search_placeholder')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="font-semibold">{t('pos.product_title')}</TableHead>
-                      <TableHead className="font-semibold">{t('app.sku')}</TableHead>
-                      <TableHead className="font-semibold">{t('pos.barcode', 'Código Barras')}</TableHead>
-                      <TableHead className="font-semibold">{t('pos.category')}</TableHead>
-                      <TableHead className="font-semibold">{t('app.price')}</TableHead>
-                      <TableHead className="font-semibold">{t('app.stock')}</TableHead>
-                      <TableHead className="font-semibold">{t('app.status')}</TableHead>
-                      <TableHead className="font-semibold text-right">{t('app.actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredProducts.map((product) => (
-                      <TableRow key={product.id} className="hover:bg-muted/50">
-                        <TableCell>
-                          <div className="font-medium">{t(product.nameKey, product.name)}</div>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm font-medium">
-                          <div className="flex items-center space-x-2">
-                            <Box className="h-3 w-3 text-muted-foreground" />
-                            <span>{product.sku}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Barcode className="h-3 w-3 text-muted-foreground" />
-                            <span className="font-mono text-sm">{product.barcode || '-'}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {product.categoryName || 'Sin categoría'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-semibold">
-                          ${product.price.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="font-semibold">
-                          <div className="flex items-center space-x-2">
-                            <span>{product.stock || 0}</span>
-                            {(product.stock || 0) <= (product.lowStockThreshold || 10) && (
-                              <AlertTriangle className="h-3 w-3 text-destructive" />
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{getStockStatus(product, t)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end space-x-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => addToCart(product)}
-                              title={t('pos.add_to_cart')}
-                            >
-                              <ShoppingCart className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditingProduct(product)
-                                setShowAddProduct(true)
-                              }}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>{t('pos.delete_product')}</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    {t('pos.delete_product_confirmation', {
-                                      name: t(product.nameKey, product.name),
-                                      sku: product.sku
-                                    })}
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>{t('app.cancel')}</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDeleteProduct(product.id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  >
-                                    {t('app.delete')}
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+
+        {/* Products Table - 11 columns */}
+        <div className="lg:col-span-11">
+          <ProductsDataTable
+            products={filteredProducts}
+            categories={categories}
+            onAddToCart={addToCart}
+            onEditProduct={(product) => {
+              setEditingProduct(product)
+              setShowAddProduct(true)
+            }}
+            onDeleteProduct={handleDeleteProduct}
+            getStockStatus={getStockStatus}
+            t={t}
+          />
         </div>
 
         {/* Cart Sidebar - 3 columns */}

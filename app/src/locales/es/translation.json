@@ -175,14 +175,26 @@
             "barcode": "Código de Barras",
     "barcode_placeholder": "Ej: 7501234567890"
   },
-  "categories": {
-    "electronics": "Electrónicos",
-    "computers": "Computadoras",
-    "tablets": "Tablets",
-    "audio": "Audio",
-    "accessories": "Accesorios",
-    "gaming": "Gaming"
-  },
+    "categories": {
+      "all": "Todo",
+      "snack": "Aperitivos",
+      "pizza": "Pizza",
+      "hamburger": "Hamburguesa",
+      "coffee": "Café",
+      "drink": "Bebida",
+      "pasta": "Pasta",
+      "dessert": "Postre",
+      "salad": "Ensalada",
+      "liquor": "Licores",
+      "beer": "Cerveza",
+      "cigarettes": "Cigarrillos",
+      "snacks": "Snacks",
+      "beverages": "Bebidas",
+      "candy": "Dulces",
+      "personal_care": "Cuidado Personal",
+      "household": "Hogar",
+      "phone_cards": "Tarjetas Telefónicas"
+    },
   "pos": {
     "title": "Punto de Venta",
     "search_placeholder": "Buscar en el menú...",
@@ -216,26 +228,6 @@
       "checkout": "Pagar",
       "saving": "Guardando...",
       "update": "Actualizar"
-    },
-    "categories": {
-      "all": "Todo",
-      "snack": "Aperitivos",
-      "pizza": "Pizza",
-      "hamburger": "Hamburguesa",
-      "coffee": "Café",
-      "drink": "Bebida",
-      "pasta": "Pasta",
-      "dessert": "Postre",
-      "salad": "Ensalada",
-      "liquor": "Licores",
-      "beer": "Cerveza",
-      "cigarettes": "Cigarrillos",
-      "snacks": "Snacks",
-      "beverages": "Bebidas",
-      "candy": "Dulces",
-      "personal_care": "Cuidado Personal",
-      "household": "Hogar",
-      "phone_cards": "Tarjetas Telefónicas"
     },
     "products": {
       "red_wine": "Vino Tinto",

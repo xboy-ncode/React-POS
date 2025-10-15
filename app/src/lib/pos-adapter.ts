@@ -1,6 +1,36 @@
 // lib/pos-adapter.ts
 import { productosService } from '@/lib/api-client'
 import type { Product } from '@/types/pos'
+import { useTranslation } from 'react-i18next'
+
+
+
+export function useCategoryAdapter() {
+    const { t } = useTranslation()
+
+    // Mapeo de categorías del backend a categorías internas del POS
+    const normalizeCategory = (rawCategory?: string): string => {
+        if (!rawCategory) return 'other'
+        return DEFAULT_CATEGORY_MAP[rawCategory.trim()] || 'other'
+    }
+
+    // Traducción según idioma actual
+    const translateCategory = (categoryKey: string): string => {
+        return t(`categories.${categoryKey}`, categoryKey)
+    }
+
+    // Obtener ícono por categoría
+    const getCategoryIcon = (categoryKey: string): string => {
+        return DEFAULT_CATEGORY_ICONS[categoryKey] || '📦'
+    }
+
+    return {
+        normalizeCategory,
+        translateCategory,
+        getCategoryIcon,
+    }
+}
+
 
 
 
@@ -8,19 +38,141 @@ import type { Product } from '@/types/pos'
 // ACTUALIZADO: Basado en los logs, el backend envía categorías en inglés
 // Categorías por defecto del sistema
 const DEFAULT_CATEGORY_MAP: Record<string, string> = {
-    'BEBIDAS': 'beverages',
-    'LICORES': 'alcohol',
-    'CERVEZAS': 'beer',
-    'Beer': 'beer',
-    'Beverages': 'beverages',
-    'Alcohol': 'alcohol',
-    'Cigarettes': 'cigarettes',
-    'Snacks': 'snacks',
-    'Candy': 'candy',
-    'Personal Care': 'personal_care',
-    'Household': 'household',
-    'Phone Cards': 'phone_cards',
+    // BEBIDAS / BEVERAGES
+    'BEBIDAS': 'Bebidas',
+    'Bebidas': 'Bebidas',
+    'bebidas': 'Bebidas',
+    'BEBIDA': 'Bebidas',
+    'Bebida': 'Bebidas',
+    'bebida': 'Bebidas',
+    'BEVERAGES': 'Bebidas',
+    'Beverages': 'Bebidas',
+    'beverages': 'Bebidas',
+    'DRINKS': 'Bebidas',
+    'Drinks': 'Bebidas',
+    'drinks': 'Bebidas',
+
+    // LICORES / ALCOHOL
+    'LICORES': 'Licores',
+    'Licores': 'Licores',
+    'licores': 'Licores',
+    'LICOR': 'Licores',
+    'Licor': 'Licores',
+    'licor': 'Licores',
+    'ALCOHOL': 'Alcohol',
+    'Alcohol': 'Alcohol',
+    'alcohol': 'Alcohol',
+    'SPIRITS': 'Licores',
+    'Spirits': 'Licores',
+    'spirits': 'Licores',
+
+    // CERVEZA / BEER
+    'CERVEZAS': 'Cerveza',
+    'Cerveza': 'Cerveza',
+    'cerveza': 'Cerveza',
+    'CERVEZA': 'Cerveza',
+    'BEER': 'Cerveza',
+    'Beer': 'Cerveza',
+    'beer': 'Cerveza',
+
+    // CIGARROS / CIGARETTES
+    'CIGARROS': 'Cigarros',
+    'Cigarros': 'Cigarros',
+    'cigarros': 'Cigarros',
+    'CIGARRO': 'Cigarros',
+    'Cigarro': 'Cigarros',
+    'cigarro': 'Cigarros',
+    'CIGARRILLOS': 'Cigarros',
+    'Cigarrillos': 'Cigarros',
+    'cigarrillos': 'Cigarros',
+    'CIGARETTES': 'Cigarros',
+    'Cigarettes': 'Cigarros',
+    'cigarettes': 'Cigarros',
+    'SMOKES': 'Cigarros',
+    'Smokes': 'Cigarros',
+    'smokes': 'Cigarros',
+
+    // SNACKS / BOTANAS / BOCADILLOS
+    'SNACKS': 'Snacks',
+    'Snacks': 'Snacks',
+    'snacks': 'Snacks',
+    'BOCADILLOS': 'Snacks',
+    'Bocadillos': 'Snacks',
+    'bocadillos': 'Snacks',
+    'BOTANAS': 'Snacks',
+    'Botanas': 'Snacks',
+    'botanas': 'Snacks',
+    'APPETIZERS': 'Snacks',
+    'Appetizers': 'Snacks',
+    'appetizers': 'Snacks',
+
+    // DULCES / GOLOSINAS / CANDY
+    'DULCES': 'Dulces',
+    'Dulces': 'Dulces',
+    'dulces': 'Dulces',
+    'GOLOSINAS': 'Dulces',
+    'Golosinas': 'Dulces',
+    'golosinas': 'Dulces',
+    'CANDY': 'Dulces',
+    'Candy': 'Dulces',
+    'candy': 'Dulces',
+    'SWEETS': 'Dulces',
+    'Sweets': 'Dulces',
+    'sweets': 'Dulces',
+    'CONFITES': 'Dulces',
+    'Confites': 'Dulces',
+    'confites': 'Dulces',
+
+    // CUIDADO PERSONAL / PERSONAL CARE
+    'CUIDADO PERSONAL': 'Cuidado Personal',
+    'Cuidado Personal': 'Cuidado Personal',
+    'cuidado personal': 'Cuidado Personal',
+    'HIGIENE': 'Cuidado Personal',
+    'Higiene': 'Cuidado Personal',
+    'higiene': 'Cuidado Personal',
+    'PERSONAL CARE': 'Cuidado Personal',
+    'Personal Care': 'Cuidado Personal',
+    'personal care': 'Cuidado Personal',
+    'HYGIENE': 'Cuidado Personal',
+    'Hygiene': 'Cuidado Personal',
+    'hygiene': 'Cuidado Personal',
+
+    // HOGAR / HOUSEHOLD
+    'HOGAR': 'Hogar',
+    'Hogar': 'Hogar',
+    'hogar': 'Hogar',
+    'LIMPIEZA': 'Hogar',
+    'Limpieza': 'Hogar',
+    'limpieza': 'Hogar',
+    'HOUSEHOLD': 'Hogar',
+    'Household': 'Hogar',
+    'household': 'Hogar',
+    'HOME': 'Hogar',
+    'Home': 'Hogar',
+    'home': 'Hogar',
+    'HOUSE': 'Hogar',
+    'House': 'Hogar',
+    'house': 'Hogar',
+
+    // TARJETAS TELEFÓNICAS / PHONE CARDS
+    'TARJETAS': 'Tarjetas Telefónicas',
+    'Tarjetas': 'Tarjetas Telefónicas',
+    'tarjetas': 'Tarjetas Telefónicas',
+    'TARJETAS TELEFÓNICAS': 'Tarjetas Telefónicas',
+    'Tarjetas Telefónicas': 'Tarjetas Telefónicas',
+    'tarjetas telefónicas': 'Tarjetas Telefónicas',
+    'PHONE CARDS': 'Tarjetas Telefónicas',
+    'Phone Cards': 'Tarjetas Telefónicas',
+    'phone cards': 'Tarjetas Telefónicas',
+    'CALLING CARDS': 'Tarjetas Telefónicas',
+    'Calling Cards': 'Tarjetas Telefónicas',
+    'calling cards': 'Tarjetas Telefónicas',
+    'RECHARGE CARDS': 'Tarjetas Telefónicas',
+    'Recharge Cards': 'Tarjetas Telefónicas',
+    'recharge cards': 'Tarjetas Telefónicas',
 }
+
+
 
 const DEFAULT_CATEGORY_ICONS: Record<string, string> = {
     'beverages': '🥤',
@@ -113,7 +265,7 @@ export function mapProductToPos(backendProduct: any): Product {
 
     const categoryKey = backendProduct.categoria_nombre?.trim() || null
     const category = categoryKey && categoryMap[categoryKey] ? categoryMap[categoryKey] : 'uncategorized'
-    
+
     if (!categoryKey) {
         console.warn('⚠️ [mapProductToPos] Producto sin categoría asignada:', {
             productId: backendProduct.id_producto,
@@ -202,6 +354,11 @@ export function mapProductToBackend(posProduct: Partial<Product>) {
     //     rawProduct: posProduct
     // });
 
+        // Validar categoryId
+    if (!posProduct.categoryId || posProduct.categoryId <= 0) {
+        throw new Error('Categoría inválida. Por favor, selecciona una categoría válida.')
+    }
+
     const mappedProduct = {
         nombre: posProduct.name || '',
         precio_unitario: posProduct.price ?? 0,
@@ -211,10 +368,11 @@ export function mapProductToBackend(posProduct: Partial<Product>) {
         activo: posProduct.isAvailable !== false,
         id_categoria: posProduct.categoryId || undefined,
         id_marca: posProduct.brandId || undefined, // ← USAR brandId en lugar de undefined directo
+        
     };
 
     const warnings = [];
-    
+
     if (!mappedProduct.nombre) {
         warnings.push('Nombre vacío');
     }
@@ -298,47 +456,71 @@ export async function findProductByBarcode(barcode: string): Promise<Product | n
 
 /**
  * Crea un nuevo producto
+ * ACTUALIZADO: Incluye validación adicional de categoryId
  */
 export async function createProduct(product: Partial<Product>): Promise<Product> {
-   // console.log('➕ [createProduct] Creando producto:', product.name);
-    
+    // console.log('➕ [createProduct] Creando producto:', product.name);
+
     try {
+        // Validación adicional antes de mapear
+        if (!product.categoryId || product.categoryId <= 0) {
+            throw new Error('La categoría debe ser sincronizada con el servidor antes de crear el producto.')
+        }
+
         const backendData = mapProductToBackend(product)
-        
-       // console.log('📤 [createProduct] Datos a enviar al backend:', backendData);
-        
+
+        // console.log('📤 [createProduct] Datos a enviar al backend:', backendData);
+
         const response = await productosService.create(backendData)
 
         const createdProduct = mapProductToPos(response.producto)
-       // console.log('✅ [createProduct] Producto creado:', { id: createdProduct.id });
+        // console.log('✅ [createProduct] Producto creado:', { id: createdProduct.id });
 
         return createdProduct
     } catch (error: any) {
         console.error('❌ [createProduct] Error:', error)
-        throw new Error(error.response?.data?.error || 'Error al crear el producto')
+        
+        // Mensajes de error más específicos
+        if (error.message?.includes('categoría')) {
+            throw error // Re-lanzar el error de categoría
+        }
+        
+        throw new Error(error.response?.data?.error || error.message || 'Error al crear el producto')
     }
 }
 
 /**
  * Actualiza un producto existente
+ * ACTUALIZADO: Incluye validación adicional de categoryId
  */
 export async function updateProduct(id: number, product: Partial<Product>): Promise<Product> {
     //console.log('✏️ [updateProduct] Actualizando producto:', { id, name: product.name });
-    
+
     try {
+        // Validación adicional antes de mapear
+        if (product.categoryId !== undefined && product.categoryId <= 0) {
+            throw new Error('La categoría debe ser sincronizada con el servidor antes de actualizar el producto.')
+        }
+
         const backendData = mapProductToBackend(product)
-        
-     //   console.log('📤 [updateProduct] Datos a enviar al backend:', backendData);
-        
+
+        //   console.log('📤 [updateProduct] Datos a enviar al backend:', backendData);
+
         const response = await productosService.update(id, backendData)
 
         const updatedProduct = mapProductToPos(response.producto)
-      //  console.log('✅ [updateProduct] Producto actualizado exitosamente');
+        //  console.log('✅ [updateProduct] Producto actualizado exitosamente');
 
         return updatedProduct
     } catch (error: any) {
         console.error('❌ [updateProduct] Error:', error)
-        throw new Error(error.response?.data?.error || 'Error al actualizar el producto')
+        
+        // Mensajes de error más específicos
+        if (error.message?.includes('categoría')) {
+            throw error // Re-lanzar el error de categoría
+        }
+        
+        throw new Error(error.response?.data?.error || error.message || 'Error al actualizar el producto')
     }
 }
 

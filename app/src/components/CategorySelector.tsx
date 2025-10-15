@@ -1,123 +1,125 @@
-import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from './ui/command'
-import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
-import { Check, ChevronsUpDown, Plus } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
-import { api } from '@/lib/api'
+// components/CategorySelector.tsx
+import { usePOSCategories } from '@/hooks/usePOSCategories'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { AlertTriangle, Cloud, HardDrive } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
-export function CategorySelector({ 
-    value, 
-    onChange, 
-    categoryName 
-}: { 
-    value?: number; 
-    onChange: (id: number, name: string) => void;
-    categoryName?: string;
-}) {
-    const [open, setOpen] = useState(false)
-    const [categorias, setCategorias] = useState<{ id_categoria: number; nombre: string; descripcion?: string }[]>([])
-    const [loading, setLoading] = useState(false)
+interface CategorySelectorProps {
+    value?: number
+    categoryName?: string
+    onChange: (id: number | undefined, name: string) => void
+    disabled?: boolean
+    showLocalIndicator?: boolean
+}
 
-    const fetchCategorias = async () => {
-        try {
-            setLoading(true)
-            const res = await api('/categories')
-            setCategorias(res.categorias || [])
-        } catch (err) {
-            console.error(err)
-            toast.error('Error al cargar categorías')
-        } finally {
-            setLoading(false)
+export function CategorySelector({
+    value,
+    categoryName,
+    onChange,
+    disabled = false,
+    showLocalIndicator = true
+}: CategorySelectorProps) {
+    const { t } = useTranslation()
+    const { categories, loading } = usePOSCategories()
+
+    const handleValueChange = (stringValue: string) => {
+        const numericValue = parseInt(stringValue, 10)
+        const selectedCategory = categories.find(cat => cat.id === numericValue)
+
+        if (selectedCategory) {
+            onChange(numericValue, selectedCategory.name)
         }
     }
 
-    useEffect(() => {
-        fetchCategorias()
-    }, [])
-
-    // Intentar encontrar la categoría por nombre si no hay value pero sí categoryName
-    useEffect(() => {
-        if (!value && categoryName && categorias.length > 0) {
-            // Buscar en las categorías de la BD comparando con categoria_nombre del producto
-            const foundCategory = categorias.find(
-                (c) => c.nombre.toLowerCase().trim() === categoryName.toLowerCase().trim()
-            )
-            if (foundCategory) {
-                onChange(foundCategory.id_categoria, foundCategory.nombre)
-            }
-        }
-    }, [categoryName, categorias, value])
-
-    const createCategory = async (nombre: string) => {
-        try {
-            const res = await api('/categories', {
-                method: 'POST',
-                body: JSON.stringify({ nombre }),
-            })
-            toast.success('Categoría agregada')
-            await fetchCategorias()
-            onChange(res.categoria.id_categoria, res.categoria.nombre)
-        } catch (err: any) {
-            console.error('Error al crear categoría:', err)
-            toast.error(err?.message || 'No se pudo crear la categoría')
-        }
+    if (loading) {
+        return (
+            <Select disabled>
+                <SelectTrigger>
+                    <SelectValue placeholder={t('inventory.loading_categories', 'Cargando categorías...')} />
+                </SelectTrigger>
+            </Select>
+        )
     }
 
-    const selectedName = value 
-        ? categorias.find((c) => c.id_categoria === value)?.nombre 
-        : categoryName
+    const selectedCategory = categories.find(cat => cat.id === value)
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button variant="outline" role="combobox" className="w-full justify-between">
-                    {selectedName || 'Selecciona una categoría'}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-[300px]">
-                <Command>
-                    <CommandInput placeholder="Buscar o crear categoría..." />
-                    <CommandEmpty>
-                        <Button
-                            variant="ghost"
-                            className="w-full justify-start text-sm"
-                            onClick={() => {
-                                const input = document.querySelector<HTMLInputElement>(
-                                    '[placeholder="Buscar o crear categoría..."]'
-                                )
-                                if (input && input.value.trim()) {
-                                    createCategory(input.value.trim())
-                                    setOpen(false)
-                                }
-                            }}
-                        >
-                            <Plus className="mr-2 h-4 w-4" /> Crear nueva categoría
-                        </Button>
-                    </CommandEmpty>
-                    <CommandGroup>
-                        {categorias.map((cat) => (
-                            <CommandItem
-                                key={cat.id_categoria}
-                                onSelect={() => {
-                                    onChange(cat.id_categoria, cat.nombre)
-                                    setOpen(false)
-                                }}
-                            >
-                                <Check
-                                    className={cn(
-                                        'mr-2 h-4 w-4',
-                                        cat.id_categoria === value ? 'opacity-100' : 'opacity-0'
-                                    )}
-                                />
-                                {cat.nombre}
-                            </CommandItem>
+        <div className="space-y-2">
+            <Select
+                value={value?.toString()}
+                onValueChange={handleValueChange}
+                disabled={disabled}
+            >
+                <SelectTrigger>
+                    <SelectValue placeholder={t('inventory.select_category')}>
+                        {/* {selectedCategory && (
+                            <div className="flex items-center gap-2">
+                                <span>{selectedCategory.icon}</span>
+                                <span>{t(selectedCategory.nameKey, selectedCategory.name)}</span>
+                                {showLocalIndicator && selectedCategory.isLocal && (
+                                    <Badge
+                                        variant="outline"
+                                        className="ml-auto text-xs bg-amber-50 text-amber-700 border-amber-300"
+                                    >
+                                        <HardDrive className="w-3 h-3 mr-1" />
+                                        Local
+                                    </Badge>
+                                )}
+                            </div>
+                        )} */}
+                    </SelectValue>
+                </SelectTrigger>
+
+                <SelectContent>
+                    {categories
+                        .filter(cat => cat.id !== 0) // Excluir "Todos"
+                        .map((category) => (
+                            <SelectItem key={category.id} value={category.id.toString()}>
+                                <div className="flex items-center gap-2 w-full">
+                                    <span>{category.icon}</span>
+                                    <span className="flex-1">{t(category.nameKey, category.name)}</span>
+
+                                    {/* {showLocalIndicator && (
+                                        category.isLocal ? (
+                                            <Badge
+                                                variant="outline"
+                                                className="ml-2 text-xs bg-amber-50 text-amber-700 border-amber-300"
+                                            >
+                                                <HardDrive className="w-3 h-3 mr-1" />
+                                                Local
+                                            </Badge>
+                                        ) : (
+                                            <Badge
+                                                variant="outline"
+                                                className="ml-2 text-xs bg-blue-50 text-blue-700 border-blue-300"
+                                            >
+                                                <Cloud className="w-3 h-3 mr-1" />
+                                                Servidor
+                                            </Badge>
+                                        )
+                                    )} */}
+                                </div>
+                            </SelectItem>
                         ))}
-                    </CommandGroup>
-                </Command>
-            </PopoverContent>
-        </Popover>
+                </SelectContent>
+            </Select>
+
+            {/* Advertencia si la categoría seleccionada es local */}
+            {showLocalIndicator && selectedCategory?.isLocal && (
+                <div className="flex items-center gap-2 text-amber-600 text-xs p-2 bg-amber-50 border border-amber-200 rounded">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                    <span>
+                        {t('inventory.local_category_warning', 'Esta categoría se sincronizará con el servidor al guardar el producto')}
+                    </span>
+                </div>
+            )}
+        </div>
     )
 }

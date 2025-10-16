@@ -25,7 +25,7 @@ export default function Dashboard() {
   const { t } = useTranslation()
 
   const { stats, loading: statsLoading, error: statsError } = useDashboardStats()
-  const { data: inventoryData, loading: inventoryLoading } = useInventoryStatus()
+  const { loading: inventoryLoading } = useInventoryStatus()
   const { data: topProducts, loading: productsLoading } = useTopProducts()
   const { data: transactions, loading: transactionsLoading } = useRecentTransactions()
   const { data: salesTrend, loading: trendLoading } = useSalesTrend()
@@ -53,7 +53,7 @@ export default function Dashboard() {
           <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
             <StatCard
               title={`${t('app.sales')} — Today`}
-              value={`$${stats.ventasHoy.toFixed(2)}`}
+              value={`S/${stats.ventasHoy.toFixed(2)}`}
               icon={CreditCardFilled}
               color="blue"
               change={2}

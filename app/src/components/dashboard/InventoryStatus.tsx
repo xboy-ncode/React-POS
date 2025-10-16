@@ -1,15 +1,18 @@
 // components/dashboard/InventoryStatus.tsx
 
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
-import { Package } from "lucide-react";
+import { Import, Package } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { useInventory } from "@/hooks/useInventory";
+import { useNavigate } from "react-router-dom";
+
 
 export default function InventoryStatus({ animated = true }: { animated?: boolean }) {
     const { t } = useTranslation();
     const { stats, loading } = useInventory();
+    const navigate = useNavigate();
 
     // Construimos los datos dinámicamente desde los stats
     const data = [
@@ -90,7 +93,7 @@ export default function InventoryStatus({ animated = true }: { animated?: boolea
             )}
 
             <div className="mt-6 flex justify-end">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => navigate('/inventory')}>
                     {t('dashboard.view_details', 'Ver detalles')}
                 </Button>
             </div>

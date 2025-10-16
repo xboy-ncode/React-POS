@@ -26,7 +26,7 @@ type Product = {
 
 // Mapear productos de la API al formato del frontend
 const mapProductFromAPI = (apiProduct: any): Product => {
-    console.log('Mapeando producto de API:', apiProduct) // Debug
+   // console.log('Mapeando producto de API:', apiProduct) // Debug
     
     const price = parseFloat(apiProduct.precio_unitario || 0)
     const cost = parseFloat(apiProduct.precio_compra || 0)
@@ -170,7 +170,7 @@ export async function getProduct(id: number): Promise<Product> {
 export async function createProduct(productData: Partial<Product>): Promise<Product> {
     try {
         const apiData = mapProductToAPIForCreate(productData)
-        console.log('Creando producto - Enviando a API:', apiData) // Debug
+      //  console.log('Creando producto - Enviando a API:', apiData) // Debug
         
         const response = await api('/products', {
             method: 'POST',
@@ -188,7 +188,7 @@ export async function createProduct(productData: Partial<Product>): Promise<Prod
 export async function updateProduct(id: number, productData: Partial<Product>): Promise<Product> {
     try {
         const apiData = mapProductToAPIForUpdate(productData)
-        console.log('Actualizando producto - Enviando a API:', apiData) // Debug
+      //  console.log('Actualizando producto - Enviando a API:', apiData) // Debug
         
         const response = await api(`/products/${id}`, {
             method: 'PUT',

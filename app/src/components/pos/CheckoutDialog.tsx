@@ -4,6 +4,7 @@ import { X, Minus, Plus, CreditCard, User, Loader2, AlertCircle, Receipt, FileTe
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
@@ -379,6 +380,7 @@ export default function CheckoutDialog({
                     <DialogTitle className="text-2xl font-bold">
                         {t('pos.checkout.title')}
                     </DialogTitle>
+                    <DialogDescription className="mt-2 mb-4 text-sm text-muted-foreground"/>
                 </DialogHeader>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
@@ -606,7 +608,7 @@ export default function CheckoutDialog({
                                                 {t(item.nameKey, item.name)}
                                             </h4>
                                             <p className="text-xs text-muted-foreground">
-                                                ${item.price.toFixed(2)} × {item.quantity}
+                                                /S {item.price.toFixed(2)} × {item.quantity}
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -637,7 +639,7 @@ export default function CheckoutDialog({
                                             </Button>
                                         </div>
                                         <div className="font-semibold text-sm">
-                                            ${(item.price * item.quantity).toFixed(2)}
+                                            S/ {(item.price * item.quantity).toFixed(2)}
                                         </div>
                                     </div>
                                 ))}
@@ -646,15 +648,15 @@ export default function CheckoutDialog({
                             <div className="space-y-2 border-t pt-4">
                                 <div className="flex justify-between text-sm">
                                     <span>{t('pos.checkout.subtotal')}:</span>
-                                    <span>${subtotal.toFixed(2)}</span>
+                                    <span>S/ {subtotal.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span>{t('pos.checkout.tax')} (18%):</span>
-                                    <span>${tax.toFixed(2)}</span>
+                                    <span>S/ {tax.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between text-lg font-bold border-t pt-2">
                                     <span>{t('pos.checkout.total')}:</span>
-                                    <span>${total.toFixed(2)}</span>
+                                    <span>S/ {total.toFixed(2)}</span>
                                 </div>
                             </div>
                         </Card>
@@ -695,7 +697,7 @@ export default function CheckoutDialog({
                                             <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
                                                 <span className="font-medium">{t('pos.checkout.change')}:</span>
                                                 <span className="text-xl font-bold text-green-600">
-                                                    ${change.toFixed(2)}
+                                                    S/ {change.toFixed(2)}
                                                 </span>
                                             </div>
                                         )}

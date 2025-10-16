@@ -3,10 +3,12 @@ import { DollarSign, Receipt, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { SaleDetailsDialog } from "@/components/sales/SaleDetailsDialog"
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 type Transaction = {
-    id: string;
+    id: number;
     customer: string;
     amount: number;
     time: string;
@@ -19,17 +21,20 @@ type Props = {
 };
 
 export default function RecentTransactions({
+
+
     data = [
-        { id: "#TXN001", customer: "John Doe", amount: 45.67, time: "2 min ago", status: "completed" },
-        { id: "#TXN002", customer: "Sarah Smith", amount: 23.45, time: "5 min ago", status: "completed" },
-        { id: "#TXN003", customer: "Mike Johnson", amount: 78.9, time: "8 min ago", status: "pending" },
-        { id: "#TXN004", customer: "Anna Davis", amount: 156.32, time: "12 min ago", status: "completed" },
-        { id: "#TXN005", customer: "Luis Fernández", amount: 92.15, time: "15 min ago", status: "completed" },
-        { id: "#TXN006", customer: "María López", amount: 51.2, time: "20 min ago", status: "pending" },
+        { id: 1, customer: "John Doe", amount: 45.67, time: "2 min ago", status: "completed" },
+        { id: 2, customer: "Sarah Smith", amount: 23.45, time: "5 min ago", status: "completed" },
+        { id: 3, customer: "Mike Johnson", amount: 78.9, time: "8 min ago", status: "pending" },
+        { id: 4, customer: "Anna Davis", amount: 156.32, time: "12 min ago", status: "completed" },
+        { id: 5, customer: "Luis Fernández", amount: 92.15, time: "15 min ago", status: "completed" },
+        { id: 6, customer: "María López", amount: 51.2, time: "20 min ago", status: "pending" },
     ],
     animated = true,
 }: Props) {
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const [scrollIndex, setScrollIndex] = useState(0);
 
     const visibleData = data.slice(scrollIndex, scrollIndex + 5);
@@ -39,8 +44,16 @@ export default function RecentTransactions({
 
     const scrollUp = () => setScrollIndex((i) => Math.max(0, i - 1));
     const scrollDown = () => setScrollIndex((i) => Math.min(data.length - 5, i + 1));
+    const [openDialog, setOpenDialog] = useState(false)
+    const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null)
+
+    const handleOpenDetails = (id: number) => {
+        setSelectedSaleId(id)
+        setOpenDialog(true)
+    }
 
     return (
+        <>
         <div
             className={cn(
                 "bg-background rounded-xl border p-6 shadow-sm transition-all duration-700",
@@ -88,6 +101,7 @@ export default function RecentTransactions({
                         variant="link"
                         size="sm"
                         className="px-0 h-auto text-sm font-medium"
+                        onClick={() => navigate('/movements')}
                     >
                         {t("app.view_all")}
                     </Button>
@@ -98,6 +112,7 @@ export default function RecentTransactions({
                 {visibleData.map((tx, index) => (
                     <div
                         key={tx.id}
+                        onClick={() => handleOpenDetails(tx.id)}
                         className={cn(
                             "flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-all duration-200",
                             animated && "animate-in fade-in slide-in-from-bottom-2"
@@ -126,7 +141,7 @@ export default function RecentTransactions({
                         <div className="text-right">
                             <p className="font-bold text-green-600 dark:text-green-400 text-base">
                                 {/* Change your currency as you wish */}
-                            S/{tx.amount.toFixed(2)}
+                                S/{tx.amount.toFixed(2)}
                             </p>
                             {/* Transaction Status (Is not necessary if you dont manage status on your transaction's database) */}
                             {/* <span
@@ -168,5 +183,16 @@ export default function RecentTransactions({
                 </div>
             )} */}
         </div>
+
+<SaleDetailsDialog
+  saleId={selectedSaleId}
+  open={openDialog}
+  onOpenChange={setOpenDialog}
+/>
+
+
+</>
+
     );
+    
 }

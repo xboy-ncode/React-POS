@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 type SalesTrendChartProps = {
     data: { time: string; sales: number }[];
@@ -18,6 +19,7 @@ type SalesTrendChartProps = {
 };
 
 export default function SalesTrendChart({ data, animated = true }: SalesTrendChartProps) {
+    const { t } = useTranslation();
     return (
         <div
             className={cn(
@@ -28,7 +30,7 @@ export default function SalesTrendChart({ data, animated = true }: SalesTrendCha
         >
             <div className="flex items-center mb-5">
                 <TrendingUp className="w-6 h-6 text-primary mr-2" />
-                <h3 className="text-lg font-semibold text-foreground">Sales Trend Today</h3>
+                <h3 className="text-lg font-semibold text-foreground">{t('dashboard.sales_trend')}</h3>
             </div>
             <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">

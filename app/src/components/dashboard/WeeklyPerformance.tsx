@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { BarChart as BarChartIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 type Props = {
     data?: { day: string; sales: number }[];
@@ -29,6 +30,7 @@ export default function WeeklyPerformance({
     ],
     animated = true,
 }: Props) {
+    const { t } = useTranslation();
     return (
         <div
             className={cn(
@@ -39,7 +41,7 @@ export default function WeeklyPerformance({
         >
             <div className="flex items-center mb-5">
                 <BarChartIcon className="w-6 h-6 text-primary mr-2" />
-                <h3 className="text-lg font-semibold text-foreground">Weekly Performance</h3>
+                <h3 className="text-lg font-semibold text-foreground">{t('dashboard.weekly_performance')}</h3>
             </div>
             <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">

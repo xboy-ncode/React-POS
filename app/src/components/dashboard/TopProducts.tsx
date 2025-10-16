@@ -2,6 +2,7 @@
 
 import { TrendingUp, TrendingDown, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 type Product = {
     name: string;
@@ -24,6 +25,7 @@ export default function TopProducts({
     ],
     animated = true,
 }: Props) {
+    const {t} = useTranslation();
     return (
         <div
             className={cn(
@@ -34,7 +36,7 @@ export default function TopProducts({
         >
             <div className="flex items-center mb-5">
                 <Store className="w-6 h-6 text-primary mr-2" />
-                <h3 className="text-lg font-semibold text-foreground">Top Products Today</h3>
+                <h3 className="text-lg font-semibold text-foreground">{t('dashboard.top_products')}</h3>
             </div>
             <div className="space-y-3">
                 {data.map((product, index) => (
@@ -48,26 +50,12 @@ export default function TopProducts({
                             </div>
                             <div>
                                 <p className="font-semibold text-foreground">{product.name}</p>
-                                <p className="text-sm text-muted-foreground">{product.sold} units sold</p>
+                                {/* <p className="text-sm text-muted-foreground">{product.sold} {t('dashboard.sold_units')}</p> */}
                             </div>
                         </div>
                         <div className="text-right">
-                            <p className="font-bold text-green-600 text-base">{product.revenue}</p>
+                            <p className="font-bold text-green-600 text-base">S/{product.revenue}</p>
                             <div className="flex items-center justify-end">
-                                {product.trend >= 0 ? (
-                                    <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                                ) : (
-                                    <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
-                                )}
-                                <span
-                                    className={cn(
-                                        "text-xs",
-                                        product.trend >= 0 ? "text-green-600" : "text-red-600"
-                                    )}
-                                >
-                                    {product.trend >= 0 ? "+" : ""}
-                                    {product.trend}%
-                                </span>
                             </div>
                         </div>
                     </div>

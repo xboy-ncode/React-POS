@@ -8,30 +8,9 @@ import {
     deleteProduct as deleteProductAPI,
     updateProductStock
 } from '@/lib/inventory-adapter'
+import { useTranslation } from 'react-i18next'
+import type { Product } from '@/types/pos'
 
-type Product = {
-    id: number
-    name: string
-    nameKey: string
-    price: number
-    category: string
-    image: string
-    sku?: string
-    description?: string
-    cost?: number
-    preparationTime?: number
-    ingredients?: string
-    allergens?: string
-    isAvailable?: boolean
-    popularity?: number
-    productIcon?: string
-    stock?: number
-    lowStockThreshold?: number
-    supplier?: string
-    location?: string
-    createdAt?: string
-    updatedAt?: string
-}
 
 export function useInventory() {
     const [products, setProducts] = useState<Product[]>([])

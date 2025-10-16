@@ -122,8 +122,35 @@
     "select_customer_placeholder": "Search by DNI, name, phone or email...",
     "or_add_new": "or add a new customer",
     "try_again": "Try again",
-    "movements": "Movements"
+    "movements": "Movements",
+    "view_all": "View All"
   },
+"dashboard": {
+    "title": "Dashboard",
+    "description": "Overview of sales, inventory and customer activity",
+    "total_sales": "Total Sales",
+    "total_sales_description": "Total revenue generated from sales",
+    "total_orders": "Total Orders",
+    "total_orders_description": "Number of orders processed",
+    "total_customers": "Total Customers",
+    "total_customers_description": "Number of unique customers",
+    "sales_over_time": "Sales Over Time",
+    "orders_over_time": "Orders Over Time",
+    "top_selling_products": "Top Selling Products",
+    "low_stock_products": "Low Stock Products",
+    "recent_orders": "Recent Orders",
+    "recent_customers": "Recent Customers",
+    "no_data": "No data available",
+      "sales_trend": "Sales Trend",
+  "weekly_performance": "Weekly Performance",
+  "inventory_status": "Inventory Status",
+  "top_products": "Top Products",
+  "recent_transactions": "Recent Transactions",
+  "transaction_number": "Transaction #",
+  "view_details": "View Details",
+  "sold_units": "units sold"
+  },
+
   "inventory": {
     "title": "Inventory Management",
     "description": "Manage your products and stock levels",
@@ -270,10 +297,13 @@
     },
     "dialogs": {
       "add_product": {
-        "title": "Add New Product"
+        "title": "Add New Product",
+        "description": "Add a new product to your inventory."
       },
       "edit_product": {
-        "title": "Edit Product"
+        "title": "Edit Product",
+        "description": "Edit the details of this product."
+
       },
       "basic_information": "Basic Information",
       "product_name": "Product Name",

@@ -17,6 +17,7 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
+  DialogDescription,
   DialogTitle,
 
 } from '@/components/ui/dialog'
@@ -231,11 +232,17 @@ function ProductEditor({
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
+
             <Package className="h-5 w-5" />
             <span>
               {product ? t('pos.dialogs.edit_product.title') : t('pos.dialogs.add_product.title')}
             </span>
           </DialogTitle>
+            <DialogDescription>
+              {product
+                ? t('pos.dialogs.edit_product.description', 'Edit the details of this product.')
+                : t('pos.dialogs.add_product.description', 'Add a new product to your inventory.')}
+            </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
@@ -713,7 +720,7 @@ export default function POSSystem() {
                   <span>
                     Tienes categorías locales sin sincronizar. Se sincronizarán automáticamente al crear productos.
                   </span>
-<CategorySyncStatus />
+                  <CategorySyncStatus />
                 </div>
               </AlertDescription>
             </Alert>

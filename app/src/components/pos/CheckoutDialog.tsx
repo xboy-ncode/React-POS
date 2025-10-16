@@ -72,7 +72,7 @@ export default function CheckoutDialog({
     onRefreshData
 }: CheckoutDialogProps) {
     const { t } = useTranslation()
-    const [paymentMethod, setPaymentMethod] = useState<string>('cash')
+    const [paymentMethod, setPaymentMethod] = useState<string>('EFECTIVO')
     const [receivedAmount, setReceivedAmount] = useState<string>('')
     const [processing, setProcessing] = useState(false)
 
@@ -229,7 +229,7 @@ export default function CheckoutDialog({
     const handleProcessPayment = async () => {
         if (!validateForm()) return
 
-        if (paymentMethod === 'cash' && parseFloat(receivedAmount) < total) {
+        if (paymentMethod === 'EFECTIVO' && parseFloat(receivedAmount) < total) {
             toast.error(t('pos.insufficient_amount'))
             return
         }
@@ -251,8 +251,8 @@ export default function CheckoutDialog({
                 subtotal,
                 tax,
                 total,
-                receivedAmount: paymentMethod === 'cash' ? parseFloat(receivedAmount) : total,
-                change: paymentMethod === 'cash' ? change : 0,
+                receivedAmount: paymentMethod === 'EFECTIVO' ? parseFloat(receivedAmount) : total,
+                change: paymentMethod === 'EFECTIVO' ? change : 0,
                 timestamp: new Date().toISOString()
             }
 
@@ -333,7 +333,7 @@ export default function CheckoutDialog({
             })
             setDniInput('')
             setSelectedCustomerId('')
-            setPaymentMethod('cash')
+            setPaymentMethod('EFECTIVO')
             setReceivedAmount('')
             setReceiptType('ticket')
             onOpenChange(false)
@@ -674,13 +674,13 @@ export default function CheckoutDialog({
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="cash">💵 {t('pos.checkout.payment_methods.cash')}</SelectItem>
-                                        <SelectItem value="card">💳 {t('pos.checkout.payment_methods.card')}</SelectItem>
-                                        <SelectItem value="transfer">🏦 {t('pos.checkout.payment_methods.transfer')}</SelectItem>
+                                        <SelectItem value="EFECTIVO">💵 {t('pos.checkout.payment_methods.cash')}</SelectItem>
+                                        <SelectItem value="TARJETA">💳 {t('pos.checkout.payment_methods.card')}</SelectItem>
+                                        <SelectItem value="TRANSFERENCIA">🏦 {t('pos.checkout.payment_methods.transfer')}</SelectItem>
                                     </SelectContent>
                                 </Select>
 
-                                {paymentMethod === 'cash' && (
+                                {paymentMethod === 'EFECTIVO' && (
                                     <>
                                         <div className="space-y-2">
                                             <Label>{t('pos.checkout.received_amount')}</Label>
@@ -723,7 +723,7 @@ export default function CheckoutDialog({
                                     processing ||
                                     !customerForm.dni?.trim() ||
                                     !customerForm.nombre?.trim() ||
-                                    (paymentMethod === 'cash' && parseFloat(receivedAmount) < total)
+                                    (paymentMethod === 'EFECTIVO' && parseFloat(receivedAmount) < total)
                                 }
                             >
                                 {processing ? (

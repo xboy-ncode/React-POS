@@ -239,7 +239,7 @@ export function ProductsDataTable({
             },
             cell: ({ row }) => {
                 const price = parseFloat(row.getValue("price") as string)
-                return <div className="font-semibold">${price.toFixed(2)}</div>
+                return <div className="font-semibold">S/ {price.toFixed(2)}</div>
             },
         },
         {

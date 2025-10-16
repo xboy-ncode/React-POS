@@ -323,6 +323,7 @@
       "change": "Cambio",
       "payment_methods": {
         "cash": "Efectivo",
+        "efectivo": "Efectivo",
         "credit_card": "Tarjeta de Crédito",
         "debit_card": "Tarjeta de Débito",
         "card": "Tarjeta",

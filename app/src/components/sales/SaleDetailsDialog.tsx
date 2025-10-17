@@ -5,6 +5,7 @@ import { es } from 'date-fns/locale'
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
@@ -59,6 +60,7 @@ export function SaleDetailsDialog({ saleId, open, onOpenChange }: SaleDetailsDia
                         <Receipt className="h-5 w-5" />
                         {t('sales.details.title', 'Detalles de Venta')} #{saleId}
                     </DialogTitle>
+                    <DialogDescription> </DialogDescription>
                 </DialogHeader>
 
                 {loading && (

@@ -135,7 +135,7 @@ function AppShell() {
           {/* Controles del header (idioma, tema, usuario, logout) */}
           <div className="flex items-center gap-2 px-4">
             {/* Selector de idioma */}
-            <select
+            {/* <select
               aria-label="Language"
               className="px-3 py-1 text-sm border border-input bg-background rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 w-28"
               value={i18n.language}
@@ -146,7 +146,7 @@ function AppShell() {
             >
               <option value="es">Español</option>
               <option value="en">English</option>
-            </select>
+            </select> */}
 
             {/* Selector de tema */}
             <ModeToggle />

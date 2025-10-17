@@ -52,6 +52,20 @@ export interface SalesFilters {
     cliente?: string
 }
 
+// 🪙 Utilidad para formatear monedas
+const normalizeCurrency = (code: string) => {
+    switch (code?.toUpperCase()) {
+        case 'PEN':
+            return 'S/'
+        case 'USD':
+            return '$'
+        case 'EUR':
+            return '€'
+        default:
+            return code
+    }
+}
+
 export const salesAdapter = {
     async getSales(filters: SalesFilters = {}): Promise<SalesResponse> {
         const params = new URLSearchParams()
@@ -63,12 +77,26 @@ export const salesAdapter = {
         if (filters.cliente) params.append('cliente', filters.cliente)
 
         const response = await apiClient.get(`/sales?${params.toString()}`)
-        return response.data
+        const data = response.data as SalesResponse
+
+        // 🔹 Normaliza la moneda de todas las ventas
+        data.ventas = data.ventas.map(v => ({
+            ...v,
+            moneda: normalizeCurrency(v.moneda),
+        }))
+
+        return data
     },
 
     async getSaleById(id: number): Promise<Sale> {
         const response = await apiClient.get(`/sales/${id}`)
-        return response.data
+        const sale = response.data as Sale
+
+        // 🔹 Normaliza la moneda individual
+        return {
+            ...sale,
+            moneda: normalizeCurrency(sale.moneda),
+        }
     },
 
     async getSalesReport(filters: { fecha_desde?: string; fecha_hasta?: string }) {
@@ -77,6 +105,13 @@ export const salesAdapter = {
         if (filters.fecha_hasta) params.append('fecha_hasta', filters.fecha_hasta)
 
         const response = await apiClient.get(`/sales/reportes/resumen?${params.toString()}`)
-        return response.data
-    }
+        const data = response.data
+
+        // 🔹 Si el reporte también incluye moneda
+        if (data?.moneda) {
+            data.moneda = normalizeCurrency(data.moneda)
+        }
+
+        return data
+    },
 }

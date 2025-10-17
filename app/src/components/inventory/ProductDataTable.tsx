@@ -59,7 +59,6 @@ import type { Category } from "@/types/pos"
 interface ProductsDataTableProps {
     products: Product[]
     categories: Category[]
-    onAddToCart: (product: Product) => void
     onEditProduct: (product: Product) => void
     onDeleteProduct: (productId: number) => void
     getStockStatus: (product: Product, t: any) => React.ReactNode
@@ -69,7 +68,6 @@ interface ProductsDataTableProps {
 export function ProductsDataTable({
     products,
     categories,
-    onAddToCart,
     onEditProduct,
     onDeleteProduct,
     getStockStatus,
@@ -300,15 +298,6 @@ export function ProductsDataTable({
                 
                 return (
                     <div className="flex items-center justify-end space-x-1">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onAddToCart(product)}
-                            title={t('pos.add_to_cart')}
-                            disabled={isOutOfStock}
-                        >
-                            <ShoppingCart className="h-4 w-4" />
-                        </Button>
                         <Button
                             variant="ghost"
                             size="sm"

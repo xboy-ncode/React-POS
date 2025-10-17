@@ -53,10 +53,11 @@ export function CategorySelector({
     return (
         <div className="space-y-2">
             <Select
-                value={value?.toString()}
+                value={value !== undefined ? value.toString() : ''}
                 onValueChange={handleValueChange}
                 disabled={disabled}
             >
+
                 <SelectTrigger>
                     <SelectValue placeholder={t('inventory.select_category')}>
                         {/* {selectedCategory && (

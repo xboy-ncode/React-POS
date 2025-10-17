@@ -122,8 +122,20 @@
     "select_customer_placeholder": "Buscar por DNI, nombre, teléfono o correo...",
     "or_add_new": "O agregar nuevo cliente",
     "try_again": "Intentar nuevamente",
-    "movements": "Movimientos"
+    "movements": "Movimientos",
+    "view_all": "Ver Todos"
   },
+    "dashboard": {
+  "sales_trend": "Tendencia de ventas hoy",
+  "weekly_performance": "Rendimiento semanal",
+  "inventory_status": "Estado del inventario",
+  "top_products": "Productos destacados",
+  "recent_transactions": "Transacciones recientes",
+  "transaction_number": "N° Transacción",
+  "view_details": "Ver Detalles",
+  "sold_units": "unidades vendidas"
+
+},
   "inventory": {
     "title": "Gestión de Inventario",
     "description": "Gestiona tus productos y niveles de stock",
@@ -269,10 +281,12 @@
     },
     "dialogs": {
       "add_product": {
-        "title": "Agregar Nuevo Producto"
+        "title": "Agregar Nuevo Producto",
+        "description": "Agrega un nuevo producto a tu inventario."
       },
       "edit_product": {
-        "title": "Editar Producto"
+        "title": "Editar Producto",
+        "description": "Edita los detalles de este producto."
       },
       "basic_information": "Información Básica",
       "product_name": "Nombre del Producto",
@@ -309,6 +323,7 @@
       "change": "Cambio",
       "payment_methods": {
         "cash": "Efectivo",
+        "efectivo": "Efectivo",
         "credit_card": "Tarjeta de Crédito",
         "debit_card": "Tarjeta de Débito",
         "card": "Tarjeta",

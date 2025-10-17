@@ -1,33 +1,101 @@
 // lib/inventory-adapter.ts
 import { api } from './api'
+import type { Product } from '@/types/pos'
 
-type Product = {
-    id: number
-    name: string
-    nameKey: string
-    price: number
-    category: string
-    image: string
-    sku?: string
-    description?: string
-    cost?: number
-    isAvailable?: boolean
-    productIcon?: string
-    stock?: number
-    lowStockThreshold?: number
-    supplier?: string
-    location?: string
-    createdAt?: string
-    updatedAt?: string
-
-    id_categoria?: number | null
-    id_marca?: number | null
+// Mapeo de categorías (igual que en pos-adapter)
+const DEFAULT_CATEGORY_MAP: Record<string, string> = {
+    'BEBIDAS': 'Bebidas',
+    'Bebidas': 'Bebidas',
+    'bebidas': 'Bebidas',
+    'LICORES': 'Licores',
+    'Licores': 'Licores',
+    'licores': 'Licores',
+    'ALCOHOL': 'Alcohol',
+    'Alcohol': 'Alcohol',
+    'alcohol': 'Alcohol',
+    'CERVEZAS': 'Cerveza',
+    'Cerveza': 'Cerveza',
+    'cerveza': 'Cerveza',
+    'CIGARROS': 'Cigarros',
+    'Cigarros': 'Cigarros',
+    'cigarros': 'Cigarros',
+    'SNACKS': 'Snacks',
+    'Snacks': 'Snacks',
+    'snacks': 'Snacks',
+    'DULCES': 'Dulces',
+    'Dulces': 'Dulces',
+    'dulces': 'Dulces',
+    'CUIDADO PERSONAL': 'Cuidado Personal',
+    'Cuidado Personal': 'Cuidado Personal',
+    'cuidado personal': 'Cuidado Personal',
+    'HOGAR': 'Hogar',
+    'Hogar': 'Hogar',
+    'hogar': 'Hogar',
+    'TARJETAS': 'Tarjetas Telefónicas',
+    'Tarjetas': 'Tarjetas Telefónicas',
+    'tarjetas': 'Tarjetas Telefónicas',
 }
 
-// Mapear productos de la API al formato del frontend
+const DEFAULT_CATEGORY_ICONS: Record<string, string> = {
+    'Bebidas': '🥤',
+    'Alcohol': '🍷',
+    'Licores': '🍷',
+    'Cerveza': '🍺',
+    'Cigarros': '🚬',
+    'Snacks': '🥜',
+    'Dulces': '🍬',
+    'Cuidado Personal': '🧴',
+    'Hogar': '🧽',
+    'Tarjetas Telefónicas': '📱'
+}
+
+// Obtener categorías personalizadas del localStorage
+function getCustomCategoryMaps(): {
+    categoryMap: Record<string, string>
+    iconMap: Record<string, string>
+} {
+    try {
+        const stored = localStorage.getItem('pos_custom_categories')
+        if (!stored) {
+            return { categoryMap: {}, iconMap: {} }
+        }
+
+        const customCategories = JSON.parse(stored)
+        const categoryMap: Record<string, string> = {}
+        const iconMap: Record<string, string> = {}
+
+        customCategories.forEach((cat: any) => {
+            categoryMap[cat.backendName] = cat.internalName
+            iconMap[cat.internalName] = cat.icon
+        })
+
+        return { categoryMap, iconMap }
+    } catch (error) {
+        console.error('Error loading custom categories:', error)
+        return { categoryMap: {}, iconMap: {} }
+    }
+}
+
+function getCombinedCategoryMap(): Record<string, string> {
+    const { categoryMap: customMap } = getCustomCategoryMaps()
+    return { ...DEFAULT_CATEGORY_MAP, ...customMap }
+}
+
+function getCombinedIconMap(): Record<string, string> {
+    const { iconMap: customIcons } = getCustomCategoryMaps()
+    return { ...DEFAULT_CATEGORY_ICONS, ...customIcons }
+}
+
+// Mapear productos de la API al formato del frontend (ACTUALIZADO)
 const mapProductFromAPI = (apiProduct: any): Product => {
-   // console.log('Mapeando producto de API:', apiProduct) // Debug
-    
+    const categoryMap = getCombinedCategoryMap()
+    const categoryIcons = getCombinedIconMap()
+
+    const categoryKey = apiProduct.categoria_nombre?.trim() || null
+    const category = categoryKey && categoryMap[categoryKey] 
+        ? categoryMap[categoryKey] 
+        : 'uncategorized'
+
     const price = parseFloat(apiProduct.precio_unitario || 0)
     const cost = parseFloat(apiProduct.precio_compra || 0)
     
@@ -36,63 +104,52 @@ const mapProductFromAPI = (apiProduct: any): Product => {
         name: apiProduct.nombre,
         nameKey: `pos.products.${apiProduct.nombre?.toLowerCase().replace(/\s+/g, '_')}`,
         price: price,
-        category: apiProduct.categoria_nombre || 'other',
+        
+        // ✅ ACTUALIZADO: Usar categoryId y categoryName como pos-adapter
+        categoryId: apiProduct.id_categoria,
+        categoryName: category,
+        
+        // ✅ AGREGADO: Campos de marca
+        brandId: apiProduct.id_marca,
+        brandName: apiProduct.marca_nombre || '',
+        
         image: apiProduct.imagen || '/api/placeholder/200/200',
         sku: apiProduct.codigo || '',
-        description: apiProduct.descripcion || '',
+        
+        // ✅ AGREGADO: Código de barras
+        barcode: apiProduct.codigo_barras || '',
+        
         cost: cost,
         isAvailable: apiProduct.activo ?? true,
-        productIcon: getIconForCategory(apiProduct.categoria_nombre),
+        productIcon: categoryIcons[category] || '📦',
         stock: apiProduct.stock || 0,
         lowStockThreshold: apiProduct.stock_minimo || 10,
-        supplier: apiProduct.marca_nombre || '', 
+        
+        // ✅ MANTENER: supplier por compatibilidad
+        supplier: apiProduct.marca_nombre || '',
+        
         location: '', 
         createdAt: apiProduct.fecha_registro,
-        updatedAt: apiProduct.fecha_actualizacion,
-
-        id_categoria: apiProduct.id_categoria,
-        id_marca: apiProduct.id_marca
+        updatedAt: apiProduct.fecha_actualizacion
     }
-}
-
-// Obtener icono según categoría
-const getIconForCategory = (category: string): string => {
-    const icons: Record<string, string> = {
-        'alcohol': '🍷',
-        'beer': '🍺',
-        'cigarettes': '🚬',
-        'snacks': '🥜',
-        'beverages': '🥤',
-        'candy': '🍬',
-        'personal_care': '🧴',
-        'household': '🧽',
-        'phone_cards': '📱'
-    }
-    return icons[category] || '📦'
 }
 
 // Mapear producto del frontend a la API para CREAR
 const mapProductToAPIForCreate = (product: Partial<Product>) => {
+    // Validar categoryId
+    if (!product.categoryId || product.categoryId <= 0) {
+        throw new Error('Categoría inválida. Por favor, selecciona una categoría válida.')
+    }
+
     const apiProduct: any = {
         nombre: product.name,
         codigo: product.sku,
+        codigo_barras: product.barcode || '', // ✅ AGREGADO
         precio_unitario: product.price || 0,
         stock: product.stock || 0,
-        activo: product.isAvailable ?? true
-    }
-
-    // Descripción
-    if (product.description !== undefined) {
-        apiProduct.descripcion = product.description.trim() || null
-    }
-
-    // Relaciones FK
-    if (product.id_categoria !== undefined) {
-        apiProduct.id_categoria = product.id_categoria
-    }
-
-    if (product.id_marca !== undefined) {
-        apiProduct.id_marca = product.id_marca
+        activo: product.isAvailable ?? true,
+        id_categoria: product.categoryId, // ✅ USAR categoryId
+        id_marca: product.brandId || undefined // ✅ USAR brandId
     }
 
     return apiProduct
@@ -102,13 +159,17 @@ const mapProductToAPIForCreate = (product: Partial<Product>) => {
 const mapProductToAPIForUpdate = (product: Partial<Product>) => {
     const apiProduct: any = {}
 
-    // Solo incluir campos que se van a actualizar
     if (product.name !== undefined) {
         apiProduct.nombre = product.name
     }
 
     if (product.sku !== undefined) {
         apiProduct.codigo = product.sku
+    }
+
+    // ✅ AGREGADO: Código de barras
+    if (product.barcode !== undefined) {
+        apiProduct.codigo_barras = product.barcode
     }
 
     if (product.price !== undefined) {
@@ -123,17 +184,17 @@ const mapProductToAPIForUpdate = (product: Partial<Product>) => {
         apiProduct.activo = product.isAvailable
     }
 
-    if (product.description !== undefined) {
-        apiProduct.descripcion = product.description?.trim() || null
+    // ✅ ACTUALIZADO: Usar categoryId en lugar de category
+    if (product.categoryId !== undefined) {
+        if (product.categoryId <= 0) {
+            throw new Error('Categoría inválida. Por favor, selecciona una categoría válida.')
+        }
+        apiProduct.id_categoria = product.categoryId
     }
 
-    // Relaciones FK - null es válido para remover la relación
-    if (product.id_categoria !== undefined) {
-        apiProduct.id_categoria = product.id_categoria
-    }
-
-    if (product.id_marca !== undefined) {
-        apiProduct.id_marca = product.id_marca
+    // ✅ AGREGADO: Soporte para marca
+    if (product.brandId !== undefined) {
+        apiProduct.id_marca = product.brandId
     }
 
     return apiProduct
@@ -170,7 +231,6 @@ export async function getProduct(id: number): Promise<Product> {
 export async function createProduct(productData: Partial<Product>): Promise<Product> {
     try {
         const apiData = mapProductToAPIForCreate(productData)
-      //  console.log('Creando producto - Enviando a API:', apiData) // Debug
         
         const response = await api('/products', {
             method: 'POST',
@@ -180,6 +240,11 @@ export async function createProduct(productData: Partial<Product>): Promise<Prod
         return mapProductFromAPI(response.producto)
     } catch (error: any) {
         console.error('Error creating product:', error)
+        
+        if (error.message?.includes('categoría')) {
+            throw error
+        }
+        
         throw new Error(error.response?.data?.error || error.message || 'Error al crear producto')
     }
 }
@@ -188,7 +253,6 @@ export async function createProduct(productData: Partial<Product>): Promise<Prod
 export async function updateProduct(id: number, productData: Partial<Product>): Promise<Product> {
     try {
         const apiData = mapProductToAPIForUpdate(productData)
-      //  console.log('Actualizando producto - Enviando a API:', apiData) // Debug
         
         const response = await api(`/products/${id}`, {
             method: 'PUT',
@@ -198,6 +262,11 @@ export async function updateProduct(id: number, productData: Partial<Product>): 
         return mapProductFromAPI(response.producto)
     } catch (error: any) {
         console.error('Error updating product:', error)
+        
+        if (error.message?.includes('categoría')) {
+            throw error
+        }
+        
         throw new Error(error.response?.data?.error || error.message || 'Error al actualizar producto')
     }
 }
@@ -210,7 +279,14 @@ export async function deleteProduct(id: number): Promise<void> {
         })
     } catch (error: any) {
         console.error('Error deleting product:', error)
-        throw new Error(error.response?.data?.error || error.message || 'Error al eliminar producto')
+        
+        const errorMsg = error.response?.data?.error || ''
+        
+        if (errorMsg.includes('transacciones asociadas')) {
+            throw new Error('No se puede eliminar el producto porque tiene ventas asociadas')
+        }
+        
+        throw new Error(errorMsg || 'Error al eliminar producto')
     }
 }
 
@@ -266,9 +342,9 @@ export async function searchProducts(query: string): Promise<Product[]> {
 }
 
 // Obtener productos por categoría
-export async function getProductsByCategory(category: string): Promise<Product[]> {
+export async function getProductsByCategory(categoryId: number): Promise<Product[]> {
     try {
-        const response = await api(`/products?categoria=${encodeURIComponent(category)}`)
+        const response = await api(`/products?id_categoria=${categoryId}`)
         
         if (response?.productos && Array.isArray(response.productos)) {
             return response.productos.map(mapProductFromAPI)
@@ -291,7 +367,7 @@ export async function getInventoryStats() {
             totalValue: products.reduce((sum, p) => sum + (p.price * (p.stock || 0)), 0),
             lowStockCount: products.filter(p => (p.stock || 0) <= (p.lowStockThreshold || 10)).length,
             outOfStockCount: products.filter(p => (p.stock || 0) === 0).length,
-            categories: [...new Set(products.map(p => p.category))].length
+            categories: [...new Set(products.map(p => p.categoryName))].length
         }
     } catch (error: any) {
         console.error('Error getting inventory stats:', error)

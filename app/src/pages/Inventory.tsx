@@ -1,45 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Search, Plus, Edit2, Trash2, Package, DollarSign, AlertTriangle, Loader2, Box } from 'lucide-react'
+import { Search, Plus, Package, DollarSign, AlertTriangle, Loader2, Barcode } from 'lucide-react'
 import { useInventory } from '@/hooks/useInventory'
 import { toast } from 'sonner'
-import { api } from '@/lib/api' // 👈 Agregar import
-
-// Types - 👇 Actualizado con los campos necesarios
-type Product = {
-  id: number
-  name: string
-  nameKey: string
-  price: number
-  category: string
-  image: string
-  sku?: string
-  description?: string
-  cost?: number
-  preparationTime?: number
-  ingredients?: string
-  allergens?: string
-  isAvailable?: boolean
-  popularity?: number
-  productIcon?: string
-  stock?: number
-  lowStockThreshold?: number
-  supplier?: string
-  location?: string
-  createdAt?: string
-  updatedAt?: string
-  id_categoria?: number | null  // 👈 Agregar
-  id_marca?: number | null       // 👈 Agregar
-}
+import { api } from '@/lib/api'
+import { ProductsDataTable } from '@/components/inventory/ProductDataTable'
+import type { Product, Category } from '@/types/pos'
+import { usePOSCategories } from '@/hooks/usePOSCategories'
+import { CategorySelector } from '@/components/CategorySelector'
+import { BrandSelector } from '@/components/BrandSelector'
 
 const getStockStatus = (
   product: Product,
@@ -59,69 +35,93 @@ const getStockStatus = (
 export default function Inventory() {
   const { t } = useTranslation()
 
-  // Hook personalizado para gestionar inventario
+  // Hooks - Ahora con el adapter corregido
   const {
     products,
     loading,
     error,
     stats,
+    refetch,
     createProduct,
     updateProduct,
     deleteProduct
   } = useInventory()
 
+  const {
+    categories,
+    loading: loadingCategories,
+    error: errorCategories,
+    getCategoryBackendId
+  } = usePOSCategories()
+
   // Estados locales
-  const [filteredItems, setFilteredItems] = useState<Product[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState<Product | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<number>(0)
+  const [showAddProduct, setShowAddProduct] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
 
-  // Filtrar productos según búsqueda
-  useEffect(() => {
-    const filtered = products.filter(item =>
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.sku?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
-      item.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.supplier?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    setFilteredItems(filtered)
-  }, [products, searchTerm])
+  // Filtrar productos
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      const matchesCategory = selectedCategory === 0 || product.categoryId === selectedCategory
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.barcode?.toLowerCase().includes(searchQuery.toLowerCase())
+      return matchesCategory && matchesSearch
+    })
+  }, [products, selectedCategory, searchQuery])
 
-  const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen)
-    if (!isOpen) {
-      setEditing(null)
-    }
-  }
-
-  const handleSaveItem = async (item: Product) => {
+  const handleSaveProduct = async (productData: Partial<Product>) => {
     try {
-      if (item.id && editing) {
-        // Actualizar producto existente
-        await updateProduct(item.id, item)
-      } else {
-        // Crear nuevo producto
-        await createProduct(item)
+      // Verificar si la categoría es local y sincronizarla
+      const category = categories.find(cat => cat.id === productData.categoryId)
+      let finalCategoryId = productData.categoryId
+
+      if (category?.isLocal && category.name) {
+        toast.loading('Sincronizando categoría con el servidor...')
+        const backendId = await getCategoryBackendId(category.name)
+        toast.dismiss()
+
+        if (!backendId) {
+          toast.error('No se pudo sincronizar la categoría')
+          return
+        }
+
+        finalCategoryId = backendId
+        toast.success('Categoría sincronizada correctamente')
       }
-      setOpen(false)
-      setEditing(null)
+
+      const finalProductData = {
+        ...productData,
+        categoryId: finalCategoryId
+      }
+
+      if (editingProduct) {
+        await updateProduct(editingProduct.id, finalProductData)
+      } else {
+        await createProduct(finalProductData)
+      }
+
+      setEditingProduct(null)
+      setShowAddProduct(false)
     } catch (error) {
-      console.error('Error saving item:', error)
-      // El error ya se muestra en el hook con toast
+      console.error('Failed to save product:', error)
     }
   }
 
-  const handleDeleteItem = async (id: number) => {
+  const handleDeleteProduct = async (id: number) => {
     try {
       await deleteProduct(id)
     } catch (error) {
       console.error('Error deleting item:', error)
-      // El error ya se muestra en el hook con toast
     }
   }
 
-  // Mostrar estado de carga
+  const handleCloseEditor = () => {
+    setEditingProduct(null)
+    setShowAddProduct(false)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -131,7 +131,6 @@ export default function Inventory() {
     )
   }
 
-  // Mostrar error si existe
   if (error) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -157,18 +156,16 @@ export default function Inventory() {
             {t('inventory.description')}
           </p>
         </div>
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-          <DialogTrigger asChild>
-            <Button
-              onClick={() => setEditing(null)}
-              className="flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              {t('inventory.add_item')}
-            </Button>
-          </DialogTrigger>
-          <ItemEditor item={editing} onSave={handleSaveItem} onClose={() => handleOpenChange(false)} />
-        </Dialog>
+        <Button
+          onClick={() => {
+            setEditingProduct(null)
+            setShowAddProduct(true)
+          }}
+          className="flex items-center gap-2"
+        >
+          <Plus className="h-4 w-4" />
+          {t('inventory.add_item')}
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -190,7 +187,7 @@ export default function Inventory() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">{t('inventory.total_value')}</p>
-                <p className="text-2xl font-bold">${stats.totalValue.toFixed(2)}</p>
+                <p className="text-2xl font-bold">S/ {stats.totalValue.toFixed(2)}</p>
               </div>
               <DollarSign className="h-8 w-8 text-green-500" />
             </div>
@@ -210,412 +207,294 @@ export default function Inventory() {
         </Card>
       </div>
 
-      {/* Main Content */}
+      {/* Products Table */}
       <Card>
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">{t('inventory.inventory_items')}</CardTitle>
-            <Badge variant="secondary" className="text-sm">
-              {filteredItems.length} {t('app.total')}
-            </Badge>
-          </div>
+          <CardContent className="p-0">
+            <ProductsDataTable
+              products={filteredProducts}
+              categories={categories}
+              onEditProduct={(product) => {
+                setEditingProduct(product)
+                setShowAddProduct(true)
+              }}
+              onDeleteProduct={handleDeleteProduct}
+              getStockStatus={getStockStatus}
+              t={t}
+            />
+          </CardContent>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center space-x-2 mb-6">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder={t('inventory.search_placeholder')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
-
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="font-semibold">{t('inventory.product')}</TableHead>
-                  <TableHead className="font-semibold">{t('app.sku')}</TableHead>
-                  <TableHead className="font-semibold">{t('inventory.category')}</TableHead>
-                  <TableHead className="font-semibold">{t('app.price')}</TableHead>
-                  <TableHead className="font-semibold">{t('app.stock')}</TableHead>
-                  <TableHead className="font-semibold">{t('app.status')}</TableHead>
-                  <TableHead className="font-semibold text-right">{t('app.actions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      <div className="text-center space-y-2">
-                        <Box className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">
-                          {searchTerm ? t('inventory.no_items_found') : t('inventory.no_items')}
-                        </p>
-                        {!searchTerm && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setEditing(null)
-                              setOpen(true)
-                            }}
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            {t('inventory.add_first_item')}
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredItems.map((item) => (
-                    <TableRow key={item.id} className="hover:bg-muted/50">
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-medium">{item.name}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm font-medium">
-                        <span>{item.sku}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {item.category || 'Sin categoría'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-semibold">
-                        ${item.price.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="font-semibold">
-                        <span>{item.stock}</span>
-                      </TableCell>
-                      <TableCell>{getStockStatus(item, t)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setEditing(item)
-                              setOpen(true)
-                            }}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>{t('inventory.delete_item')}</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  {t('inventory.delete_item_confirmation', { name: item.name, sku: item.sku })}
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>{t('app.cancel')}</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDeleteItem(item.id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  {t('app.delete')}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
       </Card>
+
+      {/* Product Editor Dialog */}
+      <ProductEditor
+        product={editingProduct}
+        onSave={handleSaveProduct}
+        onClose={handleCloseEditor}
+        open={showAddProduct}
+        onOpenChange={setShowAddProduct}
+        categories={categories}
+      />
     </div>
   )
 }
 
-function ItemEditor({
-  item,
+// Product Editor Component
+function ProductEditor({
+  product,
   onSave,
-  onClose
+  onClose,
+  open,
+  onOpenChange,
+  categories
 }: {
-  item: Product | null
-  onSave: (item: Product) => void
+  product: Product | null
+  onSave: (product: Partial<Product>) => void
   onClose: () => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  categories: Category[]
 }) {
   const { t } = useTranslation()
-  const [form, setForm] = useState<Partial<Product>>(
-    item || {
-      name: '',
-      sku: '',
-      price: 0,
-      stock: 0,
-      category: '',
-      lowStockThreshold: 10,
-      description: '',
-      supplier: '',
-      cost: 0,
-      id_categoria: null,
-      id_marca: null
-    }
-  )
+
+  const [form, setForm] = useState<Partial<Product>>({
+    name: '',
+    price: 0,
+    categoryId: undefined,
+    categoryName: '',
+    sku: '',
+    barcode: '',
+    stock: 0,
+    cost: 0,
+    isAvailable: true,
+    supplier: '',
+    lowStockThreshold: 5
+  })
+
   const [saving, setSaving] = useState(false)
-  const [categories, setCategories] = useState<any[]>([])
-  const [brands, setBrands] = useState<any[]>([])
-
-  // Cargar categorías y marcas
-  useEffect(() => {
-    async function loadCategoriesAndBrands() {
-      try {
-        const [catResponse, brandResponse] = await Promise.all([
-          api('/categories'),
-          api('/brands')
-        ])
-        setCategories(catResponse.categorias || [])
-        setBrands(brandResponse.marcas || [])
-      } catch (error) {
-        console.error('Error loading categories/brands:', error)
-      }
-    }
-    loadCategoriesAndBrands()
-  }, [])
 
   useEffect(() => {
-    if (item) {
-      console.log('Editando item:', item) // Debug
-      setForm(item)
+    if (product) {
+      setForm(product)
     } else {
       setForm({
         name: '',
-        sku: '',
         price: 0,
+        categoryId: undefined,
+        categoryName: '',
+        sku: '',
+        barcode: '',
         stock: 0,
-        category: '',
-        lowStockThreshold: 10,
-        description: '',
-        supplier: '',
         cost: 0,
-        id_categoria: null,
-        id_marca: null
+        isAvailable: true,
+        supplier: '',
+        lowStockThreshold: 5
       })
     }
-  }, [item])
+  }, [product, open])
+
+  const handleOpenChange = (isOpen: boolean) => {
+    onOpenChange(isOpen)
+    if (!isOpen) {
+      onClose()
+    }
+  }
 
   async function save() {
-    if (!form.name?.trim() || !form.sku?.trim()) {
-      toast.error('Nombre y SKU son requeridos')
+    if (!form.name?.trim() || !form.categoryId || (form.price || 0) <= 0) {
+      toast.error('Completa todos los campos requeridos')
       return
     }
 
     try {
       setSaving(true)
-
       await new Promise(resolve => setTimeout(resolve, 300))
 
-      const productToSave: Product = {
-        id: item?.id ?? 0,
-        name: form.name?.trim() || '',
-        nameKey: form.nameKey || `pos.products.${form.name?.toLowerCase().replace(/\s+/g, '_')}`,
-        sku: form.sku?.trim() || '',
-        price: form.price || 0,
+      const categoryPrefix = form.categoryName?.substring(0, 3).toUpperCase() || 'PRD'
+
+      onSave({
+        ...form,
+        name: form.name?.trim(),
+        sku: form.sku?.trim().toUpperCase() || `${categoryPrefix}-${Date.now().toString().slice(-3)}`,
+        barcode: form.barcode?.trim() || '',
         stock: form.stock || 0,
-        category: form.category?.trim() || 'other',
-        lowStockThreshold: form.lowStockThreshold || 10,
-        description: form.description?.trim() || '',
         supplier: form.supplier?.trim() || '',
-        cost: form.cost || 0,
-        image: form.image || '/api/placeholder/200/200',
-        isAvailable: form.isAvailable ?? true,
-        updatedAt: new Date().toISOString(),
-        id_categoria: form.id_categoria,
-        id_marca: form.id_marca
-      }
+        nameKey: `pos.products.${form.name?.toLowerCase().replace(/\s+/g, '_')}` || '',
+        id: product?.id || Date.now()
+      })
 
-      console.log('Guardando producto:', productToSave)
-
-      onSave(productToSave)
+      handleOpenChange(false)
     } catch (error) {
-      console.error('Failed to save item:', error)
+      console.error('Failed to save product:', error)
       toast.error('Error al guardar el producto')
     } finally {
       setSaving(false)
     }
   }
 
-  const isValid = form.name?.trim() && form.sku?.trim() && (form.price || 0) >= 0 && (form.stock || 0) >= 0
+  const isValid = form.name?.trim() && form.categoryId && (form.price || 0) > 0
 
   return (
-    <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle className="flex items-center space-x-2">
-          <Package className="h-5 w-5" />
-          <span>
-            {item ? t('inventory.edit_item') : t('inventory.add_new_item')}
-          </span>
-        </DialogTitle>
-      </DialogHeader>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center space-x-2">
+            <Package className="h-5 w-5" />
+            <span>
+              {product ? t('pos.dialogs.edit_product.title', 'Editar Producto') : t('pos.dialogs.add_product.title', 'Agregar Producto')}
+            </span>
+          </DialogTitle>
+          <DialogDescription>
+            {product
+              ? t('pos.dialogs.edit_product.description', 'Edita los detalles del producto.')
+              : t('pos.dialogs.add_product.description', 'Agrega un nuevo producto al inventario.')}
+          </DialogDescription>
+        </DialogHeader>
 
-      <div className="space-y-6 py-4">
-        {/* Basic Information */}
-        <Card className="p-4">
-          <h4 className="font-medium mb-3">{t('inventory.basic_information')}</h4>
-          <div className="space-y-4">
+        <div className="space-y-6 py-4">
+          {/* Basic Information */}
+          <Card className="p-4">
+            <h4 className="font-medium mb-3">{t('inventory.basic_information', 'Información Básica')}</h4>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">
+                    {t('inventory.product_name_required', 'Nombre del Producto *')}
+                  </Label>
+                  <Input
+                    id="name"
+                    value={form.name || ''}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder={t('inventory.product_name_placeholder', 'Ej: Vino Tinto')}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sku">
+                    {t('inventory.sku_required', 'SKU *')}
+                  </Label>
+                  <Input
+                    id="sku"
+                    value={form.sku || ''}
+                    onChange={(e) => setForm({ ...form, sku: e.target.value.toUpperCase() })}
+                    placeholder={t('inventory.sku_placeholder', 'Ej: ALC-RED-001')}
+                    className="font-mono uppercase"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="barcode">{t('inventory.barcode', 'Código de Barras')}</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="barcode"
+                      value={form.barcode || ''}
+                      onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                      placeholder={t('inventory.barcode_placeholder', 'Ej: 7501234567890')}
+                      className="font-mono"
+                    />
+                    <Button variant="outline" size="icon" type="button">
+                      <Barcode className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Pricing and Stock */}
+          <Card className="p-4">
+            <h4 className="font-medium mb-3">{t('inventory.pricing_stock', 'Precio e Inventario')}</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="price">
+                  {t('inventory.price_required', 'Precio *')}
+                </Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.price || ''}
+                  onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
+                  placeholder={t('inventory.price_placeholder', 'Ej: 15.00')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="stock">
+                  {t('inventory.stock_quantity_required', 'Cantidad en Stock *')}
+                </Label>
+                <Input
+                  id="stock"
+                  type="number"
+                  min="0"
+                  value={form.stock || ''}
+                  onChange={(e) => setForm({ ...form, stock: parseInt(e.target.value) || 0 })}
+                  placeholder={t('inventory.stock_placeholder', 'Ej: 20')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="threshold">{t('inventory.low_stock_threshold', 'Umbral de Stock Bajo')}</Label>
+                <Input
+                  id="threshold"
+                  type="number"
+                  min="0"
+                  value={form.lowStockThreshold || ''}
+                  onChange={(e) => setForm({ ...form, lowStockThreshold: parseInt(e.target.value) || 5 })}
+                  placeholder={t('inventory.threshold_placeholder', 'Ej: 5')}
+                />
+              </div>
+            </div>
+          </Card>
+
+          {/* Category and Details */}
+          <Card className="p-4">
+            <h4 className="font-medium mb-3">{t('inventory.category_details', 'Categoría y Detalles')}</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="name">
-                  {t('inventory.product_name_required')}
-                </Label>
-                <Input
-                  id="name"
-                  value={form.name || ''}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder={t('inventory.product_name_placeholder')}
+                <Label htmlFor="category">{t('inventory.category', 'Categoría *')}</Label>
+                <CategorySelector
+                  value={form.categoryId}
+                  categoryName={form.categoryName}
+                  onChange={(id, name) => setForm({ ...form, categoryId: id, categoryName: name })}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sku">
-                  {t('inventory.sku_required')}
-                </Label>
-                <Input
-                  id="sku"
-                  value={form.sku || ''}
-                  onChange={(e) => setForm({ ...form, sku: e.target.value.toUpperCase() })}
-                  placeholder={t('inventory.sku_placeholder')}
-                  className="font-mono uppercase"
+                <Label htmlFor="supplier">{t('inventory.supplier', 'Proveedor')}</Label>
+                <BrandSelector
+                  value={form.brandId}
+                  brandName={form.brandName}
+                  onChange={(id, name) => {
+                    setForm({
+                      ...form,
+                      brandId: id,
+                      brandName: name
+                    })
+                  }}
                 />
               </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
 
-        {/* Pricing and Stock */}
-        <Card className="p-4">
-          <h4 className="font-medium mb-3">{t('inventory.pricing_stock')}</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="price">
-                {t('inventory.price_required')}
-              </Label>
-              <Input
-                id="price"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.price ?? ''}
-                onChange={(e) => {
-                  const value = e.target.value
-                  setForm({ ...form, price: value === '' ? 0 : parseFloat(value) })
-                }}
-                placeholder={t('inventory.price_placeholder')}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="stock">
-                {t('inventory.stock_quantity_required')}
-              </Label>
-              <Input
-                id="stock"
-                type="number"
-                min="0"
-                value={form.stock || ''}
-                onChange={(e) => setForm({ ...form, stock: parseInt(e.target.value) || 0 })}
-                placeholder={t('inventory.stock_placeholder')}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="threshold">{t('inventory.low_stock_threshold')}</Label>
-              <Input
-                id="threshold"
-                type="number"
-                min="0"
-                value={form.lowStockThreshold || ''}
-                onChange={(e) => setForm({ ...form, lowStockThreshold: parseInt(e.target.value) || 10 })}
-                placeholder={t('inventory.threshold_placeholder')}
-              />
-            </div>
-          </div>
-        </Card>
-
-        {/* Category and Brand */}
-        <Card className="p-4">
-          <h4 className="font-medium mb-3">{t('inventory.category_details')}</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="id_categoria">{t('inventory.category')}</Label>
-              <Select
-                value={form.id_categoria?.toString() || 'none'}
-                onValueChange={(value) => setForm({ ...form, id_categoria: value === 'none' ? null : parseInt(value) })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t('inventory.select_category')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin categoría</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id_categoria} value={cat.id_categoria.toString()}>
-                      {cat.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="id_marca">{t('inventory.brand')}</Label>
-              <Select
-                value={form.id_marca?.toString() || 'none'}
-                onValueChange={(value) => setForm({ ...form, id_marca: value === 'none' ? null : parseInt(value) })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t('inventory.select_brand')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin marca</SelectItem>
-                  {brands.map((brand: any) => (
-                    <SelectItem key={brand.id_marca} value={brand.id_marca.toString()}>
-                      {brand.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      <div className="flex justify-end space-x-2 pt-4 border-t">
-        <Button variant="outline" onClick={onClose} disabled={saving}>
-          {t('app.cancel')}
-        </Button>
-        <Button
-          onClick={save}
-          disabled={!isValid || saving}
-          className="min-w-[80px]"
-        >
-          {saving ? (
-            <div className="flex items-center space-x-2">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span>{t('app.saving')}</span>
-            </div>
-          ) : (
-            item ? t('app.update') : t('app.add')
-          )}
-        </Button>
-      </div>
-    </DialogContent>
+        <div className="flex justify-end space-x-2 pt-4 border-t">
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={saving}>
+            {t('pos.buttons.cancel', 'Cancelar')}
+          </Button>
+          <Button
+            onClick={save}
+            disabled={!isValid || saving}
+            className="min-w-[100px]"
+          >
+            {saving ? (
+              <div className="flex items-center space-x-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>{t('pos.buttons.saving', 'Guardando...')}</span>
+              </div>
+            ) : (
+              product ? t('pos.buttons.update', 'Actualizar') : t('pos.buttons.add_product', 'Agregar')
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }

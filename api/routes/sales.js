@@ -1,7 +1,7 @@
 // routes/sales.js
 const express = require('express');
 const Joi = require('joi');
-const { pool } = require('../config/database'); 
+const { pool } = require('../config/database');
 
 const { authenticateToken } = require('../middleware/auth');
 
@@ -331,44 +331,74 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// GET - Reportes de ventas
+// GET - Reportes de ventas (resumen mensual)
 router.get('/reportes/resumen', authenticateToken, async (req, res) => {
     try {
         const { fecha_desde = '', fecha_hasta = '' } = req.query;
-
-        let query = `
-      SELECT 
-        COUNT(*) as total_ventas,
-        SUM(total) as monto_total,
-        AVG(total) as promedio_venta,
-        COUNT(DISTINCT id_cliente) as clientes_atendidos
-      FROM ventas
-    `;
 
         const params = [];
         const conditions = [];
 
         if (fecha_desde) {
-            conditions.push(`fecha >= $${params.length + 1}`);
+            conditions.push(`v.fecha >= $${params.length + 1}`);
             params.push(fecha_desde);
         }
 
         if (fecha_hasta) {
-            conditions.push(`fecha <= $${params.length + 1}`);
+            conditions.push(`v.fecha <= $${params.length + 1}`);
             params.push(fecha_hasta + ' 23:59:59');
         }
 
-        if (conditions.length > 0) {
-            query += ` WHERE ${conditions.join(' AND ')}`;
-        }
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-        const result = await pool.query(query, params);
+        // --- Consulta general de resumen ---
+        const resumenQuery = `
+      SELECT 
+        COUNT(*) AS total_ventas,
+        SUM(v.total) AS monto_total,
+        AVG(v.total) AS promedio_venta,
+        COUNT(DISTINCT v.id_cliente) AS clientes_atendidos
+      FROM ventas v
+      ${whereClause};
+    `;
 
-        res.json(result.rows[0]);
+        const detalleQuery = `
+        SELECT 
+            v.id_venta,
+            v.fecha,
+            v.total,
+            v.moneda,
+            v.metodo_pago,
+            TRIM(
+            COALESCE(c.nombre, '') || ' ' ||
+            COALESCE(c.apellido_paterno, '') || ' ' ||
+            COALESCE(c.apellido_materno, '')
+            ) AS cliente_nombre,
+            COALESCE(c.dni, '-') AS cliente_documento,
+            COALESCE(u.nombre_usuario, 'Usuario') AS vendedor
+        FROM ventas v
+        LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+        LEFT JOIN usuarios u ON v.id_usuario = u.id_usuario
+        ${whereClause}
+        ORDER BY v.fecha ASC;
+        `;
+
+
+        const [resumenResult, detalleResult] = await Promise.all([
+            pool.query(resumenQuery, params),
+            pool.query(detalleQuery, params)
+        ]);
+
+        res.json({
+            resumen: resumenResult.rows[0],
+            detalle: detalleResult.rows
+        });
+
     } catch (error) {
         console.error('Error al generar reporte de ventas:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
+
 
 module.exports = router;

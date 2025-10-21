@@ -34,6 +34,7 @@ import {
 } from 'lucide-react'
 import { useSales } from '@/hooks/useSales'
 import { SaleDetailsDialog } from '@/components/sales/SaleDetailsDialog'
+import { MonthlyReportDialog } from '@/components/movements/MonthlyReportDialog'
 
 export default function Movements() {
     const { t } = useTranslation()
@@ -116,6 +117,9 @@ export default function Movements() {
                 </p>
             </div>
 
+            {/* Botón de reporte mensual */}
+            <MonthlyReportDialog />
+            
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>

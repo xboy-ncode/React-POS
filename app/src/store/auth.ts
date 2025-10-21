@@ -2,8 +2,8 @@
 import { create } from 'zustand'
 
 // Types for auth
-export type Permission = 
-  | 'inventory:read' | 'inventory:write' 
+export type Permission =
+  | 'inventory:read' | 'inventory:write'
   | 'sales:read' | 'sales:write'
   | 'movements:read' | 'movements:write'
   | 'customers:read' | 'customers:write'
@@ -33,21 +33,21 @@ interface AuthState {
 // Role to permissions mapping
 export const ROLE_DEFAULT_PERMS: Record<Role, Permission[]> = {
   admin: [
-    'inventory:read','inventory:write',
-    'sales:read','sales:write',
-    'movements:read','movements:write',
-    'customers:read','customers:write',
-    'users:read','users:write',
+    'inventory:read', 'inventory:write',
+    'sales:read', 'sales:write',
+    'movements:read', 'movements:write',
+    'customers:read', 'customers:write',
+    'users:read', 'users:write',
     'settings:write'
   ],
   manager: [
-    'inventory:read','inventory:write',
-    'sales:read','sales:write',
-    'movements:read','movements:write',
-    'customers:read','customers:write',
+    'inventory:read', 'inventory:write',
+    'sales:read', 'sales:write',
+    'movements:read', 'movements:write',
+    'customers:read', 'customers:write',
     'users:read'
   ],
-  cashier: ['sales:read','sales:write','customers:read']
+  cashier: ['sales:read', 'sales:write', 'customers:read']
 }
 
 const DISABLE_AUTH = import.meta.env.VITE_DISABLE_AUTH === 'true'
@@ -73,15 +73,15 @@ export const useAuth = create<AuthState>((set) => ({
 
     const token = localStorage.getItem('token')
     const userStr = localStorage.getItem('user')
-    
+
     if (token && userStr) {
       try {
         const user = JSON.parse(userStr) as User
-        
+
         if (!user.permissions || user.permissions.length === 0) {
           user.permissions = ROLE_DEFAULT_PERMS[user.role] || []
         }
-        
+
         set({ token, user, isHydrated: true })
       } catch (error) {
         console.error('Error parsing user from localStorage:', error)
@@ -105,14 +105,24 @@ export const useAuth = create<AuthState>((set) => ({
       if (!res.ok) throw new Error('Invalid credentials')
       const data = await res.json()
 
-      const role = (data.usuario.rol as string).toLowerCase() as Role
+      // 🔧 Mapeo seguro de roles desde backend a frontend
+      const roleMap: Record<string, Role> = {
+        ADMIN: 'admin',
+        CAJERO: 'cashier',
+        MANAGER: 'manager'
+      }
+
+      const rawRole = (data.usuario.rol as string).toUpperCase()
+      const role = roleMap[rawRole] || 'cashier'
+
       const user: User = {
         id: data.usuario.id_usuario.toString(),
         name: data.usuario.nombre_usuario,
         email: data.usuario.email || '',
-        role: role,
+        role,
         permissions: ROLE_DEFAULT_PERMS[role] || []
       }
+
 
       localStorage.setItem('token', data.token)
       localStorage.setItem('user', JSON.stringify(user))

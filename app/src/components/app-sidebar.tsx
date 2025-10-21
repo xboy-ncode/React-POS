@@ -7,8 +7,6 @@ import {
   Users,
   UserCog,
   Settings,
-  LifeBuoy,
-  Send,
   Command,
   ArrowUpDown
 } from "lucide-react"
@@ -18,7 +16,6 @@ import type { Permission } from '../lib/permissions'
 
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
   SidebarContent,
@@ -33,71 +30,69 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation()
   const { user } = useAuth()
 
-  const data = {
-    user: {
-      name: user?.name || "Usuario",
-      email: user?.email || "usuario@ejemplo.com",
-      avatar: "/avatars/user.jpg",
-    },
-    navMain: [
-      {
-        title: t('app.dashboard'),
-        url: "/",
-        icon: Home,
-        isActive: true,
-        permissions: undefined,
-      },
-      {
-        title: t('app.sales'),
-        url: "/sales",
-        icon: ShoppingCart,
-        permissions: ['sales:read'] as Permission[],
-      },
-      {
-        title: t('app.movements'),
-        url: "/movements",
-        icon: ArrowUpDown,
-        permissions: ['movements:read'] as Permission[],
-      },
-      {
-        title: t('app.inventory'),
-        url: "/inventory", 
-        icon: Package,
-        permissions: ['inventory:read'] as Permission[],
-      },
-      {
-        title: t('app.customers'),
-        url: "/customers",
-        icon: Users,
-        permissions: ['customers:read'] as Permission[],
-      },
-      {
-        title: t('app.users'),
-        url: "/users",
-        icon: UserCog,
-        permissions: ['users:read'] as Permission[],
-      },
-    ],
-    navSecondary: [
-      {
-        title: t('app.settings'),
-        url: "/settings",
-        icon: Settings,
-  },
-      // {
-      //   title: "Soporte",
-      //   url: "#",
-      //   icon: LifeBuoy,
-      // },
-      // {
-      //   title: "Feedback",
-      //   url: "#", 
-      //   icon: Send,
-      // },
-    ],
+  // 🔒 helper para validar permisos
+  const hasPermission = (permissions?: Permission[]) => {
+    if (!permissions || permissions.length === 0) return true
+    const userPerms = user?.permissions || []
+    return permissions.every(p => userPerms.includes(p))
   }
 
+  // 🔹 Definición base del menú
+  const navMain = [
+    {
+      title: t('app.dashboard'),
+      url: "/",
+      icon: Home,
+      permissions: undefined,
+    },
+    {
+      title: t('app.sales'),
+      url: "/sales",
+      icon: ShoppingCart,
+      permissions: ['sales:read'] as Permission[],
+    },
+    {
+      title: t('app.movements'),
+      url: "/movements",
+      icon: ArrowUpDown,
+      permissions: ['movements:read'] as Permission[],
+    },
+    {
+      title: t('app.inventory'),
+      url: "/inventory",
+      icon: Package,
+      permissions: ['inventory:read'] as Permission[],
+    },
+    {
+      title: t('app.customers'),
+      url: "/customers",
+      icon: Users,
+      permissions: ['customers:read'] as Permission[],
+    },
+    {
+      title: t('app.users'),
+      url: "/users",
+      icon: UserCog,
+      permissions: ['users:read'] as Permission[],
+    },
+  ]
+
+  const navSecondary = [
+    {
+      title: t('app.settings'),
+      url: "/settings",
+      icon: Settings,
+      permissions: ['settings:write'] as Permission[],
+    },
+  ]
+
+  // ✅ Filtrar por permisos antes de renderizar
+  const filteredNavMain = navMain.filter(item => hasPermission(item.permissions))
+  const filteredNavSecondary = navSecondary.filter(item => hasPermission(item.permissions))
+
+
   return (
+    
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
         <SidebarMenu>
@@ -116,10 +111,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavMain items={filteredNavMain} />
+        <NavSecondary items={filteredNavSecondary} className="mt-auto" />
       </SidebarContent>
+
       <SidebarFooter>
         {/* <NavUser user={data.user} /> */}
       </SidebarFooter>

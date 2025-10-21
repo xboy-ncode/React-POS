@@ -275,6 +275,9 @@ export const ventasService = {
     const response = await apiClient.get('/sales/reportes/resumen', { params });
     return response.data;
   },
+
+
+
 };
 
 // ======================================================

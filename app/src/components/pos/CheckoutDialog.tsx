@@ -1,6 +1,7 @@
+// CheckoutDialog.tsx - VERSIÓN CORREGIDA
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, Minus, Plus, CreditCard, User, Loader2, AlertCircle, Receipt, FileText } from 'lucide-react'
+import { X, Minus, Plus, CreditCard, User, Loader2, AlertCircle, Receipt, FileText, FileSpreadsheet } from 'lucide-react'
 import {
     Dialog,
     DialogContent,
@@ -22,10 +23,16 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
-import { ventasService, invoiceService } from '@/lib/api-client'
+import { ventasService } from '@/lib/api-client'
 import { usePdfTicket } from '@/hooks/usePdfTicket'
+import React from 'react'
+import { cn } from '@/lib/utils'
 
-
+import businessConfig, {
+    formatCurrency,
+    calculateIGV,
+    generateInvoiceNumber
+} from '@/config/business.config'
 
 type CartItem = {
     id: number
@@ -61,6 +68,8 @@ type CheckoutDialogProps = {
     onRefreshData?: () => Promise<void>
 }
 
+type ComprobanteType = 'ticket' | 'boleta' | 'factura'
+
 export default function CheckoutDialog({
     open,
     onOpenChange,
@@ -75,12 +84,8 @@ export default function CheckoutDialog({
     const [paymentMethod, setPaymentMethod] = useState<string>('EFECTIVO')
     const [receivedAmount, setReceivedAmount] = useState<string>('')
     const [processing, setProcessing] = useState(false)
+    const [receiptType, setReceiptType] = useState<ComprobanteType>('ticket')
 
-
-    // Receipt type state
-    const [receiptType, setReceiptType] = useState('ticket')
-
-    // Customer form states
     const [customerForm, setCustomerForm] = useState<Partial<Customer>>({
         dni: '',
         nombre: '',
@@ -95,16 +100,11 @@ export default function CheckoutDialog({
     const [customers, setCustomers] = useState<Customer[]>([])
     const [selectedCustomerId, setSelectedCustomerId] = useState<string>('')
     const { generatePdfTicket } = usePdfTicket()
-    const [showTicketPreview, setShowTicketPreview] = useState(false)
-    const [ticketData, setTicketData] = useState<any>(null)
-
-
 
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-    const tax = subtotal * 0.18 // 18% IGV
-    const total = subtotal + tax
+    const igv = calculateIGV(subtotal)
+    const total = subtotal + igv
     const change = receivedAmount ? Math.max(0, parseFloat(receivedAmount) - total) : 0
-
 
     useEffect(() => {
         if (open) {
@@ -126,8 +126,14 @@ export default function CheckoutDialog({
     }
 
     async function consultarDNI(dni: string) {
-        if (dni.length !== 8) {
-            toast.error(t('app.dni_must_be_8_digits'))
+        const expectedLength = receiptType === 'factura' ? 11 : 8
+
+        if (dni.length !== expectedLength) {
+            toast.error(
+                receiptType === 'factura'
+                    ? 'El RUC debe tener 11 dígitos'
+                    : t('app.dni_must_be_8_digits')
+            )
             return
         }
 
@@ -203,30 +209,35 @@ export default function CheckoutDialog({
         }
     }
 
+    // ⭐ VALIDACIÓN CORREGIDA
     const validateForm = () => {
-        if (receiptType === 'invoice') {
+        if (receiptType === 'factura') {
             if (!customerForm.nombre?.trim()) {
-                toast.error(t('app.name_required_for_invoice'))
+                toast.error('La razón social es requerida para Factura')
                 return false
             }
-            if (!customerForm.dni?.trim()) {
-                toast.error(t('app.document_required_for_invoice'))
-                return false
-            }
+
             if (!customerForm.direccion?.trim()) {
-                toast.error(t('app.address_required_for_invoice'))
+                toast.error('La dirección fiscal es requerida para Factura')
                 return false
             }
-        } else if (receiptType === 'receipt') {
+        } else if (receiptType === 'boleta') {
             if (!customerForm.nombre?.trim()) {
-                toast.error(t('app.name_required_for_receipt'))
+                toast.error('El nombre es requerido para Boleta')
+                return false
+            }
+            const dni = customerForm.dni?.trim() || ''
+            if (!dni || dni.length !== 8) {
+                toast.error(`El DNI debe tener 8 dígitos (actual: ${dni.length})`)
                 return false
             }
         }
+
         return true
     }
 
     const handleProcessPayment = async () => {
+        // Validar formulario primero
         if (!validateForm()) return
 
         if (paymentMethod === 'EFECTIVO' && parseFloat(receivedAmount) < total) {
@@ -237,7 +248,9 @@ export default function CheckoutDialog({
         setProcessing(true)
         try {
             let customerId = selectedCustomerId
-            if (!customerId && customerForm.dni) {
+
+            // Solo guardar cliente si hay datos y no es un ticket simple
+            if (!customerId && customerForm.dni && receiptType !== 'ticket') {
                 const newCustomerId = await saveCustomer()
                 if (newCustomerId) customerId = newCustomerId.toString()
             }
@@ -249,25 +262,23 @@ export default function CheckoutDialog({
                 receiptType,
                 paymentMethod,
                 subtotal,
-                tax,
+                tax: igv,
                 total,
                 receivedAmount: paymentMethod === 'EFECTIVO' ? parseFloat(receivedAmount) : total,
                 change: paymentMethod === 'EFECTIVO' ? change : 0,
                 timestamp: new Date().toISOString()
             }
 
-            // 🧾 1️⃣ Procesar pago localmente (UI/lógica frontend)
             await onProcessPayment(checkoutData)
 
-            // 🧾 2️⃣ SIEMPRE crear la venta primero en el backend
+            // Crear la venta en el backend
             let ventaId: number | null = null
-            let facturaId: number | null = null
 
             try {
                 const ventaData = {
                     id_cliente: customerId ? parseInt(customerId) : null,
                     metodo_pago: paymentMethod,
-                    moneda: 'PEN', // o la moneda que uses
+                    moneda: businessConfig.currency,
                     productos: cart.map(item => ({
                         id_producto: item.id,
                         cantidad: item.quantity,
@@ -275,68 +286,56 @@ export default function CheckoutDialog({
                     }))
                 }
 
-                // Crear la venta
                 const ventaResponse = await ventasService.create(ventaData)
                 ventaId = ventaResponse.venta?.id_venta || ventaResponse.id_venta
-                // console.log('✅ Venta creada con ID:', ventaId)
 
-                // 🧾 3️⃣ Si eligió factura, crear la factura usando el id_venta
-                if (receiptType === 'invoice' && ventaId) {
-                    const facturaData = {
-                        id_venta: ventaId,
-                        serie: 'F001', // Serie de factura - ajusta según tu negocio
-                        numero: Date.now(), // Número correlativo - idealmente deberías obtenerlo del backend
-                        ruc_emisor: '20123456789', // RUC de tu empresa
-                        razon_social_emisor: 'MI EMPRESA SAC', // Razón social de tu empresa
-                        direccion_emisor: 'Av. Principal 123',
-                        ruc_receptor: customerForm.dni || null, // RUC del cliente (si tiene)
-                        dni_receptor: customerForm.dni || null, // DNI del cliente
-                        razon_social_receptor: `${customerForm.nombre} ${customerForm.apellido_paterno}`,
-                        direccion_receptor: customerForm.direccion || null
-                    }
-
-                    const facturaResponse = await invoiceService.create(facturaData)
-                    facturaId = facturaResponse.factura?.id_factura || facturaResponse.id_factura
-                    //console.log('✅ Factura creada con ID:', facturaId)
+                if (!ventaId) {
+                    throw new Error('No se pudo obtener el ID de la venta')
                 }
 
-                // 🧾 4️⃣ Generar PDF según el tipo
-                const pdfId = receiptType === 'invoice' ? facturaId : ventaId
+                toast.success('Venta registrada correctamente')
 
-                if (pdfId) {
-                    await generatePdfTicket(pdfId, receiptType === 'invoice' ? 'invoice' : 'sale')
-                    toast.success(
-                        receiptType === 'invoice'
-                            ? 'Factura generada exitosamente.'
-                            : 'Ticket generado exitosamente.'
-                    )
-                    if (onClearCart) onClearCart()
-                    // 🔄 Actualizar tabla si existe callback
-                    if (onRefreshData) await onRefreshData()
+                // Generar PDF según el tipo de comprobante
+                try {
+                    await generatePdfTicket(ventaId, receiptType)
+
+                    const comprobanteNombre = receiptType === 'ticket'
+                        ? 'Ticket'
+                        : receiptType === 'boleta'
+                            ? 'Boleta'
+                            : 'Factura'
+
+                    toast.success(`${comprobanteNombre} generado exitosamente`)
+                } catch (pdfError) {
+                    console.error('Error generando PDF:', pdfError)
+                    toast.warning('Venta registrada pero no se pudo generar el PDF')
                 }
+
+                if (onClearCart) onClearCart()
+                if (onRefreshData) await onRefreshData()
+
+                // Limpiar formulario
+                setCustomerForm({
+                    dni: '',
+                    nombre: '',
+                    apellido_paterno: '',
+                    apellido_materno: '',
+                    direccion: '',
+                    telefono: '',
+                    correo: ''
+                })
+                setDniInput('')
+                setSelectedCustomerId('')
+                setPaymentMethod('EFECTIVO')
+                setReceivedAmount('')
+                setReceiptType('ticket')
+                onOpenChange(false)
 
             } catch (error) {
-                console.error('Error al crear venta/factura:', error)
+                console.error('Error al crear venta:', error)
                 toast.error('Error al procesar la venta.')
                 throw error
             }
-
-            // ✅ Limpiar formulario y cerrar
-            setCustomerForm({
-                dni: '',
-                nombre: '',
-                apellido_paterno: '',
-                apellido_materno: '',
-                direccion: '',
-                telefono: '',
-                correo: ''
-            })
-            setDniInput('')
-            setSelectedCustomerId('')
-            setPaymentMethod('EFECTIVO')
-            setReceivedAmount('')
-            setReceiptType('ticket')
-            onOpenChange(false)
 
         } catch (error) {
             console.error('Payment processing failed:', error)
@@ -364,14 +363,93 @@ export default function CheckoutDialog({
         }
     }
 
-    const getReceiptTypeIcon = (type: string) => {
+    const getReceiptTypeIcon = (type: ComprobanteType) => {
         switch (type) {
-            case 'ticket': return <Receipt className="w-4 h-4" />
-            case 'receipt': return <FileText className="w-4 h-4" />
-            case 'invoice': return <CreditCard className="w-4 h-4" />
-            default: return <Receipt className="w-4 h-4" />
+            case 'ticket': return <Receipt className="w-5 h-5" />
+            case 'boleta': return <FileText className="w-5 h-5" />
+            case 'factura': return <FileSpreadsheet className="w-5 h-5" />
         }
     }
+
+    const getReceiptTypeDescription = (type: ComprobanteType) => {
+        switch (type) {
+            case 'ticket': return 'Comprobante simple (80mm)'
+            case 'boleta': return 'Boleta Electrónica (A4)'
+            case 'factura': return 'Factura Electrónica (A4)'
+        }
+    }
+
+    interface ReceiptTypeButtonProps {
+        type: ComprobanteType
+        isSelected: boolean
+        onClick: () => void
+        icon: React.ReactNode
+        label: string
+        description: string
+    }
+
+    const ReceiptTypeButton: React.FC<ReceiptTypeButtonProps> = ({
+        type,
+        isSelected,
+        onClick,
+        icon,
+        label,
+        description
+    }) => {
+        const [isHovered, setIsHovered] = React.useState(false)
+
+        return (
+            <Button
+                variant={isSelected ? "default" : "outline"}
+                onClick={onClick}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+                className="relative flex flex-col h-auto py-4 gap-2 overflow-hidden group"
+            >
+                {icon}
+                <span className="text-sm font-medium capitalize">{label}</span>
+
+                <div className="w-full overflow-hidden h-5">
+                    <div
+                        className={cn(
+                            "text-xs opacity-70 whitespace-nowrap transition-transform duration-[3000ms] ease-linear",
+                            isHovered && description.length > 15 && "animate-marquee"
+                        )}
+                    >
+                        <span>{description}</span>
+                        {isHovered && description.length > 15 && (
+                            <span className="ml-8">{description}</span>
+                        )}
+                    </div>
+                </div>
+            </Button>
+        )
+    }
+
+    const marqueeStyles = `
+  @keyframes marquee {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+  
+  .animate-marquee {
+    animation: marquee 3s linear infinite;
+  }
+`
+
+    React.useEffect(() => {
+        const styleElement = document.createElement('style')
+        styleElement.textContent = marqueeStyles
+        document.head.appendChild(styleElement)
+
+        return () => {
+            document.head.removeChild(styleElement)
+        }
+    }, [])
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -380,7 +458,9 @@ export default function CheckoutDialog({
                     <DialogTitle className="text-2xl font-bold">
                         {t('pos.checkout.title')}
                     </DialogTitle>
-                    <DialogDescription className="mt-2 mb-4 text-sm text-muted-foreground"/>
+                    <DialogDescription className="text-sm text-muted-foreground">
+                        {businessConfig.name} - RUC: {businessConfig.ruc}
+                    </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
@@ -392,7 +472,6 @@ export default function CheckoutDialog({
                                 {t('app.customer_information')}
                             </h3>
 
-                            {/* Select Existing Customer */}
                             <div className="space-y-4 mb-4">
                                 <div className="space-y-2">
                                     <Label>{t('app.select_existing_customer')}</Label>
@@ -428,12 +507,12 @@ export default function CheckoutDialog({
                                 </div>
                             </div>
 
-                            {/* DNI Search Section */}
+                            {/* DNI/RUC Search Section */}
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <Label className="text-sm font-medium">
-                                        {t('app.dni')}
-                                        {receiptType === 'invoice' && <span className="text-destructive ml-1">*</span>}
+                                        {receiptType === 'factura' ? 'RUC' : 'DNI'}
+                                        {receiptType !== 'ticket' && <span className="text-destructive ml-1">*</span>}
                                     </Label>
                                     <Badge variant="outline" className="text-xs">
                                         {t('app.auto_complete')}
@@ -442,21 +521,25 @@ export default function CheckoutDialog({
 
                                 <div className="flex space-x-2">
                                     <Input
-                                        placeholder="12345678"
+                                        placeholder={receiptType === 'factura' ? "20123456789" : "12345678"}
                                         value={dniInput}
                                         onChange={(e) => {
-                                            const value = e.target.value.replace(/\D/g, '').slice(0, 8)
+                                            const maxLength = receiptType === 'factura' ? 11 : 8
+                                            const value = e.target.value.replace(/\D/g, '').slice(0, maxLength)
                                             setDniInput(value)
                                             setCustomerForm(prev => ({ ...prev, dni: value }))
                                         }}
                                         className="font-mono"
-                                        maxLength={8}
+                                        maxLength={receiptType === 'factura' ? 11 : 8}
                                         disabled={loadingReniec}
                                     />
                                     <Button
                                         type="button"
                                         onClick={() => consultarDNI(dniInput)}
-                                        disabled={dniInput.length !== 8 || loadingReniec}
+                                        disabled={
+                                            (receiptType === 'factura' ? dniInput.length !== 11 : dniInput.length !== 8) ||
+                                            loadingReniec
+                                        }
                                         className="whitespace-nowrap"
                                     >
                                         {loadingReniec ? (
@@ -480,10 +563,8 @@ export default function CheckoutDialog({
                             <div className="space-y-4 mt-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="nombre">
-                                        {t('app.first_names')}
-                                        {(receiptType === 'invoice' || receiptType === 'receipt') &&
-                                            <span className="text-destructive ml-1">*</span>
-                                        }
+                                        {receiptType === 'factura' ? 'Razón Social' : t('app.first_names')}
+                                        {receiptType !== 'ticket' && <span className="text-destructive ml-1">*</span>}
                                     </Label>
                                     <Input
                                         id="nombre"
@@ -521,6 +602,20 @@ export default function CheckoutDialog({
                                     </div>
                                 </div>
 
+                                <div className="space-y-2">
+                                    <Label htmlFor="direccion">
+                                        {t('app.address')}
+                                        {receiptType === 'factura' && <span className="text-destructive ml-1">*</span>}
+                                    </Label>
+                                    <Input
+                                        id="direccion"
+                                        value={customerForm.direccion || ''}
+                                        onChange={(e) => setCustomerForm({ ...customerForm, direccion: e.target.value.toUpperCase() })}
+                                        placeholder={t('app.address_placeholder')}
+                                        className="uppercase"
+                                    />
+                                </div>
+
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-2">
                                         <Label htmlFor="telefono">{t('app.phone')}</Label>
@@ -531,16 +626,7 @@ export default function CheckoutDialog({
                                             placeholder="999 888 777"
                                         />
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="direccion">{t('app.address')}</Label>
-                                        <Input
-                                            id="direccion"
-                                            value={customerForm.direccion || ''}
-                                            onChange={(e) => setCustomerForm({ ...customerForm, direccion: e.target.value.toUpperCase() })}
-                                            placeholder={t('app.address_placeholder')}
-                                            className="uppercase"
-                                        />
-                                    </div>
+
                                     <div className="space-y-2">
                                         <Label htmlFor="correo">{t('app.email')}</Label>
                                         <Input
@@ -552,8 +638,6 @@ export default function CheckoutDialog({
                                         />
                                     </div>
                                 </div>
-
-
                             </div>
                         </Card>
 
@@ -561,31 +645,42 @@ export default function CheckoutDialog({
                         <Card className="p-4">
                             <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                                 <FileText className="h-5 w-5" />
-                                {t('pos.checkout.receipt_type.title')}
+                                Tipo de Comprobante
                             </h3>
 
                             <div className="grid grid-cols-3 gap-3">
-                                {[
-                                    { value: 'ticket', label: t('pos.checkout.receipt_type.ticket') },
-                                    { value: 'receipt', label: t('pos.checkout.receipt_type.receipt') },
-                                    { value: 'invoice', label: t('pos.checkout.receipt_type.invoice') }
-                                ].map((type) => (
-                                    <Button
-                                        key={type.value}
-                                        variant={receiptType === type.value ? "default" : "outline"}
-                                        onClick={() => setReceiptType(type.value)}
-                                        className="flex flex-col h-auto py-4 gap-2"
-                                    >
-                                        {getReceiptTypeIcon(type.value)}
-                                        <span className="text-sm font-medium">{type.label}</span>
-                                    </Button>
+                                {(['ticket', 'boleta', 'factura'] as ComprobanteType[]).map((type) => (
+                                    <ReceiptTypeButton
+                                        key={type}
+                                        type={type}
+                                        isSelected={receiptType === type}
+                                        onClick={() => setReceiptType(type)}
+                                        icon={getReceiptTypeIcon(type)}
+                                        label={type}
+                                        description={getReceiptTypeDescription(type)}
+                                    />
                                 ))}
                             </div>
 
-                            {receiptType === 'invoice' && (
+                            {/* Información adicional según tipo */}
+                            {receiptType === 'factura' && (
                                 <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
                                     <p className="text-sm text-blue-800 dark:text-blue-200">
-                                        <strong>{t('pos.checkout.receipt_type.invoice')}:</strong> {t('app.invoice_requirements')}
+                                        <strong>Factura Electrónica:</strong> Requiere RUC (11 dígitos), razón social y dirección fiscal.
+                                    </p>
+                                </div>
+                            )}
+                            {receiptType === 'boleta' && (
+                                <div className="mt-4 p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                                    <p className="text-sm text-green-800 dark:text-green-200">
+                                        <strong>Boleta Electrónica:</strong> Requiere DNI (8 dígitos) y nombre completo del cliente.
+                                    </p>
+                                </div>
+                            )}
+                            {receiptType === 'ticket' && (
+                                <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg">
+                                    <p className="text-sm text-gray-800 dark:text-gray-200">
+                                        <strong>Ticket:</strong> Comprobante simple sin validez tributaria. No requiere datos del cliente.
                                     </p>
                                 </div>
                             )}
@@ -608,38 +703,42 @@ export default function CheckoutDialog({
                                                 {t(item.nameKey, item.name)}
                                             </h4>
                                             <p className="text-xs text-muted-foreground">
-                                                /S {item.price.toFixed(2)} × {item.quantity}
+                                                {formatCurrency(item.price)} × {item.quantity}
                                             </p>
                                         </div>
+                                        
                                         <div className="flex items-center gap-2">
                                             <Button
-                                                size="sm"
+                                                size="icon"
                                                 variant="outline"
-                                                className="h-6 w-6 p-0"
+                                                className="h-6 w-6"
                                                 onClick={() => updateQuantity(item.id, item.quantity - 1)}
                                             >
-                                                <Minus className="w-3 h-3" />
+                                                <Minus className="h-3 w-3" />
                                             </Button>
-                                            <span className="w-6 text-center text-sm">{item.quantity}</span>
+                                            <span className="text-sm font-medium w-6 text-center">
+                                                {item.quantity}
+                                            </span>
                                             <Button
-                                                size="sm"
+                                                size="icon"
                                                 variant="outline"
-                                                className="h-6 w-6 p-0"
+                                                className="h-6 w-6"
                                                 onClick={() => updateQuantity(item.id, item.quantity + 1)}
                                             >
-                                                <Plus className="w-3 h-3" />
+                                                <Plus className="h-3 w-3" />
                                             </Button>
                                             <Button
-                                                size="sm"
+                                                size="icon"
                                                 variant="ghost"
-                                                className="h-6 w-6 p-0 text-destructive"
+                                                className="h-6 w-6 text-destructive"
                                                 onClick={() => removeFromCart(item.id)}
                                             >
-                                                <X className="w-3 h-3" />
+                                                <X className="h-3 w-3" />
                                             </Button>
                                         </div>
+                                        
                                         <div className="font-semibold text-sm">
-                                            S/ {(item.price * item.quantity).toFixed(2)}
+                                            {formatCurrency(item.price * item.quantity)}
                                         </div>
                                     </div>
                                 ))}
@@ -648,15 +747,15 @@ export default function CheckoutDialog({
                             <div className="space-y-2 border-t pt-4">
                                 <div className="flex justify-between text-sm">
                                     <span>{t('pos.checkout.subtotal')}:</span>
-                                    <span>S/ {subtotal.toFixed(2)}</span>
+                                    <span>{formatCurrency(subtotal)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span>{t('pos.checkout.tax')} (18%):</span>
-                                    <span>S/ {tax.toFixed(2)}</span>
+                                    <span>{t('pos.checkout.tax')} ({businessConfig.igvRate}%):</span>
+                                    <span>{formatCurrency(igv)}</span>
                                 </div>
                                 <div className="flex justify-between text-lg font-bold border-t pt-2">
                                     <span>{t('pos.checkout.total')}:</span>
-                                    <span>S/ {total.toFixed(2)}</span>
+                                    <span>{formatCurrency(total)}</span>
                                 </div>
                             </div>
                         </Card>
@@ -697,7 +796,7 @@ export default function CheckoutDialog({
                                             <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
                                                 <span className="font-medium">{t('pos.checkout.change')}:</span>
                                                 <span className="text-xl font-bold text-green-600">
-                                                    S/ {change.toFixed(2)}
+                                                    {formatCurrency(change)}
                                                 </span>
                                             </div>
                                         )}
@@ -721,8 +820,6 @@ export default function CheckoutDialog({
                                 className="flex-1 bg-green-600 hover:bg-green-700"
                                 disabled={
                                     processing ||
-                                    !customerForm.dni?.trim() ||
-                                    !customerForm.nombre?.trim() ||
                                     (paymentMethod === 'EFECTIVO' && parseFloat(receivedAmount) < total)
                                 }
                             >
@@ -742,9 +839,6 @@ export default function CheckoutDialog({
                     </div>
                 </div>
             </DialogContent>
-
         </Dialog>
-
     )
-
 }

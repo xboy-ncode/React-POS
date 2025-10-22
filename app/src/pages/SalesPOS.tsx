@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Plus, ShoppingCart, X, Minus, Package, Loader2, Barcode } from 'lucide-react'
+import { Search, Plus, ShoppingCart, X, Minus, Package, Loader2, Barcode, Tag } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -53,18 +53,20 @@ import { CategorySelector } from '@/components/CategorySelector'
 import { Switch } from '@/components/ui/switch'
 import { usePOSCategories } from '@/hooks/usePOSCategories'
 
-import type { Category, Product } from '@/types/pos'
+import type { Category, Product, CartItem } from '@/types/pos'
 import { ProductsDataTable } from '@/components/pos/ProductDataTable'
 
 import { RefreshCw, AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 import { CategorySyncStatus } from '@/components/CategorySyncStatus'
+import { calcularPrecioProducto } from '@/lib/price-helpers'
+import { formatCurrency } from '@/config/business.config'
+import { usePriceCalculator } from '@/hooks/usePriceCalculator'
+import { calculatePriceData } from '@/lib/price-calculator'
 
 
-type CartItem = Product & {
-  quantity: number
-}
+// use CartItem from '@/types/pos' for consistent typing across components
 
 
 
@@ -238,11 +240,11 @@ function ProductEditor({
               {product ? t('pos.dialogs.edit_product.title') : t('pos.dialogs.add_product.title')}
             </span>
           </DialogTitle>
-            <DialogDescription>
-              {product
-                ? t('pos.dialogs.edit_product.description', 'Edit the details of this product.')
-                : t('pos.dialogs.add_product.description', 'Add a new product to your inventory.')}
-            </DialogDescription>
+          <DialogDescription>
+            {product
+              ? t('pos.dialogs.edit_product.description', 'Edit the details of this product.')
+              : t('pos.dialogs.add_product.description', 'Add a new product to your inventory.')}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
@@ -642,34 +644,61 @@ export default function POSSystem() {
 
 
   const addToCart = (product: Product) => {
+    // ✅ Validar disponibilidad
     if (product.isAvailable === false) {
       toast.error('Producto no disponible')
       return
     }
 
-    setCart(prevCart => {
-      const existingItem = prevCart.find(item => item.id === product.id)
+    setCart((prevCart) => {
+      const existingItem = prevCart.find((item) => item.id === product.id)
       const newQuantity = existingItem ? existingItem.quantity + 1 : 1
 
-      // Verificar stock
+      // ✅ Validar stock disponible
       if (newQuantity > (product.stock || 0)) {
         toast.error(`Stock insuficiente. Disponible: ${product.stock || 0}`)
-        return prevCart
+        return prevCart // no modifica el carrito
       }
 
+      // ✅ Calcular precio actualizado
+      const calculo = calcularPrecioProducto(product, newQuantity)
+
       if (existingItem) {
-        return prevCart.map(item =>
+        return prevCart.map((item) =>
           item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? {
+              ...item,
+              quantity: newQuantity,
+              price: calculo.precioFinal,
+              precioBase: calculo.precioBase,
+              descuento: calculo.descuento,
+              esOferta: calculo.esOferta,
+              esMayorista: calculo.esMayorista,
+            }
             : item
         )
       }
-      return [...prevCart, { ...product, quantity: 1 }]
+
+      // ✅ Nuevo producto en carrito
+      return [
+        ...prevCart,
+        {
+          id: product.id,
+          name: product.name,
+          nameKey: product.nameKey,
+          quantity: 1,
+          price: calculo.precioFinal,
+          precioBase: calculo.precioBase,
+          descuento: calculo.descuento,
+          esOferta: calculo.esOferta,
+          esMayorista: calculo.esMayorista,
+        },
+      ]
     })
   }
 
 
-  const updateQuantity = (productId: string | number, newQuantity: number) => {
+ const updateQuantity = (productId: string | number, newQuantity: number) => {
     if (newQuantity === 0) {
       removeFromCart(productId)
       return
@@ -677,15 +706,28 @@ export default function POSSystem() {
 
     // Buscar producto para verificar stock
     const product = products.find(p => p.id === productId)
-    if (product && newQuantity > (product.stock || 0)) {
+    if (!product) return
+    
+    if (newQuantity > (product.stock || 0)) {
       toast.error(`Stock máximo disponible: ${product.stock || 0}`)
       return
     }
 
+    // ✅ Recalcular precio con la nueva cantidad
+    const calculo = calcularPrecioProducto(product, newQuantity)
+
     setCart(prevCart =>
       prevCart.map(item =>
         item.id === productId
-          ? { ...item, quantity: newQuantity }
+          ? { 
+              ...item, 
+              quantity: newQuantity,
+              price: calculo.precioFinal,
+              precioBase: calculo.precioBase,
+              descuento: calculo.descuento,
+              esOferta: calculo.esOferta,
+              esMayorista: calculo.esMayorista,
+            }
           : item
       )
     )
@@ -696,7 +738,7 @@ export default function POSSystem() {
   }
 
 
-  const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0)
+
 
   const handleCloseEditor = () => {
     setEditingProduct(null)
@@ -704,7 +746,22 @@ export default function POSSystem() {
   }
 
 
+  // Antes del return
+  const cartWithPriceInfo = cart.map(item => {
+    const product = filteredProducts.find(p => p.id === item.id)
+    const priceInfo = product ? calculatePriceData(product, item.quantity) : null
+    return {
+      ...item,
+      product,
+      priceInfo,
+    }
+  })
 
+
+  const cartTotal = cartWithPriceInfo.reduce((total, item) => {
+  const effectivePrice = item.priceInfo?.priceCalculation.precioFinal || item.price
+  return total + (effectivePrice * item.quantity)
+}, 0)
 
   return (
     <div className="space-y-6">
@@ -812,61 +869,82 @@ export default function POSSystem() {
             ) : (
               <>
                 <div className="space-y-2 mb-4 max-h-96 overflow-y-auto pr-1">
-                  {cart.map(item => (
-                    <div key={item.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-xs truncate">
-                          {t(item.nameKey, item.name)}
-                        </h4>
-                        <p className="text-muted-foreground text-xs">
-                          ${item.price.toFixed(2)}
-                        </p>
+                  {cartWithPriceInfo.map(({ id, name, nameKey, priceInfo, quantity, price }) => {
+                    const effectivePrice = priceInfo?.priceCalculation.precioFinal || price
+                    const originalPrice = priceInfo?.priceCalculation.precioBase || price
+                    const hasDiscount = priceInfo?.hasDiscount || false
+
+                    return (
+                      <div key={id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-xs truncate">
+                            {t(nameKey, name)}
+                          </h4>
+                          <p className="text-muted-foreground text-xs">
+                            ${effectivePrice.toFixed(2)}{" "}
+                            {hasDiscount && (
+                              <span className="line-through ml-1 text-[10px] opacity-70">
+                                ${originalPrice.toFixed(2)}
+                              </span>
+                            )}
+                          </p>
+                        </div>
+
+                        {/* ✅ Botones de control */}
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              updateQuantity(id, quantity - 1)
+                            }}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </Button>
+
+                          <span className="w-5 text-center text-xs font-medium">
+                            {quantity}
+                          </span>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              updateQuantity(id, quantity + 1)
+                            }}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removeFromCart(id)
+                              updateQuantity(id, 0)
+                            }}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 w-6 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            updateQuantity(item.id, item.quantity - 1)
-                          }}
-                        >
-                          <Minus className="w-3 h-3" />
-                        </Button>
-                        <span className="w-5 text-center text-xs font-medium">{item.quantity}</span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 w-6 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            updateQuantity(item.id, item.quantity + 1)
-                          }}
-                        >
-                          <Plus className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            removeFromCart(item.id)
-                          }}
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
+                {/* ✅ Total y Checkout */}
                 <div className="border-t pt-3 space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="font-semibold text-sm">{t('pos.cart.total')}:</span>
-                    <span className="text-xl font-bold">${cartTotal.toFixed(2)}</span>
+                    <span className="text-xl font-bold">{formatCurrency(cartTotal)}</span>
                   </div>
+
                   <Button
                     className="w-full"
                     size="lg"
@@ -880,30 +958,31 @@ export default function POSSystem() {
             )}
           </Card>
         </div>
+
+
+        {/* Checkout Dialog */}
+        <CheckoutDialog
+          open={showCheckout}
+          onOpenChange={setShowCheckout}
+          cart={cart}
+          products={products} 
+          updateQuantity={updateQuantity}
+          removeFromCart={removeFromCart}
+          onProcessPayment={handleProcessPayment}
+          onClearCart={clearCart}
+          onRefreshData={refetch}
+        />
+        {/* Product Editor Dialog */}
+        <ProductEditor
+          product={editingProduct}
+          onSave={handleSaveProduct}
+          onClose={handleCloseEditor}
+          open={showAddProduct}
+          onOpenChange={setShowAddProduct}
+          categories={categories}
+        />
+
       </div>
-
-      {/* Checkout Dialog */}
-      <CheckoutDialog
-        open={showCheckout}
-        onOpenChange={setShowCheckout}
-        cart={cart}
-        updateQuantity={updateQuantity}
-        removeFromCart={removeFromCart}
-        onProcessPayment={handleProcessPayment}
-        onClearCart={clearCart}
-        onRefreshData={refetch}
-      />
-
-      {/* Product Editor Dialog */}
-      <ProductEditor
-        product={editingProduct}
-        onSave={handleSaveProduct}
-        onClose={handleCloseEditor}
-        open={showAddProduct}
-        onOpenChange={setShowAddProduct}
-        categories={categories}
-      />
-
     </div>
   )
 }

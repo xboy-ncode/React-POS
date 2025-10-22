@@ -268,7 +268,17 @@ function ProductEditor({
     cost: 0,
     isAvailable: true,
     supplier: '',
-    lowStockThreshold: 5
+    lowStockThreshold: 0,
+    // ✅ NUEVOS CAMPOS
+    precioCompra: 0,
+    precioVentaMinorista: 0,
+    precioVentaMayorista: undefined,
+    cantidadMinimaMayorista: undefined,
+    enOferta: false,
+    precioOferta: undefined,
+    porcentajeDescuentoOferta: undefined,
+    brandId: undefined,
+    brandName: ''
   })
 
   const [saving, setSaving] = useState(false)
@@ -288,7 +298,17 @@ function ProductEditor({
         cost: 0,
         isAvailable: true,
         supplier: '',
-        lowStockThreshold: 5
+        lowStockThreshold: 0,
+        // ✅ NUEVOS CAMPOS
+        precioCompra: 0,
+        precioVentaMinorista: 0,
+        precioVentaMayorista: undefined,
+        cantidadMinimaMayorista: undefined,
+        enOferta: false,
+        precioOferta: undefined,
+        porcentajeDescuentoOferta: undefined,
+        brandId: undefined,
+        brandName: ''
       })
     }
   }, [product, open])
@@ -319,6 +339,7 @@ function ProductEditor({
         barcode: form.barcode?.trim() || '',
         stock: form.stock || 0,
         supplier: form.supplier?.trim() || '',
+        price: form.precioVentaMinorista || form.price || 0, // Mantener compatibilidad
         nameKey: `pos.products.${form.name?.toLowerCase().replace(/\s+/g, '_')}` || '',
         id: product?.id || Date.now()
       })
@@ -332,7 +353,10 @@ function ProductEditor({
     }
   }
 
-  const isValid = form.name?.trim() && form.categoryId && (form.price || 0) > 0
+  const isValid = form.name?.trim() &&
+    form.categoryId &&
+    (form.precioVentaMinorista || form.price || 0) > 0 &&
+    (form.precioCompra || 0) >= 0
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -399,46 +423,145 @@ function ProductEditor({
             </div>
           </Card>
 
-          {/* Pricing and Stock */}
+          {/* Pricing - Precios Detallados */}
           <Card className="p-4">
-            <h4 className="font-medium mb-3">{t('inventory.pricing_stock', 'Precio e Inventario')}</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <h4 className="font-medium mb-3">Precios</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="price">
-                  {t('inventory.price_required', 'Precio *')}
-                </Label>
+                <Label htmlFor="precioCompra">Precio de Compra *</Label>
                 <Input
-                  id="price"
+                  id="precioCompra"
                   type="number"
                   step="0.01"
                   min="0"
-                  value={form.price || ''}
-                  onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
-                  placeholder={t('inventory.price_placeholder', 'Ej: 15.00')}
+                  value={form.precioCompra || ''}
+                  onChange={(e) => setForm({ ...form, precioCompra: parseFloat(e.target.value) || 0 })}
+                  placeholder="Ej: 10.00"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="stock">
-                  {t('inventory.stock_quantity_required', 'Cantidad en Stock *')}
-                </Label>
+                <Label htmlFor="precioVentaMinorista">Precio Venta Minorista *</Label>
+                <Input
+                  id="precioVentaMinorista"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.precioVentaMinorista || ''}
+                  onChange={(e) => setForm({
+                    ...form,
+                    precioVentaMinorista: parseFloat(e.target.value) || 0,
+                    price: parseFloat(e.target.value) || 0 // Mantener compatibilidad
+                  })}
+                  placeholder="Ej: 15.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="precioVentaMayorista">Precio Venta Mayorista (Opcional)</Label>
+                <Input
+                  id="precioVentaMayorista"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.precioVentaMayorista || ''}
+                  onChange={(e) => setForm({ ...form, precioVentaMayorista: parseFloat(e.target.value) || undefined })}
+                  placeholder="Ej: 12.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cantidadMinimaMayorista">Cantidad Mínima Mayorista</Label>
+                <Input
+                  id="cantidadMinimaMayorista"
+                  type="number"
+                  min="1"
+                  value={form.cantidadMinimaMayorista || ''}
+                  onChange={(e) => setForm({ ...form, cantidadMinimaMayorista: parseInt(e.target.value) || undefined })}
+                  placeholder="Ej: 10"
+                  disabled={!form.precioVentaMayorista}
+                />
+              </div>
+            </div>
+          </Card>
+
+          {/* Ofertas */}
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-medium">Ofertas</h4>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="enOferta"
+                  checked={form.enOferta || false}
+                  onChange={(e) => setForm({ ...form, enOferta: e.target.checked })}
+                  className="rounded"
+                />
+                <Label htmlFor="enOferta" className="cursor-pointer">Activar Oferta</Label>
+              </div>
+            </div>
+            {form.enOferta && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="porcentajeDescuentoOferta">% Descuento</Label>
+                  <Input
+                    id="porcentajeDescuentoOferta"
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="100"
+                    value={form.porcentajeDescuentoOferta || ''}
+                    onChange={(e) => {
+                      const descuento = parseFloat(e.target.value) || 0
+                      const precioBase = form.precioVentaMinorista || form.price || 0
+                      const precioOferta = precioBase * (1 - descuento / 100)
+                      setForm({
+                        ...form,
+                        porcentajeDescuentoOferta: descuento,
+                        precioOferta: precioOferta
+                      })
+                    }}
+                    placeholder="Ej: 20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="precioOferta">Precio con Oferta</Label>
+                  <Input
+                    id="precioOferta"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.precioOferta || ''}
+                    onChange={(e) => setForm({ ...form, precioOferta: parseFloat(e.target.value) || undefined })}
+                    placeholder="Calculado automáticamente"
+                    disabled
+                  />
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Stock */}
+          <Card className="p-4">
+            <h4 className="font-medium mb-3">Inventario</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="stock">Cantidad en Stock *</Label>
                 <Input
                   id="stock"
                   type="number"
                   min="0"
                   value={form.stock || ''}
                   onChange={(e) => setForm({ ...form, stock: parseInt(e.target.value) || 0 })}
-                  placeholder={t('inventory.stock_placeholder', 'Ej: 20')}
+                  placeholder="Ej: 20"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="threshold">{t('inventory.low_stock_threshold', 'Umbral de Stock Bajo')}</Label>
+                <Label htmlFor="threshold">Umbral de Stock Bajo</Label>
                 <Input
                   id="threshold"
                   type="number"
                   min="0"
                   value={form.lowStockThreshold || ''}
                   onChange={(e) => setForm({ ...form, lowStockThreshold: parseInt(e.target.value) || 5 })}
-                  placeholder={t('inventory.threshold_placeholder', 'Ej: 5')}
+                  placeholder="Ej: 5"
                 />
               </div>
             </div>

@@ -1,4 +1,4 @@
-// routes/products.js - Con soporte para código de barras
+// routes/products.js - Con soporte completo de precios
 const express = require('express');
 const Joi = require('joi');
 const { pool } = require('../config/database');
@@ -17,7 +17,18 @@ const createProductSchema = Joi.object({
     id_categoria: Joi.number().integer().allow(null),
     id_marca: Joi.number().integer().allow(null),
     stock: Joi.number().integer().min(0).default(0),
-    precio_unitario: Joi.number().positive().required(),
+    // Nuevos campos de precios
+    precio_compra: Joi.number().min(0).required(),
+    precio_venta_minorista: Joi.number().min(0).required(),
+    precio_venta_mayorista: Joi.number().min(0).allow(null),
+    precio_oferta: Joi.number().min(0).allow(null),
+    margen_minorista: Joi.number().min(0).max(999.99).default(0),
+    margen_mayorista: Joi.number().min(0).max(999.99).allow(null),
+    en_oferta: Joi.boolean().default(false),
+    porcentaje_descuento_oferta: Joi.number().min(0).max(100).default(0),
+    cantidad_minima_mayorista: Joi.number().integer().min(1).default(1),
+    // Campos legacy
+    precio_unitario: Joi.number().positive().optional(), // Mantener para compatibilidad
     moneda: Joi.string().valid('USD', 'PEN').default('PEN'),
     activo: Joi.boolean().default(true)
 });
@@ -30,11 +41,68 @@ const updateProductSchema = Joi.object({
     id_categoria: Joi.number().integer().allow(null),
     id_marca: Joi.number().integer().allow(null),
     stock: Joi.number().integer().min(0),
+    // Nuevos campos de precios
+    precio_compra: Joi.number().min(0),
+    precio_venta_minorista: Joi.number().min(0),
+    precio_venta_mayorista: Joi.number().min(0).allow(null),
+    precio_oferta: Joi.number().min(0).allow(null),
+    margen_minorista: Joi.number().min(0).max(999.99),
+    margen_mayorista: Joi.number().min(0).max(999.99).allow(null),
+    en_oferta: Joi.boolean(),
+    porcentaje_descuento_oferta: Joi.number().min(0).max(100),
+    cantidad_minima_mayorista: Joi.number().integer().min(1),
+    // Campos legacy
     precio_unitario: Joi.number().positive(),
     moneda: Joi.string().valid('USD', 'PEN'),
     activo: Joi.boolean()
 }).min(1);
 
+// Esquema para calcular precios basados en márgenes
+const calculatePriceSchema = Joi.object({
+    precio_compra: Joi.number().min(0).required(),
+    margen_minorista: Joi.number().min(0).max(999.99),
+    margen_mayorista: Joi.number().min(0).max(999.99),
+    porcentaje_descuento_oferta: Joi.number().min(0).max(100)
+});
+
+// =============================
+// NUEVA RUTA - Calcular precios
+// =============================
+router.post('/calcular-precios', authenticateToken, async (req, res) => {
+    try {
+        const { error } = calculatePriceSchema.validate(req.body);
+        if (error) {
+            return res.status(400).json({ error: error.details[0].message });
+        }
+
+        const {
+            precio_compra,
+            margen_minorista = 0,
+            margen_mayorista = 0,
+            porcentaje_descuento_oferta = 0
+        } = req.body;
+
+        const precio_venta_minorista = precio_compra * (1 + margen_minorista / 100);
+        const precio_venta_mayorista = margen_mayorista > 0 
+            ? precio_compra * (1 + margen_mayorista / 100) 
+            : null;
+        const precio_oferta = porcentaje_descuento_oferta > 0
+            ? precio_venta_minorista * (1 - porcentaje_descuento_oferta / 100)
+            : null;
+
+        res.json({
+            precio_compra,
+            precio_venta_minorista: parseFloat(precio_venta_minorista.toFixed(2)),
+            precio_venta_mayorista: precio_venta_mayorista ? parseFloat(precio_venta_mayorista.toFixed(2)) : null,
+            precio_oferta: precio_oferta ? parseFloat(precio_oferta.toFixed(2)) : null,
+            margen_minorista,
+            margen_mayorista
+        });
+    } catch (error) {
+        console.error('Error al calcular precios:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
 
 // GET - Obtener todos los productos
 router.get('/', authenticateToken, async (req, res) => {
@@ -46,7 +114,8 @@ router.get('/', authenticateToken, async (req, res) => {
             categoria = '',
             marca = '',
             activo = '',
-            codigo_barras = '' // 👈 Agregar parámetro
+            codigo_barras = '',
+            en_oferta = '' // 👈 Nuevo filtro
         } = req.query;
 
         const pageNum = parseInt(page, 10);
@@ -80,7 +149,6 @@ router.get('/', authenticateToken, async (req, res) => {
         const queryParams = [];
         let paramCount = 1;
 
-        // 👇 Agregar búsqueda por código de barras
         if (codigo_barras) {
             conditions.push(`p.codigo_barras = $${paramCount}`);
             queryParams.push(codigo_barras);
@@ -108,6 +176,13 @@ router.get('/', authenticateToken, async (req, res) => {
         if (activo !== '') {
             conditions.push(`p.activo = $${paramCount}`);
             queryParams.push(activo === 'true');
+            paramCount++;
+        }
+
+        // 👇 Nuevo filtro por ofertas
+        if (en_oferta !== '') {
+            conditions.push(`p.en_oferta = $${paramCount}`);
+            queryParams.push(en_oferta === 'true');
             paramCount++;
         }
 
@@ -186,29 +261,50 @@ router.post('/', authenticateToken, requireRole(['ADMIN']), async (req, res) => 
             nombre,
             descripcion,
             codigo,
-            codigo_barras, // 👈 Agregar
+            codigo_barras,
             id_categoria,
             id_marca,
             stock,
-            precio_unitario,
+            precio_compra,
+            precio_venta_minorista,
+            precio_venta_mayorista,
+            precio_oferta,
+            margen_minorista,
+            margen_mayorista,
+            en_oferta,
+            porcentaje_descuento_oferta,
+            cantidad_minima_mayorista,
+            precio_unitario, // legacy
             moneda,
             activo
         } = req.body;
 
         const result = await pool.query(
             `INSERT INTO productos 
-             (nombre, descripcion, codigo, codigo_barras, id_categoria, id_marca, stock, precio_unitario, moneda, activo) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+             (nombre, descripcion, codigo, codigo_barras, id_categoria, id_marca, stock, 
+              precio_compra, precio_venta_minorista, precio_venta_mayorista, precio_oferta,
+              margen_minorista, margen_mayorista, en_oferta, porcentaje_descuento_oferta,
+              cantidad_minima_mayorista, precio_unitario, moneda, activo) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) 
              RETURNING *`,
             [
                 nombre,
                 descripcion,
                 codigo,
-                codigo_barras || null, // 👈 Agregar
+                codigo_barras || null,
                 id_categoria,
                 id_marca,
                 stock || 0,
-                precio_unitario,
+                precio_compra,
+                precio_venta_minorista,
+                precio_venta_mayorista || null,
+                precio_oferta || null,
+                margen_minorista || 0,
+                margen_mayorista || null,
+                en_oferta !== undefined ? en_oferta : false,
+                porcentaje_descuento_oferta || 0,
+                cantidad_minima_mayorista || 1,
+                precio_unitario || precio_venta_minorista, // usar precio minorista como fallback
                 moneda || 'PEN',
                 activo !== false
             ]
@@ -233,7 +329,6 @@ router.post('/', authenticateToken, requireRole(['ADMIN']), async (req, res) => 
     } catch (error) {
         console.error('Error al crear producto:', error);
 
-        // Manejar error de código de barras duplicado
         if (error.code === '23505' && error.constraint === 'productos_codigo_barras_key') {
             return res.status(400).json({
                 error: 'El código de barras ya existe en otro producto'
@@ -265,6 +360,15 @@ router.put('/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) =
             'id_categoria',
             'id_marca',
             'stock',
+            'precio_compra',
+            'precio_venta_minorista',
+            'precio_venta_mayorista',
+            'precio_oferta',
+            'margen_minorista',
+            'margen_mayorista',
+            'en_oferta',
+            'porcentaje_descuento_oferta',
+            'cantidad_minima_mayorista',
             'precio_unitario',
             'moneda',
             'activo'
@@ -312,7 +416,6 @@ router.put('/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) =
     } catch (error) {
         console.error('Error al actualizar producto:', error);
 
-        // Manejar error de código de barras duplicado
         if (error.code === '23505' && error.constraint === 'productos_codigo_barras_key') {
             return res.status(400).json({
                 error: 'El código de barras ya existe en otro producto'

@@ -34,6 +34,9 @@ import {
     Box,
     Barcode,
     AlertTriangle,
+    TrendingUp,
+    Tag,
+    DollarSign,
 } from "lucide-react"
 import {
     AlertDialog,
@@ -53,8 +56,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
 import type { Product } from "@/types/pos"
 import type { Category } from "@/types/pos"
+import { formatearPrecio, calcularMargen } from "@/lib/price-helpers"
 
 interface ProductsDataTableProps {
     products: Product[]
@@ -104,8 +114,16 @@ export function ProductsDataTable({
             cell: ({ row }) => {
                 const product = row.original
                 return (
-                    <div className="font-medium">
-                        {product.nameKey ? t(product.nameKey, product.name) : product.name}
+                    <div className="space-y-1">
+                        <div className="font-medium">
+                            {product.nameKey ? t(product.nameKey, product.name) : product.name}
+                        </div>
+                        {product.enOferta && (
+                            <Badge variant="destructive" className="text-xs">
+                                <Tag className="w-3 h-3 mr-1" />
+                                OFERTA
+                            </Badge>
+                        )}
                     </div>
                 )
             },
@@ -197,9 +215,6 @@ export function ProductsDataTable({
             },
             cell: ({ row }) => {
                 const categoryName = row.getValue("categoryName") as string | undefined
-                const product = row.original
-                
-                // Buscar el icono de la categoría
                 const category = categories.find(cat => cat.name === categoryName)
                 
                 return (
@@ -209,37 +224,112 @@ export function ProductsDataTable({
                     </Badge>
                 )
             },
-            // Función de filtrado personalizada para categorías
             filterFn: (row, id, value) => {
                 const categoryName = row.getValue(id) as string | undefined
                 if (!value || value === "all") return true
                 return categoryName === value
             },
         },
+        // ✅ NUEVA COLUMNA: Precios con tooltips
         {
             accessorKey: "price",
             header: ({ column }) => {
-                return (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                        className="h-8 px-2 hover:bg-transparent"
-                    >
-                        <span className="font-semibold">{t('app.price')}</span>
-                        {column.getIsSorted() === "asc" ? (
-                            <ArrowUp className="ml-2 h-3 w-3" />
-                        ) : column.getIsSorted() === "desc" ? (
-                            <ArrowDown className="ml-2 h-3 w-3" />
-                        ) : (
-                            <ArrowUpDown className="ml-2 h-3 w-3" />
-                        )}
-                    </Button>
-                )
+            return (
+                <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                className="h-8 px-2 hover:bg-transparent"
+                >
+                <span className="font-semibold">Precios</span>
+                {column.getIsSorted() === "asc" ? (
+                    <ArrowUp className="ml-2 h-3 w-3" />
+                ) : column.getIsSorted() === "desc" ? (
+                    <ArrowDown className="ml-2 h-3 w-3" />
+                ) : (
+                    <ArrowUpDown className="ml-2 h-3 w-3" />
+                )}
+                </Button>
+            )
             },
             cell: ({ row }) => {
-                const price = parseFloat(row.getValue("price") as string)
-                return <div className="font-semibold">S/ {price.toFixed(2)}</div>
+            const product = row.original
+            const margen = calcularMargen(
+                product.precioCompra || 0,
+                product.precioVentaMinorista || product.price
+            )
+
+            return (
+                <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                    <div className="space-y-1 cursor-help">
+                        {/* Precio principal */}
+                        <div className="font-semibold text-sm">
+                        {formatearPrecio(product.precioVentaMinorista || product.price, 'PEN')}
+                        </div>
+                        
+                        {/* Precio oferta si aplica */}
+                        {product.enOferta && product.precioOferta && (
+                        <div className="text-xs text-red-600 font-medium">
+                            Oferta: {formatearPrecio(product.precioOferta, 'PEN')}
+                        </div>
+                        )}
+                        
+                        {/* Margen */}
+                        <div className="flex items-center gap-1 text-xs text-green-600">
+                        <TrendingUp className="w-3 h-3" />
+                        <span>{margen.toFixed(1)}%</span>
+                        </div>
+                    </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="p-3 space-y-2 text-white">
+                    <div className="space-y-1">
+                        <div className="text-xs font-semibold">Desglose de Precios:</div>
+                        
+                        <div className="flex justify-between gap-4 text-xs">
+                        <span className="text-white/80">Compra:</span>
+                        <span className="font-mono">
+                            {formatearPrecio(product.precioCompra || 0, 'PEN')}
+                        </span>
+                        </div>
+                        
+                        <div className="flex justify-between gap-4 text-xs">
+                        <span className="text-white/80">Minorista:</span>
+                        <span className="font-mono font-medium">
+                            {formatearPrecio(product.precioVentaMinorista || product.price, 'PEN')}
+                        </span>
+                        </div>
+                        
+                        {product.precioVentaMayorista && (
+                        <div className="flex justify-between gap-4 text-xs text-white/90">
+                            <span>Mayorista ({product.cantidadMinimaMayorista}+):</span>
+                            <span className="font-mono font-medium">
+                            {formatearPrecio(product.precioVentaMayorista, 'PEN')}
+                            </span>
+                        </div>
+                        )}
+                        
+                        {product.enOferta && product.precioOferta && (
+                        <div className="flex justify-between gap-4 text-xs text-white/90">
+                            <span>Oferta (-{product.porcentajeDescuentoOferta}%):</span>
+                            <span className="font-mono font-medium">
+                            {formatearPrecio(product.precioOferta, 'PEN')}
+                            </span>
+                        </div>
+                        )}
+                        
+                        <div className="pt-2 border-t flex justify-between gap-4 text-xs">
+                        <span className="text-white/80">Margen:</span>
+                        <span className="font-semibold text-white">
+                            {margen.toFixed(2)}%
+                        </span>
+                        </div>
+                    </div>
+                    </TooltipContent>
+                </Tooltip>
+                </TooltipProvider>
+            )
             },
         },
         {
@@ -371,6 +461,10 @@ export function ProductsDataTable({
         },
     })
 
+
+
+
+    
     return (
         <Card>
             <CardHeader className="pb-3">
@@ -412,7 +506,7 @@ export function ProductsDataTable({
                                 </span>
                             </SelectItem>
                             {categories
-                                .filter(cat => cat.id !== 0) // Excluir "Todos"
+                                .filter(cat => cat.id !== 0)
                                 .map((cat) => (
                                     <SelectItem key={cat.id} value={cat.name}>
                                         <span className="flex items-center gap-2">

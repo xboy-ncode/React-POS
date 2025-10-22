@@ -2,7 +2,6 @@
 import { api } from './api'
 import type { Product } from '@/types/pos'
 
-// Mapeo de categorías (igual que en pos-adapter)
 const DEFAULT_CATEGORY_MAP: Record<string, string> = {
     'BEBIDAS': 'Bebidas',
     'Bebidas': 'Bebidas',
@@ -49,7 +48,6 @@ const DEFAULT_CATEGORY_ICONS: Record<string, string> = {
     'Tarjetas Telefónicas': '📱'
 }
 
-// Obtener categorías personalizadas del localStorage
 function getCustomCategoryMaps(): {
     categoryMap: Record<string, string>
     iconMap: Record<string, string>
@@ -86,7 +84,10 @@ function getCombinedIconMap(): Record<string, string> {
     return { ...DEFAULT_CATEGORY_ICONS, ...customIcons }
 }
 
-// Mapear productos de la API al formato del frontend (ACTUALIZADO)
+/**
+ * Mapear productos de la API al formato del frontend
+ * ACTUALIZADO: Incluye nuevos campos de precios
+ */
 const mapProductFromAPI = (apiProduct: any): Product => {
     const categoryMap = getCombinedCategoryMap()
     const categoryIcons = getCombinedIconMap()
@@ -96,47 +97,55 @@ const mapProductFromAPI = (apiProduct: any): Product => {
         ? categoryMap[categoryKey] 
         : 'uncategorized'
 
-    const price = parseFloat(apiProduct.precio_unitario || 0)
-    const cost = parseFloat(apiProduct.precio_compra || 0)
-    
     return {
         id: apiProduct.id_producto,
         name: apiProduct.nombre,
         nameKey: `pos.products.${apiProduct.nombre?.toLowerCase().replace(/\s+/g, '_')}`,
-        price: price,
         
-        // ✅ ACTUALIZADO: Usar categoryId y categoryName como pos-adapter
+        // ✅ ACTUALIZADO: Usar precio_venta_minorista como precio principal
+        price: parseFloat(apiProduct.precio_venta_minorista || apiProduct.precio_unitario || 0),
+        
+        // ✅ NUEVO: Campos de precios adicionales
+        precioCompra: parseFloat(apiProduct.precio_compra || 0),
+        precioVentaMinorista: parseFloat(apiProduct.precio_venta_minorista || 0),
+        precioVentaMayorista: apiProduct.precio_venta_mayorista 
+            ? parseFloat(apiProduct.precio_venta_mayorista) 
+            : null,
+        precioOferta: apiProduct.precio_oferta 
+            ? parseFloat(apiProduct.precio_oferta) 
+            : null,
+        margenMinorista: parseFloat(apiProduct.margen_minorista || 0),
+        margenMayorista: apiProduct.margen_mayorista 
+            ? parseFloat(apiProduct.margen_mayorista) 
+            : null,
+        enOferta: apiProduct.en_oferta || false,
+        porcentajeDescuentoOferta: parseFloat(apiProduct.porcentaje_descuento_oferta || 0),
+        cantidadMinimaMayorista: parseInt(apiProduct.cantidad_minima_mayorista || 1),
+        
         categoryId: apiProduct.id_categoria,
         categoryName: category,
-        
-        // ✅ AGREGADO: Campos de marca
         brandId: apiProduct.id_marca,
         brandName: apiProduct.marca_nombre || '',
-        
         image: apiProduct.imagen || '/api/placeholder/200/200',
         sku: apiProduct.codigo || '',
-        
-        // ✅ AGREGADO: Código de barras
         barcode: apiProduct.codigo_barras || '',
-        
-        cost: cost,
+        cost: parseFloat(apiProduct.precio_compra || 0),
         isAvailable: apiProduct.activo ?? true,
         productIcon: categoryIcons[category] || '📦',
         stock: apiProduct.stock || 0,
         lowStockThreshold: apiProduct.stock_minimo || 10,
-        
-        // ✅ MANTENER: supplier por compatibilidad
         supplier: apiProduct.marca_nombre || '',
-        
         location: '', 
         createdAt: apiProduct.fecha_registro,
         updatedAt: apiProduct.fecha_actualizacion
     }
 }
 
-// Mapear producto del frontend a la API para CREAR
+/**
+ * Mapear producto del frontend a la API para CREAR
+ * ACTUALIZADO: Incluye nuevos campos de precios
+ */
 const mapProductToAPIForCreate = (product: Partial<Product>) => {
-    // Validar categoryId
     if (!product.categoryId || product.categoryId <= 0) {
         throw new Error('Categoría inválida. Por favor, selecciona una categoría válida.')
     }
@@ -144,18 +153,34 @@ const mapProductToAPIForCreate = (product: Partial<Product>) => {
     const apiProduct: any = {
         nombre: product.name,
         codigo: product.sku,
-        codigo_barras: product.barcode || '', // ✅ AGREGADO
-        precio_unitario: product.price || 0,
+        codigo_barras: product.barcode || '',
         stock: product.stock || 0,
         activo: product.isAvailable ?? true,
-        id_categoria: product.categoryId, // ✅ USAR categoryId
-        id_marca: product.brandId || undefined // ✅ USAR brandId
+        id_categoria: product.categoryId,
+        id_marca: product.brandId || undefined,
+        
+        // ✅ NUEVO: Campos de precios
+        precio_compra: product.precioCompra ?? product.cost ?? 0,
+        precio_venta_minorista: product.precioVentaMinorista ?? product.price ?? 0,
+        precio_venta_mayorista: product.precioVentaMayorista ?? null,
+        precio_oferta: product.precioOferta ?? null,
+        margen_minorista: product.margenMinorista ?? 0,
+        margen_mayorista: product.margenMayorista ?? null,
+        en_oferta: product.enOferta ?? false,
+        porcentaje_descuento_oferta: product.porcentajeDescuentoOferta ?? 0,
+        cantidad_minima_mayorista: product.cantidadMinimaMayorista ?? 1,
+        
+        // Legacy
+        precio_unitario: product.precioVentaMinorista ?? product.price ?? 0,
     }
 
     return apiProduct
 }
 
-// Mapear producto del frontend a la API para ACTUALIZAR
+/**
+ * Mapear producto del frontend a la API para ACTUALIZAR
+ * ACTUALIZADO: Incluye nuevos campos de precios
+ */
 const mapProductToAPIForUpdate = (product: Partial<Product>) => {
     const apiProduct: any = {}
 
@@ -167,13 +192,8 @@ const mapProductToAPIForUpdate = (product: Partial<Product>) => {
         apiProduct.codigo = product.sku
     }
 
-    // ✅ AGREGADO: Código de barras
     if (product.barcode !== undefined) {
         apiProduct.codigo_barras = product.barcode
-    }
-
-    if (product.price !== undefined) {
-        apiProduct.precio_unitario = product.price
     }
 
     if (product.stock !== undefined) {
@@ -184,7 +204,6 @@ const mapProductToAPIForUpdate = (product: Partial<Product>) => {
         apiProduct.activo = product.isAvailable
     }
 
-    // ✅ ACTUALIZADO: Usar categoryId en lugar de category
     if (product.categoryId !== undefined) {
         if (product.categoryId <= 0) {
             throw new Error('Categoría inválida. Por favor, selecciona una categoría válida.')
@@ -192,9 +211,52 @@ const mapProductToAPIForUpdate = (product: Partial<Product>) => {
         apiProduct.id_categoria = product.categoryId
     }
 
-    // ✅ AGREGADO: Soporte para marca
     if (product.brandId !== undefined) {
         apiProduct.id_marca = product.brandId
+    }
+
+    // ✅ NUEVO: Campos de precios
+    if (product.precioCompra !== undefined) {
+        apiProduct.precio_compra = product.precioCompra
+    }
+
+    if (product.precioVentaMinorista !== undefined) {
+        apiProduct.precio_venta_minorista = product.precioVentaMinorista
+        apiProduct.precio_unitario = product.precioVentaMinorista // Mantener sincronizado
+    }
+
+    if (product.precioVentaMayorista !== undefined) {
+        apiProduct.precio_venta_mayorista = product.precioVentaMayorista
+    }
+
+    if (product.precioOferta !== undefined) {
+        apiProduct.precio_oferta = product.precioOferta
+    }
+
+    if (product.margenMinorista !== undefined) {
+        apiProduct.margen_minorista = product.margenMinorista
+    }
+
+    if (product.margenMayorista !== undefined) {
+        apiProduct.margen_mayorista = product.margenMayorista
+    }
+
+    if (product.enOferta !== undefined) {
+        apiProduct.en_oferta = product.enOferta
+    }
+
+    if (product.porcentajeDescuentoOferta !== undefined) {
+        apiProduct.porcentaje_descuento_oferta = product.porcentajeDescuentoOferta
+    }
+
+    if (product.cantidadMinimaMayorista !== undefined) {
+        apiProduct.cantidad_minima_mayorista = product.cantidadMinimaMayorista
+    }
+
+    // Actualizar price si se actualiza precioVentaMinorista
+    if (product.price !== undefined && product.precioVentaMinorista === undefined) {
+        apiProduct.precio_venta_minorista = product.price
+        apiProduct.precio_unitario = product.price
     }
 
     return apiProduct
@@ -220,7 +282,7 @@ export async function loadProducts(): Promise<Product[]> {
 export async function getProduct(id: number): Promise<Product> {
     try {
         const response = await api(`/products/${id}`)
-        return mapProductFromAPI(response.producto)
+        return mapProductFromAPI(response.producto || response)
     } catch (error: any) {
         console.error('Error getting product:', error)
         throw new Error(error.message || 'Error al obtener producto')
@@ -357,17 +419,46 @@ export async function getProductsByCategory(categoryId: number): Promise<Product
     }
 }
 
+// ✅ NUEVO: Obtener productos en oferta
+export async function getProductsOnSale(): Promise<Product[]> {
+    try {
+        const response = await api('/products?en_oferta=true&activo=true')
+        
+        if (response?.productos && Array.isArray(response.productos)) {
+            return response.productos.map(mapProductFromAPI)
+        }
+        
+        return []
+    } catch (error: any) {
+        console.error('Error loading products on sale:', error)
+        throw new Error(error.message || 'Error al cargar productos en oferta')
+    }
+}
+
 // Exportar estadísticas del inventario
 export async function getInventoryStats() {
     try {
         const products = await loadProducts()
         
+        const totalValue = products.reduce((sum, p) => {
+            return sum + ((p.precioCompra || p.cost || 0) * (p.stock || 0))
+        }, 0)
+        
+        const totalRevenue = products.reduce((sum, p) => {
+            return sum + ((p.precioVentaMinorista || p.price) * (p.stock || 0))
+        }, 0)
+        
+        const potentialProfit = totalRevenue - totalValue
+        
         return {
             totalProducts: products.length,
-            totalValue: products.reduce((sum, p) => sum + (p.price * (p.stock || 0)), 0),
+            totalValue,
+            totalRevenue,
+            potentialProfit,
             lowStockCount: products.filter(p => (p.stock || 0) <= (p.lowStockThreshold || 10)).length,
             outOfStockCount: products.filter(p => (p.stock || 0) === 0).length,
-            categories: [...new Set(products.map(p => p.categoryName))].length
+            categories: [...new Set(products.map(p => p.categoryName))].length,
+            productsOnSale: products.filter(p => p.enOferta).length
         }
     } catch (error: any) {
         console.error('Error getting inventory stats:', error)

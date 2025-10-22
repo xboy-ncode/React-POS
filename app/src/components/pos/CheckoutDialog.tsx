@@ -1,7 +1,7 @@
-// CheckoutDialog.tsx - VERSIÓN CORREGIDA
+// CheckoutDialog.tsx - ADAPTED VERSION WITH PRICE CALCULATORS
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, Minus, Plus, CreditCard, User, Loader2, AlertCircle, Receipt, FileText, FileSpreadsheet } from 'lucide-react'
+import { X, Minus, Plus, CreditCard, User, Loader2, AlertCircle, Receipt, FileText, FileSpreadsheet, Tag } from 'lucide-react'
 import {
     Dialog,
     DialogContent,
@@ -25,23 +25,17 @@ import { toast } from 'sonner'
 import { api } from '@/lib/api'
 import { ventasService } from '@/lib/api-client'
 import { usePdfTicket } from '@/hooks/usePdfTicket'
+import { usePriceCalculator, useCartTotals } from '@/hooks/usePriceCalculator'
 import React from 'react'
 import { cn } from '@/lib/utils'
+import type { CartItem, Product } from '@/types/pos'
 
 import businessConfig, {
     formatCurrency,
     calculateIGV,
     generateInvoiceNumber
 } from '@/config/business.config'
-
-type CartItem = {
-    id: number
-    name: string
-    nameKey: string
-    price: number
-    quantity: number
-    productIcon?: string
-}
+import { calculatePriceData } from '@/lib/price-calculator'
 
 type Customer = {
     id_cliente?: number
@@ -61,6 +55,7 @@ type CheckoutDialogProps = {
     open: boolean
     onOpenChange: (open: boolean) => void
     cart: CartItem[]
+    products?: Product[] // Added to get full product data
     updateQuantity: (productId: number, newQuantity: number) => void
     removeFromCart: (productId: number) => void
     onProcessPayment: (checkoutData: any) => void
@@ -70,10 +65,120 @@ type CheckoutDialogProps = {
 
 type ComprobanteType = 'ticket' | 'boleta' | 'factura'
 
+// ✅ CartItemRow.tsx (adaptado al estilo del Cart Sidebar)
+function CartItemRow({
+    item,
+    product,
+    updateQuantity,
+    removeFromCart,
+}: {
+    item: CartItem
+    product?: Product
+    updateQuantity: (id: number, qty: number) => void
+    removeFromCart: (id: number) => void
+}) {
+    const { t } = useTranslation()
+
+    const priceInfo = product ? calculatePriceData(product, item.quantity) : null
+    const effectivePrice = priceInfo?.priceCalculation?.precioFinal ?? item.price
+    const originalPrice = priceInfo?.priceCalculation?.precioBase ?? item.price
+
+    const hasDiscount =
+        priceInfo?.hasDiscount || effectivePrice < originalPrice // incluye precios mayoristas
+
+    return (
+        <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+            {/* 🛒 Nombre y precios */}
+            <div className="flex-1 min-w-0">
+                <h4 className="font-medium text-xs truncate">
+                    {t(item.nameKey, item.name)}
+                </h4>
+
+                <p className="text-muted-foreground text-xs">
+                    {formatCurrency(effectivePrice)}{' '}
+                    {hasDiscount && (
+                        <span className="line-through ml-1 text-[10px] opacity-70">
+                            {formatCurrency(originalPrice)}
+                        </span>
+                    )}
+                </p>
+
+                {/* 🏷️ Badge (oferta/mayorista) */}
+                {hasDiscount && priceInfo?.priceBadge && (
+                    <Badge
+                        variant="outline"
+                        className={`text-[10px] h-4 px-1 mt-0.5 flex items-center gap-0.5 ${priceInfo.priceBadge.tipo === 'oferta'
+                            ? 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-200 dark:border-yellow-700'
+                            : 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700'
+                            }`}
+                    >
+                        <Tag className="w-3 h-3" />
+                        {priceInfo.priceBadge.tipo === 'oferta' ? 'Oferta' : 'Mayorista'}
+                    </Badge>
+                )}
+
+                {/* 🔸 Indicador de unidades faltantes para mayorista - SOLO si NO es mayorista aún */}
+                {!priceInfo?.isWholesale && priceInfo?.unidadesFaltantes && priceInfo.unidadesFaltantes > 0 && (
+                    <p className="text-[10px] text-amber-600 flex items-center gap-1 mt-0.5">
+                        <Tag className="w-3 h-3" />
+                        +{priceInfo.unidadesFaltantes} p/ mayorista
+                    </p>
+                )}
+            </div>
+
+            {/* 🔘 Botones de control */}
+            <div className="flex items-center gap-1">
+                <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        updateQuantity(item.id, item.quantity - 1)
+                    }}
+                >
+                    <Minus className="w-3 h-3" />
+                </Button>
+
+                <span className="w-5 text-center text-xs font-medium">
+                    {item.quantity}
+                </span>
+
+                <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        updateQuantity(item.id, item.quantity + 1)
+                    }}
+                >
+                    <Plus className="w-3 h-3" />
+                </Button>
+
+                <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        removeFromCart(item.id)
+                        updateQuantity(item.id, 0)
+                    }}
+                >
+                    <X className="w-3 h-3" />
+                </Button>
+            </div>
+        </div>
+    )
+}
+
+
 export default function CheckoutDialog({
     open,
     onOpenChange,
     cart,
+    products = [],
     updateQuantity,
     removeFromCart,
     onProcessPayment,
@@ -101,10 +206,34 @@ export default function CheckoutDialog({
     const [selectedCustomerId, setSelectedCustomerId] = useState<string>('')
     const { generatePdfTicket } = usePdfTicket()
 
-    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-    const igv = calculateIGV(subtotal)
-    const total = subtotal + igv
-    const change = receivedAmount ? Math.max(0, parseFloat(receivedAmount) - total) : 0
+ // Prepare cart items with full product data for price calculations
+const cartItemsWithProducts = cart.map(item => ({
+    product: products.find(p => p.id === item.id) || {
+        id: item.id,
+        name: item.name,
+        nameKey: item.nameKey,
+        price: item.price,
+        image: item.image || '',
+        precioVentaMinorista: item.price
+    } as Product,
+    quantity: item.quantity
+}))
+
+// ✅ Calcular totales desde los precios YA actualizados en el carrito
+const subtotal = cart.reduce((sum, item) => {
+    return sum + (item.price * item.quantity)
+}, 0)
+
+const cartTotals = {
+    subtotal: subtotal,
+    descuentos: 0, // Los descuentos ya están aplicados en item.price
+    total: subtotal
+}
+
+// Calculate IGV and final totals
+const igv = calculateIGV(cartTotals.total)
+const totalWithIGV = cartTotals.total + igv
+const change = receivedAmount ? Math.max(0, parseFloat(receivedAmount) - totalWithIGV) : 0
 
     useEffect(() => {
         if (open) {
@@ -209,7 +338,6 @@ export default function CheckoutDialog({
         }
     }
 
-    // ⭐ VALIDACIÓN CORREGIDA
     const validateForm = () => {
         if (receiptType === 'factura') {
             if (!customerForm.nombre?.trim()) {
@@ -240,7 +368,7 @@ export default function CheckoutDialog({
         // Validar formulario primero
         if (!validateForm()) return
 
-        if (paymentMethod === 'EFECTIVO' && parseFloat(receivedAmount) < total) {
+        if (paymentMethod === 'EFECTIVO' && parseFloat(receivedAmount) < totalWithIGV) {
             toast.error(t('pos.insufficient_amount'))
             return
         }
@@ -255,16 +383,30 @@ export default function CheckoutDialog({
                 if (newCustomerId) customerId = newCustomerId.toString()
             }
 
+            // Build checkout data with price calculations
             const checkoutData = {
-                cart,
+                cart: cart.map(item => {
+                    const product = products.find(p => p.id === item.id)
+                    const priceCalc = product ? calculatePriceData(product, item.quantity) : null
+
+                    return {
+                        ...item,
+                        precioOriginal: priceCalc?.priceCalculation.precioBase || item.price,
+                        precioFinal: priceCalc?.priceCalculation.precioFinal || item.price,
+                        descuentoAplicado: priceCalc?.priceCalculation.descuento || 0,
+                        esOferta: priceCalc?.isOnSale || false,
+                        esMayorista: priceCalc?.isWholesale || false
+                    }
+                }),
                 customer: customerForm,
                 customerId,
                 receiptType,
                 paymentMethod,
-                subtotal,
+                subtotal: cartTotals.subtotal,
+                descuentos: cartTotals.descuentos,
                 tax: igv,
-                total,
-                receivedAmount: paymentMethod === 'EFECTIVO' ? parseFloat(receivedAmount) : total,
+                total: totalWithIGV,
+                receivedAmount: paymentMethod === 'EFECTIVO' ? parseFloat(receivedAmount) : totalWithIGV,
                 change: paymentMethod === 'EFECTIVO' ? change : 0,
                 timestamp: new Date().toISOString()
             }
@@ -279,11 +421,16 @@ export default function CheckoutDialog({
                     id_cliente: customerId ? parseInt(customerId) : null,
                     metodo_pago: paymentMethod,
                     moneda: businessConfig.currency,
-                    productos: cart.map(item => ({
-                        id_producto: item.id,
-                        cantidad: item.quantity,
-                        precio_unitario: item.price
-                    }))
+                    productos: cart.map(item => {
+                        const product = products.find(p => p.id === item.id)
+                        const priceCalc = product ? calculatePriceData(product, item.quantity) : null
+
+                        return {
+                            id_producto: item.id,
+                            cantidad: item.quantity,
+                            precio_unitario: priceCalc?.priceCalculation.precioFinal || item.price
+                        }
+                    })
                 }
 
                 const ventaResponse = await ventasService.create(ventaData)
@@ -441,6 +588,30 @@ export default function CheckoutDialog({
   }
 `
 
+    // Wrapper para updateQuantity que recalcula precios
+    const handleUpdateQuantity = (productId: number, newQuantity: number) => {
+        if (newQuantity === 0) {
+            removeFromCart(productId)
+            return
+        }
+
+        // Buscar el producto para recalcular precio
+        const product = products.find(p => p.id === productId)
+        if (!product) {
+            updateQuantity(productId, newQuantity)
+            return
+        }
+
+        // Verificar stock
+        if (newQuantity > (product.stock || 0)) {
+            toast.error(`Stock máximo disponible: ${product.stock || 0}`)
+            return
+        }
+
+        // Llamar a updateQuantity del padre (POSSystem)
+        updateQuantity(productId, newQuantity)
+    }
+
     React.useEffect(() => {
         const styleElement = document.createElement('style')
         styleElement.textContent = marqueeStyles
@@ -450,6 +621,9 @@ export default function CheckoutDialog({
             document.head.removeChild(styleElement)
         }
     }, [])
+
+
+
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -559,7 +733,7 @@ export default function CheckoutDialog({
                                 </div>
                             </div>
 
-                            {/* Personal Information */}
+                            {/* Personal Information Fields - Same as before */}
                             <div className="space-y-4 mt-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="nombre">
@@ -641,6 +815,7 @@ export default function CheckoutDialog({
                             </div>
                         </Card>
 
+
                         {/* Receipt Type Selection */}
                         <Card className="p-4">
                             <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
@@ -696,58 +871,27 @@ export default function CheckoutDialog({
                             </h3>
 
                             <div className="space-y-3 max-h-60 overflow-y-auto mb-4">
-                                {cart.map((item) => (
-                                    <div key={item.id} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
-                                        <div className="flex-1 min-w-0">
-                                            <h4 className="font-medium text-sm truncate">
-                                                {t(item.nameKey, item.name)}
-                                            </h4>
-                                            <p className="text-xs text-muted-foreground">
-                                                {formatCurrency(item.price)} × {item.quantity}
-                                            </p>
-                                        </div>
-                                        
-                                        <div className="flex items-center gap-2">
-                                            <Button
-                                                size="icon"
-                                                variant="outline"
-                                                className="h-6 w-6"
-                                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                            >
-                                                <Minus className="h-3 w-3" />
-                                            </Button>
-                                            <span className="text-sm font-medium w-6 text-center">
-                                                {item.quantity}
-                                            </span>
-                                            <Button
-                                                size="icon"
-                                                variant="outline"
-                                                className="h-6 w-6"
-                                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                            >
-                                                <Plus className="h-3 w-3" />
-                                            </Button>
-                                            <Button
-                                                size="icon"
-                                                variant="ghost"
-                                                className="h-6 w-6 text-destructive"
-                                                onClick={() => removeFromCart(item.id)}
-                                            >
-                                                <X className="h-3 w-3" />
-                                            </Button>
-                                        </div>
-                                        
-                                        <div className="font-semibold text-sm">
-                                            {formatCurrency(item.price * item.quantity)}
-                                        </div>
-                                    </div>
-                                ))}
+                                {cartItemsWithProducts.map(({ product, quantity }) => {
+                                    const item = cart.find(i => i.id === product.id)
+                                    if (!item) return null
+
+                                    return (
+                                        <CartItemRow
+                                            key={item.id}
+                                            item={item}
+                                            product={product}
+                                            updateQuantity={handleUpdateQuantity}  // ← USA EL WRAPPER
+                                            removeFromCart={removeFromCart}
+                                        />
+                                    )
+                                })}
                             </div>
+
 
                             <div className="space-y-2 border-t pt-4">
                                 <div className="flex justify-between text-sm">
                                     <span>{t('pos.checkout.subtotal')}:</span>
-                                    <span>{formatCurrency(subtotal)}</span>
+                                    <span>{formatCurrency(cartTotals.subtotal)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span>{t('pos.checkout.tax')} ({businessConfig.igvRate}%):</span>
@@ -755,9 +899,10 @@ export default function CheckoutDialog({
                                 </div>
                                 <div className="flex justify-between text-lg font-bold border-t pt-2">
                                     <span>{t('pos.checkout.total')}:</span>
-                                    <span>{formatCurrency(total)}</span>
+                                    <span>{formatCurrency(totalWithIGV)}</span>
                                 </div>
                             </div>
+
                         </Card>
 
                         {/* Payment Method */}
@@ -796,7 +941,7 @@ export default function CheckoutDialog({
                                             <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
                                                 <span className="font-medium">{t('pos.checkout.change')}:</span>
                                                 <span className="text-xl font-bold text-green-600">
-                                                    {formatCurrency(change)}
+                                                    {change > 0 ? formatCurrency(change) : '-'}
                                                 </span>
                                             </div>
                                         )}
@@ -820,7 +965,7 @@ export default function CheckoutDialog({
                                 className="flex-1 bg-green-600 hover:bg-green-700"
                                 disabled={
                                     processing ||
-                                    (paymentMethod === 'EFECTIVO' && parseFloat(receivedAmount) < total)
+                                    (paymentMethod === 'EFECTIVO' && parseFloat(receivedAmount) < totalWithIGV)
                                 }
                             >
                                 {processing ? (

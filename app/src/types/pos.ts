@@ -62,6 +62,7 @@ export type CartItem = {
     esPrecioMayorista?: boolean
     precioOriginal?: number
     descuentoAplicado?: number
+    customPrice?: number
 }
 
 // ✅ NUEVO: Tipo para el cálculo de precios
@@ -72,6 +73,8 @@ export type PriceCalculation = {
     esOferta: boolean
     esMayorista: boolean
     ahorro?: number
+    montoDescuentoOferta: number      
+    montoDescuentoMayorista: number  
 }
 
 // ✅ NUEVO: Tipo para información de descuentos/badges

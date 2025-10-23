@@ -22,6 +22,22 @@ const PAPER_CONFIGS = {
     factura: { width: 595.28, maxWidth: 515 }   // A4 - Ajustado de 555 a 515
 }
 
+interface SaleItem {
+    id_producto?: number;
+    nombre: string;
+    cantidad: number;
+    precio_unitario: number;
+    subtotal: number;
+
+    // NUEVO: Agregar campos de descuentos
+    precio_original?: number;
+    descuento_oferta?: number;
+    descuento_mayorista?: number;
+    descuento_total?: number;
+    es_oferta?: boolean;
+    es_mayorista?: boolean;
+}
+
 interface SaleData {
     id_venta: number
     numero_comprobante?: string
@@ -34,12 +50,10 @@ interface SaleData {
     cliente_documento?: string
     cliente_direccion?: string
     metodo_pago: string
-    items: Array<{
-        nombre: string
-        cantidad: number
-        precio_unitario: number
-        subtotal: number
-    }>
+    subtotal_sin_descuentos?: number;
+    total_descuentos?: number;
+    items: SaleItem[];
+
 }
 
 // Utilidad para envolver texto
@@ -245,10 +259,12 @@ async function generateTicket(
     drawLine(page, yPosition, maxWidth)
     yPosition -= 10
 
+    // === PRODUCTOS CON DESCUENTOS ===
     for (const item of sale.items) {
         const nombreProducto = item.nombre || 'Producto'
         const itemLines = wrapText(nombreProducto, maxWidth - 100, font, 7)
 
+        // Primera línea del producto
         for (let i = 0; i < itemLines.length; i++) {
             page.drawText(itemLines[i], { x: margin, y: yPosition, size: 7, font })
 
@@ -263,12 +279,26 @@ async function generateTicket(
                     size: 7,
                     font
                 })
-                page.drawText(precioUnit.toFixed(2), {
-                    x: maxWidth - 50,
-                    y: yPosition,
-                    size: 7,
-                    font
-                })
+
+                // Si tiene descuento, mostrar precio original tachado
+                if (item.precio_original && item.precio_original > precioUnit) {
+                    // Mostrar precio con descuento
+                    page.drawText(precioUnit.toFixed(2), {
+                        x: maxWidth - 50,
+                        y: yPosition,
+                        size: 7,
+                        font,
+                        color: rgb(0, 0.5, 0) // Verde para precio con descuento
+                    })
+                } else {
+                    page.drawText(precioUnit.toFixed(2), {
+                        x: maxWidth - 50,
+                        y: yPosition,
+                        size: 7,
+                        font
+                    })
+                }
+
                 page.drawText(subtotal.toFixed(2), {
                     x: maxWidth - 15,
                     y: yPosition,
@@ -276,8 +306,43 @@ async function generateTicket(
                     font
                 })
             }
-
             yPosition -= 10
+        }
+
+        // NUEVO: Mostrar tipo de descuento aplicado
+        if (item.es_oferta || item.es_mayorista) {
+            let descText = ''
+            if (item.es_oferta && item.es_mayorista) {
+                descText = '(Oferta + Mayorista)'
+            } else if (item.es_oferta) {
+                descText = '(Oferta)'
+            } else if (item.es_mayorista) {
+                descText = '(Precio Mayorista)'
+            }
+
+            if (descText) {
+                page.drawText(descText, {
+                    x: margin + 10,
+                    y: yPosition,
+                    size: 6,
+                    font,
+                    color: rgb(0, 0.5, 0)
+                })
+                yPosition -= 8
+            }
+
+            // Mostrar ahorro si existe
+            if (item.descuento_total && item.descuento_total > 0) {
+                const ahorro = item.descuento_total * item.cantidad
+                page.drawText(`Ahorro: ${formatCurrency(ahorro)}`, {
+                    x: margin + 10,
+                    y: yPosition,
+                    size: 6,
+                    font,
+                    color: rgb(0.8, 0, 0)
+                })
+                yPosition -= 8
+            }
         }
 
         yPosition -= 3
@@ -287,37 +352,96 @@ async function generateTicket(
     drawLine(page, yPosition, maxWidth)
     yPosition -= 15
 
-    // === TOTALES ===
-    if (sale.subtotal) {
-        const subtotalValue = Number(sale.subtotal) || 0
-        page.drawText('SUBTOTAL:', { x: maxWidth - 90, y: yPosition, size: 8, font })
-        page.drawText(formatCurrency(subtotalValue), {
-            x: maxWidth - 15,
-            y: yPosition,
-            size: 8,
-            font
-        })
+    // === TOTALES CON DESCUENTOS ===
+    // Agregar resumen de descuentos si existen
+    if (sale.total_descuentos && sale.total_descuentos > 0) {
+        yPosition -= 10
+        drawLine(page, yPosition, maxWidth)
         yPosition -= 12
 
-        const igvValue = Number(sale.igv) || calculateIGV(subtotalValue)
-        page.drawText(`IGV (${businessConfig.igvRate}%):`, {
-            x: maxWidth - 90,
+        page.drawText('RESUMEN DE DESCUENTOS', {
+            x: margin,
             y: yPosition,
-            size: 8,
-            font
+            size: 7,
+            font: fontBold
         })
-        page.drawText(formatCurrency(igvValue), {
+        yPosition -= 10
+
+        // Calcular descuentos por tipo
+        let totalOferta = 0
+        let totalMayorista = 0
+
+        sale.items.forEach(item => {
+            if (item.descuento_oferta) {
+                totalOferta += item.descuento_oferta * item.cantidad
+            }
+            if (item.descuento_mayorista) {
+                totalMayorista += item.descuento_mayorista * item.cantidad
+            }
+        })
+
+        if (totalOferta > 0) {
+            page.drawText('Desc. Ofertas:', { x: margin, y: yPosition, size: 6, font })
+            page.drawText(`-${formatCurrency(totalOferta)}`, {
+                x: maxWidth - 15,
+                y: yPosition,
+                size: 6,
+                font,
+                color: rgb(0.8, 0, 0)
+            })
+            yPosition -= 8
+        }
+
+        if (totalMayorista > 0) {
+            page.drawText('Desc. Mayorista:', { x: margin, y: yPosition, size: 6, font })
+            page.drawText(`-${formatCurrency(totalMayorista)}`, {
+                x: maxWidth - 15,
+                y: yPosition,
+                size: 6,
+                font,
+                color: rgb(0.8, 0, 0)
+            })
+            yPosition -= 8
+        }
+
+        yPosition -= 5
+        page.drawText('TOTAL AHORRADO:', {
+            x: margin,
+            y: yPosition,
+            size: 7,
+            font: fontBold
+        })
+        page.drawText(formatCurrency(sale.total_descuentos), {
             x: maxWidth - 15,
             y: yPosition,
-            size: 8,
-            font
+            size: 7,
+            font: fontBold,
+            color: rgb(0, 0.5, 0)
         })
-        yPosition -= 15
+        yPosition -= 12
     }
 
     const totalValue = Number(sale.total) || 0
+    page.drawText('Sub-Total:', { x: maxWidth - 90, y: yPosition, size: 10, font: fontBold })
+        page.drawText(formatCurrency(totalValue), {
+        x: maxWidth - 15,
+        y: yPosition,
+        size: 10,
+        font: fontBold
+    })
+        yPosition -= 15
+
+        page.drawText('Impuestos:', { x: maxWidth - 90, y: yPosition, size: 10, font: fontBold })
+        page.drawText(formatCurrency(totalValue * 0.18), {
+        x: maxWidth - 15,
+        y: yPosition,
+        size: 10,
+        font: fontBold
+    })
+        yPosition -= 15
+        
     page.drawText('TOTAL:', { x: maxWidth - 90, y: yPosition, size: 10, font: fontBold })
-    page.drawText(formatCurrency(totalValue), {
+    page.drawText(formatCurrency(totalValue + (totalValue * 0.18)), {
         x: maxWidth - 15,
         y: yPosition,
         size: 10,
@@ -1005,10 +1129,12 @@ export function usePdfTicket() {
             const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
             const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
+
+
             // Generar según tipo
             switch (type) {
                 case 'ticket':
-                    await generateTicket(pdfDoc, saleData, font, fontBold)
+                    await generateTicketWithDiscounts(pdfDoc, saleData, font, fontBold)
                     break
                 case 'boleta':
                     await generateBoleta(pdfDoc, saleData, font, fontBold)
@@ -1038,179 +1164,596 @@ export function usePdfTicket() {
     }, [])
 
 
-  async function generateMonthlyReport(month: number, year: number) {
-    const fechaDesde = `${year}-${String(month).padStart(2, '0')}-01`
-    const fechaHasta = `${year}-${String(month).padStart(2, '0')}-31`
+    async function generateMonthlyReport(month: number, year: number) {
+        const fechaDesde = `${year}-${String(month).padStart(2, '0')}-01`
+        const fechaHasta = `${year}-${String(month).padStart(2, '0')}-31`
 
-    // Obtener resumen + detalle desde tu backend
-    const { resumen, detalle } = await ventasService.getResumen({
-        fecha_desde: fechaDesde,
-        fecha_hasta: fechaHasta
-    })
+        // Obtener resumen + detalle desde tu backend
+        const { resumen, detalle } = await ventasService.getResumen({
+            fecha_desde: fechaDesde,
+            fecha_hasta: fechaHasta
+        })
 
-    const pdfDoc = await PDFDocument.create()
-    let page = pdfDoc.addPage([595.28, 842]) // A4
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
-    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-    const margin = 40
-    let y = 800
+        const pdfDoc = await PDFDocument.create()
+        let page = pdfDoc.addPage([595.28, 842]) // A4
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+        const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+        const margin = 40
+        let y = 800
 
-    // === LOGO Y ENCABEZADO ===
-    if (businessConfig.printConfig.showLogo && businessConfig.printConfig.logoUrl) {
-        try {
-            const logoBytes = await fetch(businessConfig.printConfig.logoUrl).then(res => res.arrayBuffer())
-            const logoImage = await pdfDoc.embedPng(logoBytes)
-            const logoWidth = 90
-            const logoHeight = (logoImage.height / logoImage.width) * logoWidth
-            page.drawImage(logoImage, {
-                x: margin,
-                y: y - logoHeight,
-                width: logoWidth,
-                height: logoHeight
-            })
-        } catch {
-            console.warn('⚠️ No se pudo cargar el logo')
-        }
-    }
-
-    // Nombre de empresa
-    page.drawText(businessConfig.name, {
-        x: margin + 110,
-        y,
-        size: 14,
-        font: fontBold,
-        color: rgb(0, 0, 0)
-    })
-    y -= 18
-
-    page.drawText(`RUC: ${businessConfig.ruc}`, {
-        x: margin + 110,
-        y,
-        size: 10,
-        font,
-    })
-    y -= 14
-
-    page.drawText(`Dirección: ${businessConfig.address}`, {
-        x: margin + 110,
-        y,
-        size: 9,
-        font
-    })
-    y -= 14
-
-    if (businessConfig.phone)
-        page.drawText(`Tel: ${businessConfig.phone}`, { x: margin + 110, y, size: 9, font })
-    if (businessConfig.email)
-        page.drawText(`Email: ${businessConfig.email}`, { x: margin + 230, y, size: 9, font })
-
-    y -= 30
-    page.drawText('REPORTE MENSUAL DE VENTAS', { x: margin, y, size: 13, font: fontBold })
-    y -= 15
-    page.drawText(`Período: ${format(new Date(fechaDesde), 'MMMM yyyy', { locale: es })}`, {
-        x: margin,
-        y,
-        size: 10,
-        font
-    })
-
-    y -= 25
-    page.drawLine({
-        start: { x: margin, y },
-        end: { x: 555, y },
-        thickness: 1,
-        color: rgb(0, 0, 0)
-    })
-    y -= 20
-
-    // === ENCABEZADO TABLA ===
-    const headers = ['Fecha', 'Cliente', 'Vendedor', 'Método', 'Moneda', 'Total']
-    const positions = [margin, margin + 80, margin + 250, margin + 340, margin + 420, margin + 500]
-
-    headers.forEach((h, i) => {
-        page.drawText(h, { x: positions[i], y, size: 9, font: fontBold })
-    })
-    y -= 15
-
-    // === DETALLE DE VENTAS ===
-    for (const venta of detalle) {
-        if (y < 80) {
-            page = pdfDoc.addPage([595.28, 842])
-            y = 780
+        // === LOGO Y ENCABEZADO ===
+        if (businessConfig.printConfig.showLogo && businessConfig.printConfig.logoUrl) {
+            try {
+                const logoBytes = await fetch(businessConfig.printConfig.logoUrl).then(res => res.arrayBuffer())
+                const logoImage = await pdfDoc.embedPng(logoBytes)
+                const logoWidth = 90
+                const logoHeight = (logoImage.height / logoImage.width) * logoWidth
+                page.drawImage(logoImage, {
+                    x: margin,
+                    y: y - logoHeight,
+                    width: logoWidth,
+                    height: logoHeight
+                })
+            } catch {
+                console.warn('⚠️ No se pudo cargar el logo')
+            }
         }
 
-        const fechaFmt = format(new Date(venta.fecha), 'dd/MM/yyyy')
-        const cliente = venta.cliente_nombre || 'Cliente Varios'
-        const vendedor = venta.vendedor || '-'
-        const metodo = venta.metodo_pago || '-'
-        const moneda = venta.moneda === 'PEN' ? 'S/' : venta.moneda
-        const total = `${moneda} ${parseFloat(venta.total).toFixed(2)}`
+        // Nombre de empresa
+        page.drawText(businessConfig.name, {
+            x: margin + 110,
+            y,
+            size: 14,
+            font: fontBold,
+            color: rgb(0, 0, 0)
+        })
+        y -= 18
 
-        const row = [fechaFmt, cliente, vendedor, metodo, moneda, total]
-
-        row.forEach((text, i) => {
-            page.drawText(String(text).substring(0, 25), {
-                x: positions[i],
-                y,
-                size: 9,
-                font
-            })
+        page.drawText(`RUC: ${businessConfig.ruc}`, {
+            x: margin + 110,
+            y,
+            size: 10,
+            font,
         })
         y -= 14
+
+        page.drawText(`Dirección: ${businessConfig.address}`, {
+            x: margin + 110,
+            y,
+            size: 9,
+            font
+        })
+        y -= 14
+
+        if (businessConfig.phone)
+            page.drawText(`Tel: ${businessConfig.phone}`, { x: margin + 110, y, size: 9, font })
+        if (businessConfig.email)
+            page.drawText(`Email: ${businessConfig.email}`, { x: margin + 230, y, size: 9, font })
+
+        y -= 30
+        page.drawText('REPORTE MENSUAL DE VENTAS', { x: margin, y, size: 13, font: fontBold })
+        y -= 15
+        page.drawText(`Período: ${format(new Date(fechaDesde), 'MMMM yyyy', { locale: es })}`, {
+            x: margin,
+            y,
+            size: 10,
+            font
+        })
+
+        y -= 25
+        page.drawLine({
+            start: { x: margin, y },
+            end: { x: 555, y },
+            thickness: 1,
+            color: rgb(0, 0, 0)
+        })
+        y -= 20
+
+        // === ENCABEZADO TABLA ===
+        const headers = ['Fecha', 'Cliente', 'Vendedor', 'Método', 'Moneda', 'Total']
+        const positions = [margin, margin + 80, margin + 250, margin + 340, margin + 420, margin + 500]
+
+        headers.forEach((h, i) => {
+            page.drawText(h, { x: positions[i], y, size: 9, font: fontBold })
+        })
+        y -= 15
+
+        // === DETALLE DE VENTAS ===
+        for (const venta of detalle) {
+            if (y < 80) {
+                page = pdfDoc.addPage([595.28, 842])
+                y = 780
+            }
+
+            const fechaFmt = format(new Date(venta.fecha), 'dd/MM/yyyy')
+            const cliente = venta.cliente_nombre || 'Cliente Varios'
+            const vendedor = venta.vendedor || '-'
+            const metodo = venta.metodo_pago || '-'
+            const moneda = venta.moneda === 'PEN' ? 'S/' : venta.moneda
+            const total = `${moneda} ${parseFloat(venta.total).toFixed(2)}`
+
+            const row = [fechaFmt, cliente, vendedor, metodo, moneda, total]
+
+            row.forEach((text, i) => {
+                page.drawText(String(text).substring(0, 25), {
+                    x: positions[i],
+                    y,
+                    size: 9,
+                    font
+                })
+            })
+            y -= 14
+        }
+
+        y -= 20
+        page.drawLine({
+            start: { x: margin, y },
+            end: { x: 555, y },
+            thickness: 1,
+            color: rgb(0, 0, 0)
+        })
+        y -= 20
+
+        // === RESUMEN GENERAL ===
+        page.drawText(`Total de Ventas: ${resumen.total_ventas}`, { x: margin, y, size: 10, font })
+        y -= 14
+        page.drawText(`Monto Total: ${formatCurrency(parseFloat(resumen.monto_total))}`, { x: margin, y, size: 10, font })
+        y -= 14
+        page.drawText(`Promedio de Venta: ${formatCurrency(parseFloat(resumen.promedio_venta))}`, { x: margin, y, size: 10, font })
+        y -= 14
+        page.drawText(`Clientes Atendidos: ${resumen.clientes_atendidos}`, { x: margin, y, size: 10, font })
+        y -= 40
+
+        // === PIE DE PÁGINA ===
+        page.drawText(businessConfig.invoiceFooter, {
+            x: margin,
+            y,
+            size: 8,
+            font,
+            color: rgb(0.3, 0.3, 0.3)
+        })
+        y -= 12
+        page.drawText(businessConfig.invoiceWebsiteText, {
+            x: margin,
+            y,
+            size: 8,
+            font,
+            color: rgb(0.4, 0.4, 0.4)
+        })
+        y -= 12
+        page.drawText(businessConfig.invoiceAuthText, {
+            x: margin,
+            y,
+            size: 7,
+            font,
+            color: rgb(0.4, 0.4, 0.4)
+        })
+
+        // === EXPORTAR ===
+        const pdfBytes = await pdfDoc.save()
+        const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' })
+        const url = URL.createObjectURL(blob)
+        window.open(url)
+
+        return resumen
     }
 
-    y -= 20
-    page.drawLine({
-        start: { x: margin, y },
-        end: { x: 555, y },
-        thickness: 1,
-        color: rgb(0, 0, 0)
-    })
-    y -= 20
 
-    // === RESUMEN GENERAL ===
-    page.drawText(`Total de Ventas: ${resumen.total_ventas}`, { x: margin, y, size: 10, font })
-    y -= 14
-    page.drawText(`Monto Total: ${formatCurrency(parseFloat(resumen.monto_total))}`, { x: margin, y, size: 10, font })
-    y -= 14
-    page.drawText(`Promedio de Venta: ${formatCurrency(parseFloat(resumen.promedio_venta))}`, { x: margin, y, size: 10, font })
-    y -= 14
-    page.drawText(`Clientes Atendidos: ${resumen.clientes_atendidos}`, { x: margin, y, size: 10, font })
-    y -= 40
+    async function generateTicketWithDiscounts(
+        pdfDoc: PDFDocument,
+        sale: SaleData,
+        font: PDFFont,
+        fontBold: PDFFont
+    ): Promise<void> {
+        const { maxWidth } = PAPER_CONFIGS.ticket
+        const margin = 13
 
-    // === PIE DE PÁGINA ===
-    page.drawText(businessConfig.invoiceFooter, {
-        x: margin,
-        y,
-        size: 8,
-        font,
-        color: rgb(0.3, 0.3, 0.3)
-    })
-    y -= 12
-    page.drawText(businessConfig.invoiceWebsiteText, {
-        x: margin,
-        y,
-        size: 8,
-        font,
-        color: rgb(0.4, 0.4, 0.4)
-    })
-    y -= 12
-    page.drawText(businessConfig.invoiceAuthText, {
-        x: margin,
-        y,
-        size: 7,
-        font,
-        color: rgb(0.4, 0.4, 0.4)
-    })
+        // Calcular altura necesaria
+        let estimatedHeight = 400 + (sale.items.length * 60)
+        const page = pdfDoc.addPage([PAPER_CONFIGS.ticket.width, estimatedHeight])
 
-    // === EXPORTAR ===
-    const pdfBytes = await pdfDoc.save()
-    const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' })
-    const url = URL.createObjectURL(blob)
-    window.open(url)
+        let yPosition = estimatedHeight - 30
 
-    return resumen
-}
+        // === ENCABEZADO ===
+        yPosition = drawCenteredText(
+            page,
+            businessConfig.name,
+            yPosition,
+            fontBold,
+            10,
+            maxWidth
+        )
+        yPosition -= 15
+
+        yPosition = drawCenteredText(
+            page,
+            `RUC: ${businessConfig.ruc}`,
+            yPosition,
+            font,
+            8,
+            maxWidth
+        )
+        yPosition -= 12
+
+        if (businessConfig.address) {
+            const dirLines = wrapText(businessConfig.address, maxWidth, font, 7)
+            for (const line of dirLines) {
+                yPosition = drawCenteredText(page, line, yPosition, font, 7, maxWidth)
+                yPosition -= 10
+            }
+        }
+
+        if (businessConfig.phone) {
+            yPosition = drawCenteredText(
+                page,
+                `Tel: ${businessConfig.phone}`,
+                yPosition,
+                font,
+                7,
+                maxWidth
+            )
+            yPosition -= 15
+        }
+
+        drawLine(page, yPosition, maxWidth)
+        yPosition -= 15
+
+        // === DATOS DEL COMPROBANTE ===
+        yPosition = drawCenteredText(
+            page,
+            'TICKET DE VENTA',
+            yPosition,
+            fontBold,
+            9,
+            maxWidth
+        )
+        yPosition -= 12
+
+        const numeroComprobante = sale.numero_comprobante ||
+            generateInvoiceNumber('ticket', sale.id_venta)
+
+        yPosition = drawCenteredText(
+            page,
+            `N° ${numeroComprobante}`,
+            yPosition,
+            font,
+            8,
+            maxWidth
+        )
+        yPosition -= 12
+
+        const fecha = new Date(sale.fecha_venta).toLocaleString('es-PE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })
+        yPosition = drawCenteredText(page, fecha, yPosition, font, 7, maxWidth)
+        yPosition -= 15
+
+        drawLine(page, yPosition, maxWidth)
+        yPosition -= 15
+
+        // === CLIENTE (opcional) ===
+        if (sale.cliente_nombre) {
+            page.drawText('Cliente:', { x: margin, y: yPosition, size: 7, font: fontBold })
+            yPosition -= 10
+
+            const clienteLines = wrapText(sale.cliente_nombre, maxWidth - 20, font, 7)
+            for (const line of clienteLines) {
+                page.drawText(line, { x: margin, y: yPosition, size: 7, font })
+                yPosition -= 10
+            }
+
+            if (sale.cliente_documento) {
+                page.drawText(`Doc: ${sale.cliente_documento}`, {
+                    x: margin,
+                    y: yPosition,
+                    size: 7,
+                    font
+                })
+                yPosition -= 15
+            } else {
+                yPosition -= 5
+            }
+
+            drawLine(page, yPosition, maxWidth)
+            yPosition -= 12
+        }
+
+        // === PRODUCTOS ===
+        page.drawText('DESCRIPCIÓN', { x: margin, y: yPosition, size: 7, font: fontBold })
+        page.drawText('CANT', { x: maxWidth - 80, y: yPosition, size: 7, font: fontBold })
+        page.drawText('P.U.', { x: maxWidth - 50, y: yPosition, size: 7, font: fontBold })
+        page.drawText('TOTAL', { x: maxWidth - 15, y: yPosition, size: 7, font: fontBold })
+        yPosition -= 10
+
+        drawLine(page, yPosition, maxWidth)
+        yPosition -= 10
+
+
+        // === PRODUCTOS CON DESCUENTOS ===
+        for (const item of sale.items) {
+            const nombreProducto = item.nombre || 'Producto'
+            const itemLines = wrapText(nombreProducto, maxWidth - 100, font, 7)
+
+            // Mostrar nombre del producto
+            for (let i = 0; i < itemLines.length; i++) {
+                page.drawText(itemLines[i], { x: margin, y: yPosition, size: 7, font })
+
+                if (i === 0) {
+                    const cantidad = Number(item.cantidad) || 0
+                    const precioUnit = Number(item.precio_unitario) || 0
+                    const subtotal = Number(item.subtotal) || 0
+
+                    page.drawText(cantidad.toString(), {
+                        x: maxWidth - 75,
+                        y: yPosition,
+                        size: 7,
+                        font
+                    })
+
+                    // Mostrar precio con indicador si tiene descuento
+                    const tieneDescuento = item.es_oferta || item.es_mayorista
+                    page.drawText(precioUnit.toFixed(2), {
+                        x: maxWidth - 50,
+                        y: yPosition,
+                        size: 7,
+                        font,
+                        color: tieneDescuento ? rgb(0, 0.5, 0) : rgb(0, 0, 0)
+                    })
+
+                    page.drawText(subtotal.toFixed(2), {
+                        x: maxWidth - 15,
+                        y: yPosition,
+                        size: 7,
+                        font
+                    })
+                }
+                yPosition -= 10
+            }
+
+            // Mostrar información de descuentos si aplica
+            if (item.es_oferta || item.es_mayorista) {
+                // Tipo de descuento
+                let tipoDescuento = ''
+                if (item.es_oferta && item.es_mayorista) {
+                    tipoDescuento = 'Oferta + Mayorista'
+                } else if (item.es_oferta) {
+                    tipoDescuento = 'Oferta Especial'
+                } else if (item.es_mayorista) {
+                    tipoDescuento = `Precio Mayorista (${item.cantidad} unid.)`
+                }
+
+                page.drawText(`  ${tipoDescuento}`, {
+                    x: margin + 5,
+                    y: yPosition,
+                    size: 6,
+                    font,
+                    color: rgb(0, 0.5, 0)
+                })
+                yPosition -= 8
+
+                // Mostrar precios originales y ahorro
+                if (item.precio_original && item.precio_original > item.precio_unitario) {
+                    const ahorro = (item.precio_original - item.precio_unitario) * item.cantidad
+                    const porcentaje = ((item.precio_original - item.precio_unitario) / item.precio_original * 100).toFixed(0)
+
+                    page.drawText(`  Antes: S/.${item.precio_original.toFixed(2)} (-${porcentaje}%)`, {
+                        x: margin + 5,
+                        y: yPosition,
+                        size: 6,
+                        font,
+                        color: rgb(0.5, 0.5, 0.5)
+                    })
+
+                    page.drawText(`Ahorra: S/.${ahorro.toFixed(2)}`, {
+                        x: maxWidth - 60,
+                        y: yPosition,
+                        size: 6,
+                        font,
+                        color: rgb(0.8, 0, 0)
+                    })
+                    yPosition -= 8
+                }
+            }
+
+            yPosition -= 3
+        }
+
+        // ... código de totales ...
+
+        // === RESUMEN DE AHORROS ===
+        if (sale.total_descuentos && sale.total_descuentos > 0) {
+            yPosition -= 10
+            drawLine(page, yPosition, maxWidth)
+            yPosition -= 12
+
+            page.drawText('🎉 AHORRO TOTAL:', {
+                x: margin,
+                y: yPosition,
+                size: 8,
+                font: fontBold
+            })
+
+            page.drawText(`S/.${sale.total_descuentos.toFixed(2)}`, {
+                x: maxWidth - 15,
+                y: yPosition,
+                size: 8,
+                font: fontBold,
+                color: rgb(0, 0.5, 0)
+            })
+            yPosition -= 15
+        }
+
+        yPosition -= 5
+        drawLine(page, yPosition, maxWidth)
+        yPosition -= 15
+
+        // === TOTALES CON DESCUENTOS ===
+        // Agregar resumen de descuentos si existen
+        if (sale.total_descuentos && sale.total_descuentos > 0) {
+            yPosition -= 10
+            drawLine(page, yPosition, maxWidth)
+            yPosition -= 12
+
+            page.drawText('RESUMEN DE DESCUENTOS', {
+                x: margin,
+                y: yPosition,
+                size: 7,
+                font: fontBold
+            })
+            yPosition -= 10
+
+            // Calcular descuentos por tipo
+            let totalOferta = 0
+            let totalMayorista = 0
+
+            sale.items.forEach(item => {
+                if (item.descuento_oferta) {
+                    totalOferta += item.descuento_oferta * item.cantidad
+                }
+                if (item.descuento_mayorista) {
+                    totalMayorista += item.descuento_mayorista * item.cantidad
+                }
+            })
+
+            if (totalOferta > 0) {
+                page.drawText('Desc. Ofertas:', { x: margin, y: yPosition, size: 6, font })
+                page.drawText(`-${formatCurrency(totalOferta)}`, {
+                    x: maxWidth - 15,
+                    y: yPosition,
+                    size: 6,
+                    font,
+                    color: rgb(0.8, 0, 0)
+                })
+                yPosition -= 8
+            }
+
+            if (totalMayorista > 0) {
+                page.drawText('Desc. Mayorista:', { x: margin, y: yPosition, size: 6, font })
+                page.drawText(`-${formatCurrency(totalMayorista)}`, {
+                    x: maxWidth - 15,
+                    y: yPosition,
+                    size: 6,
+                    font,
+                    color: rgb(0.8, 0, 0)
+                })
+                yPosition -= 8
+            }
+
+            yPosition -= 5
+            page.drawText('TOTAL AHORRADO:', {
+                x: margin,
+                y: yPosition,
+                size: 7,
+                font: fontBold
+            })
+            page.drawText(formatCurrency(sale.total_descuentos), {
+                x: maxWidth - 15,
+                y: yPosition,
+                size: 7,
+                font: fontBold,
+                color: rgb(0, 0.5, 0)
+            })
+            yPosition -= 12
+        }
+
+        const totalValue = Number(sale.total) || 0
+        page.drawText('TOTAL:', { x: maxWidth - 90, y: yPosition, size: 10, font: fontBold })
+        page.drawText(formatCurrency(totalValue), {
+            x: maxWidth - 15,
+            y: yPosition,
+            size: 10,
+            font: fontBold
+        })
+        yPosition -= 15
+
+        // === MÉTODO DE PAGO ===
+        drawLine(page, yPosition, maxWidth)
+        yPosition -= 12
+
+        page.drawText('MÉTODO DE PAGO:', { x: margin, y: yPosition, size: 7, font: fontBold })
+        page.drawText(sale.metodo_pago.toUpperCase(), {
+            x: maxWidth - 40,
+            y: yPosition,
+            size: 7,
+            font
+        })
+        yPosition -= 20
+
+        // === PIE DE PÁGINA ===
+        yPosition = drawCenteredText(
+            page,
+            businessConfig.invoiceFooter,
+            yPosition,
+            fontBold,
+            8,
+            maxWidth
+        )
+
+        // Agregar website si está configurado
+        if (businessConfig.website) {
+            yPosition -= 12
+            yPosition = drawCenteredText(
+                page,
+                businessConfig.website,
+                yPosition,
+                font,
+                7,
+                maxWidth,
+                rgb(0.4, 0.4, 0.4)
+            )
+        }
+    }
+
+
+    // Agregar esta función junto a las existentes
+    // const generateCustomPdfTicket = useCallback(async (
+    //     saleData: any,
+    //     type: ComprobanteType = 'ticket'
+    // ) => {
+    //     try {
+    //         const pdfDoc = await PDFDocument.create()
+    //         const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+    //         const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+
+    //         // Usar items con descuentos si existen
+    //         const saleWithDiscounts = {
+    //             ...saleData,
+    //             items: saleData.items_con_descuentos || saleData.items || []
+    //         }
+
+    //         switch (type) {
+    //             case 'ticket':
+    //                 await generateTicketWithDiscounts(pdfDoc, saleWithDiscounts, font, fontBold)
+    //                 break
+    //             case 'boleta':
+    //                 await generateBoletaWithDiscounts(pdfDoc, saleWithDiscounts, font, fontBold)
+    //                 break
+    //             case 'factura':
+    //                 await generateFacturaWithDiscounts(pdfDoc, saleWithDiscounts, font, fontBold)
+    //                 break
+    //         }
+
+    //         const pdfBytes = await pdfDoc.save()
+    //         const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' })
+
+    //         const fileName = type === 'factura'
+    //             ? `Factura_${saleData.numero_comprobante || saleData.id_venta}.pdf`
+    //             : type === 'boleta'
+    //                 ? `Boleta_${saleData.numero_comprobante || saleData.id_venta}.pdf`
+    //                 : `Ticket_${saleData.id_venta}.pdf`
+
+    //         saveAs(blob, fileName)
+    //         return saleData
+    //     } catch (error) {
+    //         console.error('Error generando PDF:', error)
+    //         throw error
+    //     }
+    // }, [])
+
 
     return {
         generatePdfTicket,

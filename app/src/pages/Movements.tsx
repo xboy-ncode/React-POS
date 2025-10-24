@@ -35,6 +35,7 @@ import {
 import { useSales } from '@/hooks/useSales'
 import { SaleDetailsDialog } from '@/components/sales/SaleDetailsDialog'
 import { MonthlyReportDialog } from '@/components/movements/MonthlyReportDialog'
+import { calculateTaxBreakdown } from '@/lib/tax-helpers'
 
 export default function Movements() {
     const { t } = useTranslation()
@@ -92,8 +93,9 @@ export default function Movements() {
     }
 
     // Calculate summary stats
-    const totalSales = sales.reduce((sum, sale) => sum + parseFloat(sale.total), 0)
-    const averageSale = sales.length > 0 ? totalSales / sales.length : 0
+    const totalSubtotal = sales.reduce((sum, sale) => sum + parseFloat(sale.total), 0) // El total en BD es subtotal
+    const taxBreakdown = calculateTaxBreakdown(totalSubtotal) // ← NUEVO
+    const averageSale = sales.length > 0 ? taxBreakdown.total / sales.length : 0 // ← Usar total con IGV
     const uniqueCustomers = new Set(sales.filter(s => s.id_cliente).map(s => s.id_cliente)).size
 
     if (loading && sales.length === 0) {
@@ -119,7 +121,7 @@ export default function Movements() {
 
             {/* Botón de reporte mensual */}
             <MonthlyReportDialog />
-            
+
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
@@ -145,12 +147,28 @@ export default function Movements() {
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">S/ {totalSales.toFixed(2)}</div>
+                        <div className="text-2xl font-bold">S/ {taxBreakdown.total.toFixed(2)}</div>
                         <p className="text-xs text-muted-foreground">
-                            {t('sales.in_period', 'En el período')}
+                            Subtotal: S/ {taxBreakdown.subtotal.toFixed(2)} + IGV: S/ {taxBreakdown.igv.toFixed(2)}
                         </p>
                     </CardContent>
                 </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            IGV Recaudado
+                        </CardTitle>
+                        <Receipt className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">S/ {taxBreakdown.igv.toFixed(2)}</div>
+                        <p className="text-xs text-muted-foreground">
+                            18% sobre ventas
+                        </p>
+                    </CardContent>
+                </Card>
+
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -298,8 +316,20 @@ export default function Movements() {
                                         </TableCell>
                                         <TableCell>{sale.vendedor}</TableCell>
                                         <TableCell>{getPaymentMethodBadge(sale.metodo_pago)}</TableCell>
-                                        <TableCell className="text-right font-semibold">
-                                            {sale.moneda} {parseFloat(sale.total).toFixed(2)}
+                                        <TableCell className="text-right">
+                                            {(() => {
+                                                const breakdown = calculateTaxBreakdown(parseFloat(sale.total))
+                                                return (
+                                                    <div>
+                                                        <div className="font-semibold">
+                                                            {sale.moneda} {breakdown.total.toFixed(2)}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            + IGV: {sale.moneda} {breakdown.igv.toFixed(2)}
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })()}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <Button

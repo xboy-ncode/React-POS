@@ -125,6 +125,46 @@ function drawLine(page: PDFPage, y: number, maxWidth: number) {
     })
 }
 
+export const generateCustomPdfTicket = async (
+    saleData: any,
+    type: ComprobanteType = 'ticket'
+) => {
+    try {
+        const pdfDoc = await PDFDocument.create()
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+        const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+
+        // Generar según tipo
+        switch (type) {
+            case 'ticket':
+                await generateTicket(pdfDoc, saleData, font, fontBold)
+                break
+            case 'boleta':
+                await generateBoleta(pdfDoc, saleData, font, fontBold)
+                break
+            case 'factura':
+                await generateFactura(pdfDoc, saleData, font, fontBold)
+                break
+        }
+
+        const pdfBytes = await pdfDoc.save()
+        const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' })
+
+        const fileName = type === 'factura'
+            ? `Factura_${saleData.numero_comprobante || saleData.id_venta}.pdf`
+            : type === 'boleta'
+                ? `Boleta_${saleData.numero_comprobante || saleData.id_venta}.pdf`
+                : `Ticket_${saleData.id_venta}.pdf`
+
+        saveAs(blob, fileName)
+        return saleData
+    } catch (error) {
+        console.error('Error generando PDF personalizado:', error)
+        throw error
+    }
+}
+
+
 // ==================== TICKET (80mm) ====================
 async function generateTicket(
     pdfDoc: PDFDocument,
@@ -326,7 +366,7 @@ async function generateTicket(
                     y: yPosition,
                     size: 6,
                     font,
-                    color: rgb(0, 0.5, 0)
+                    //color: rgb(0, 0.5, 0)
                 })
                 yPosition -= 8
             }
@@ -339,7 +379,7 @@ async function generateTicket(
                     y: yPosition,
                     size: 6,
                     font,
-                    color: rgb(0.8, 0, 0)
+                    //color: rgb(0.8, 0, 0)
                 })
                 yPosition -= 8
             }
@@ -387,7 +427,7 @@ async function generateTicket(
                 y: yPosition,
                 size: 6,
                 font,
-                color: rgb(0.8, 0, 0)
+                //color: rgb(0.8, 0, 0)
             })
             yPosition -= 8
         }
@@ -399,7 +439,7 @@ async function generateTicket(
                 y: yPosition,
                 size: 6,
                 font,
-                color: rgb(0.8, 0, 0)
+                //color: rgb(0.8, 0, 0)
             })
             yPosition -= 8
         }
@@ -416,7 +456,7 @@ async function generateTicket(
             y: yPosition,
             size: 7,
             font: fontBold,
-            color: rgb(0, 0.5, 0)
+           // color: rgb(0, 0.5, 0)
         })
         yPosition -= 12
     }

@@ -106,15 +106,15 @@ export function calculatePriceWithCustomBase(
     // No permitir precios negativos o cero
     finalPrice = Math.max(0.01, finalPrice)
 
-    console.log('📊 Cálculo precio personalizado:', {
-        precioBaseOriginal,
-        customBasePrice,
-        descuentoOferta: discounts.oferta,
-        descuentoMayorista: discounts.mayorista,
-        totalDescuentosAbsolutos,
-        formulaAplicada: `${customBasePrice} - ${totalDescuentosAbsolutos} = ${finalPrice}`,
-        finalPrice
-    })
+    // console.log('📊 Cálculo precio personalizado:', {
+    //     precioBaseOriginal,
+    //     customBasePrice,
+    //     descuentoOferta: discounts.oferta,
+    //     descuentoMayorista: discounts.mayorista,
+    //     totalDescuentosAbsolutos,
+    //     formulaAplicada: `${customBasePrice} - ${totalDescuentosAbsolutos} = ${finalPrice}`,
+    //     finalPrice
+    // })
 
     return {
         basePrice: customBasePrice,
@@ -155,10 +155,10 @@ export function calculatePriceWithCustomBaseV2(
     // Restar del precio personalizado
     const precioFinal = Math.max(0.01, customBasePrice - descuentoTotalAbsoluto)
     
-    console.log('📊 Cálculo V2 - Exacto como solicitaste:', {
-        formula: `(${precioBase} - ${product.precioOferta || 'N/A'}) + (${precioBase} - ${product.precioVentaMayorista || 'N/A'}) = ${descuentoTotalAbsoluto}`,
-        resultado: `${customBasePrice} - ${descuentoTotalAbsoluto} = ${precioFinal}`
-    })
+    // console.log('📊 Cálculo V2 - Exacto como solicitaste:', {
+    //     formula: `(${precioBase} - ${product.precioOferta || 'N/A'}) + (${precioBase} - ${product.precioVentaMayorista || 'N/A'}) = ${descuentoTotalAbsoluto}`,
+    //     resultado: `${customBasePrice} - ${descuentoTotalAbsoluto} = ${precioFinal}`
+    // })
     
     return {
         basePrice: customBasePrice,

@@ -25,7 +25,7 @@ import {
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
 import { ventasService } from '@/lib/api-client'
-import { usePdfTicket } from '@/hooks/usePdfTicket'
+import { generateCustomPdfTicket, usePdfTicket } from '@/hooks/usePdfTicket'
 import { usePriceCalculator, useCartTotals } from '@/hooks/usePriceCalculator'
 import React from 'react'
 import { cn } from '@/lib/utils'
@@ -90,16 +90,16 @@ function CartItemRow({
     const priceInfo = product ? calculatePriceData(product, item.quantity) : null
 
     // 🔍 DEBUG: Ver qué está devolviendo priceInfo
-    console.log('🔍 DEBUG CartItemRow:', {
-        productName: product?.name,
-        quantity: item.quantity,
-        priceInfo: priceInfo,
-        montoDescuentoOferta: priceInfo?.priceCalculation?.montoDescuentoOferta,
-        montoDescuentoMayorista: priceInfo?.priceCalculation?.montoDescuentoMayorista,
-        isOnSale: priceInfo?.isOnSale,
-        isWholesale: priceInfo?.isWholesale,
-        customPrice: item.customPrice
-    })
+    // console.log('🔍 DEBUG CartItemRow:', {
+    //     productName: product?.name,
+    //     quantity: item.quantity,
+    //     priceInfo: priceInfo,
+    //     montoDescuentoOferta: priceInfo?.priceCalculation?.montoDescuentoOferta,
+    //     montoDescuentoMayorista: priceInfo?.priceCalculation?.montoDescuentoMayorista,
+    //     isOnSale: priceInfo?.isOnSale,
+    //     isWholesale: priceInfo?.isWholesale,
+    //     customPrice: item.customPrice
+    // })
 
     // Calcular precio con o sin personalización
     let effectivePrice: number
@@ -123,7 +123,7 @@ function CartItemRow({
         activeDiscounts.oferta = customPriceCalc.isOnSale && (customPriceCalc.discounts.oferta ?? 0) > 0
         activeDiscounts.mayorista = customPriceCalc.isWholesale && (customPriceCalc.discounts.mayorista ?? 0) > 0
 
-        console.log('💰 Con precio personalizado:', customPriceCalc)
+        // console.log('💰 Con precio personalizado:', customPriceCalc)
     } else {
         // Usar precios normales del sistema
         effectivePrice = priceInfo?.priceCalculation?.precioFinal ?? item.price
@@ -138,11 +138,11 @@ function CartItemRow({
             activeDiscounts.mayorista = true
         }
 
-        console.log('💰 Sin precio personalizado:', {
-            effectivePrice,
-            originalPrice,
-            activeDiscounts
-        })
+        // console.log('💰 Sin precio personalizado:', {
+        //     effectivePrice,
+        //     originalPrice,
+        //     activeDiscounts
+        // })
     }
 
     const hasDiscount = activeDiscounts.oferta || activeDiscounts.mayorista || effectivePrice < originalPrice
@@ -587,192 +587,232 @@ export default function CheckoutDialog({
         return true
     }
 
-const handleProcessPayment = async () => {
-    // Validar formulario primero
-    if (!validateForm()) return
 
-    if (paymentMethod === 'EFECTIVO' && parseFloat(receivedAmount) < totalWithIGV) {
-        toast.error(t('pos.insufficient_amount'))
-        return
+    // Helper para calcular precio final con descuentos E IGV
+    const calculateFinalPriceWithTax = (item: any): number => {
+        const product = products.find(p => p.id === item.id)
+        if (!product) return item.price * (1 + businessConfig.igvRate / 100)
+
+        let precioFinal: number
+
+        if (item.customPrice) {
+            const customCalc = calculatePriceWithCustomBaseV2(product, item.quantity, item.customPrice)
+            precioFinal = customCalc.finalPrice
+        } else {
+            const priceCalc = calculatePriceData(product, item.quantity)
+            precioFinal = priceCalc.priceCalculation.precioFinal
+        }
+
+        // Aplicar IGV al precio final
+        return precioFinal * (1 + businessConfig.igvRate / 100)
     }
 
-    setProcessing(true)
 
-    try {
-        let customerId = selectedCustomerId
+    const handleProcessPayment = async () => {
+        // Validar formulario primero
+        if (!validateForm()) return
 
-        // Solo guardar cliente si hay datos y no es un ticket simple
-        if (!customerId && customerForm.dni && receiptType !== 'ticket') {
-            const newCustomerId = await saveCustomer()
-            if (newCustomerId) customerId = newCustomerId.toString()
+        if (paymentMethod === 'EFECTIVO' && parseFloat(receivedAmount) < totalWithIGV) {
+            toast.error(t('pos.insufficient_amount'))
+            return
         }
 
-        // Helper para calcular precio final con descuentos
-        const calculateFinalPrice = (item: any): number => {
-            const product = products.find(p => p.id === item.id)
-            if (!product) return item.price
+        setProcessing(true)
 
-            if (item.customPrice) {
-                const customCalc = calculatePriceWithCustomBaseV2(product, item.quantity, item.customPrice)
-                return customCalc.finalPrice
-            }
-
-            const priceCalc = calculatePriceData(product, item.quantity)
-            return priceCalc.priceCalculation.precioFinal
-        }
-
-        // Helper para obtener información completa de descuentos
-        const getItemPriceInfo = (item: any) => {
-            const product = products.find(p => p.id === item.id)
-            if (!product) {
-                return {
-                    precioBase: item.price,
-                    precioFinal: item.price,
-                    descuentoOferta: 0,
-                    descuentoMayorista: 0,
-                    esOferta: false,
-                    esMayorista: false
-                }
-            }
-
-            if (item.customPrice) {
-                const customCalc = calculatePriceWithCustomBaseV2(product, item.quantity, item.customPrice)
-                return {
-                    precioBase: item.customPrice,
-                    precioFinal: customCalc.finalPrice,
-                    descuentoOferta: customCalc.discounts.oferta,
-                    descuentoMayorista: customCalc.discounts.mayorista,
-                    esOferta: customCalc.isOnSale,
-                    esMayorista: customCalc.isWholesale
-                }
-            }
-
-            const priceCalc = calculatePriceData(product, item.quantity)
-            return {
-                precioBase: priceCalc.priceCalculation.precioBase,
-                precioFinal: priceCalc.priceCalculation.precioFinal,
-                descuentoOferta: priceCalc.priceCalculation.montoDescuentoOferta || 0,
-                descuentoMayorista: priceCalc.priceCalculation.montoDescuentoMayorista || 0,
-                esOferta: priceCalc.isOnSale,
-                esMayorista: priceCalc.isWholesale
-            }
-        }
-
-        // Checkout data para el frontend
-        const checkoutData = {
-            cart: cart.map(item => {
-                const priceInfo = getItemPriceInfo(item)
-                return {
-                    ...item,
-                    ...priceInfo
-                }
-            }),
-            customer: customerForm,
-            customerId,
-            receiptType,
-            paymentMethod,
-            subtotal: cartTotals.subtotal,
-            descuentos: cartTotals.descuentos,
-            tax: igv,
-            total: totalWithIGV,
-            receivedAmount: paymentMethod === 'EFECTIVO' ? parseFloat(receivedAmount) : totalWithIGV,
-            change: paymentMethod === 'EFECTIVO' ? change : 0,
-            timestamp: new Date().toISOString()
-        }
-
-        await onProcessPayment(checkoutData)
-
-        // Crear venta en backend (formato que tu API espera)
-        const ventaData = {
-            id_cliente: customerId ? parseInt(customerId) : null,
-            metodo_pago: paymentMethod,
-            moneda: businessConfig.currency,
-            productos: cart.map(item => ({
-                id_producto: item.id,
-                cantidad: item.quantity,
-                precio_unitario: calculateFinalPrice(item) // Precio final con descuentos
-            }))
-        }
-
-        const ventaResponse = await ventasService.create(ventaData)
-        const ventaId = ventaResponse?.venta?.id_venta ?? ventaResponse?.id_venta
-
-        if (!ventaId) {
-            throw new Error('No se pudo obtener el ID de la venta')
-        }
-
-        toast.success('Venta registrada correctamente')
-
-        // Generar PDF con información de descuentos
         try {
-            const ventaParaPDF = {
-                ...ventaResponse.venta,
-                items_con_descuentos: checkoutData.cart.map((item, index) => {
-                    const detalleVenta = ventaResponse.venta?.detalles?.[index] || {}
+            let customerId = selectedCustomerId
+
+            // Solo guardar cliente si hay datos y no es un ticket simple
+            if (!customerId && customerForm.dni && receiptType !== 'ticket') {
+                const newCustomerId = await saveCustomer()
+                if (newCustomerId) customerId = newCustomerId.toString()
+            }
+
+            // Helper para calcular precio final con descuentos
+            const calculateFinalPrice = (item: any): number => {
+                const product = products.find(p => p.id === item.id)
+                if (!product) return item.price
+
+                if (item.customPrice) {
+                    const customCalc = calculatePriceWithCustomBaseV2(product, item.quantity, item.customPrice)
+                    return customCalc.finalPrice
+                }
+
+                const priceCalc = calculatePriceData(product, item.quantity)
+                return priceCalc.priceCalculation.precioFinal
+            }
+
+            // Helper para obtener información completa de descuentos
+            const getItemPriceInfo = (item: any) => {
+                const product = products.find(p => p.id === item.id)
+                if (!product) {
                     return {
-                        ...detalleVenta,
-                        nombre: item.name || detalleVenta.producto_nombre,
-                        cantidad: item.quantity,
-                        precio_unitario: item.precioFinal,
-                        precio_original: item.precioBase,
-                        descuento_oferta: item.descuentoOferta,
-                        descuento_mayorista: item.descuentoMayorista,
-                        es_oferta: item.esOferta,
-                        es_mayorista: item.esMayorista,
-                        subtotal: item.precioFinal * item.quantity
+                        precioBase: item.price,
+                        precioFinal: item.price,
+                        descuentoOferta: 0,
+                        descuentoMayorista: 0,
+                        esOferta: false,
+                        esMayorista: false
+                    }
+                }
+
+                if (item.customPrice) {
+                    const customCalc = calculatePriceWithCustomBaseV2(product, item.quantity, item.customPrice)
+                    return {
+                        precioBase: item.customPrice,
+                        precioFinal: customCalc.finalPrice,
+                        descuentoOferta: customCalc.discounts.oferta,
+                        descuentoMayorista: customCalc.discounts.mayorista,
+                        esOferta: customCalc.isOnSale,
+                        esMayorista: customCalc.isWholesale
+                    }
+                }
+
+                const priceCalc = calculatePriceData(product, item.quantity)
+                return {
+                    precioBase: priceCalc.priceCalculation.precioBase,
+                    precioFinal: priceCalc.priceCalculation.precioFinal,
+                    descuentoOferta: priceCalc.priceCalculation.montoDescuentoOferta || 0,
+                    descuentoMayorista: priceCalc.priceCalculation.montoDescuentoMayorista || 0,
+                    esOferta: priceCalc.isOnSale,
+                    esMayorista: priceCalc.isWholesale
+                }
+            }
+
+            // Checkout data para el frontend
+            const checkoutData = {
+                cart: cart.map(item => {
+                    const priceInfo = getItemPriceInfo(item)
+                    return {
+                        ...item,
+                        ...priceInfo
                     }
                 }),
-                subtotal_sin_descuentos: cartTotals.subtotal,
-                total_descuentos: cartTotals.descuentos
+                customer: customerForm,
+                customerId,
+                receiptType,
+                paymentMethod,
+                subtotal: cartTotals.subtotal,
+                descuentos: cartTotals.descuentos,
+                tax: igv,
+                total: totalWithIGV,
+                receivedAmount: paymentMethod === 'EFECTIVO' ? parseFloat(receivedAmount) : totalWithIGV,
+                change: paymentMethod === 'EFECTIVO' ? change : 0,
+                timestamp: new Date().toISOString()
             }
 
-            await generatePdfTicket(ventaParaPDF, receiptType)
+            await onProcessPayment(checkoutData)
 
-            const comprobanteNombre = receiptType === 'ticket'
-                ? 'Ticket'
-                : receiptType === 'boleta'
-                    ? 'Boleta'
-                    : 'Factura'
+            // Crear venta en backend (formato que tu API espera)
+            const ventaData = {
+                id_cliente: customerId ? parseInt(customerId) : null,
+                metodo_pago: paymentMethod,
+                moneda: businessConfig.currency,
+                productos: cart.map(item => ({
+                    id_producto: item.id,
+                    cantidad: item.quantity,
+                    precio_unitario: calculateFinalPriceWithTax(item) // Precio con IGV incluido
+                }))
+            }
 
-            toast.success(`${comprobanteNombre} generado exitosamente`)
-        } catch (pdfError) {
-            console.error('Error generando PDF:', pdfError)
+            const ventaResponse = await ventasService.create(ventaData)
+            const ventaId = ventaResponse.venta?.id_venta || ventaResponse.id_venta
 
-            // Fallback al método original
+            if (!ventaId) {
+                throw new Error('No se pudo obtener el ID de la venta')
+            }
+
+            toast.success('Venta registrada correctamente')
+
+            // Generar PDF con información de descuentos
             try {
-                await generatePdfTicket(ventaId, receiptType)
-            } catch (fallbackError) {
-                console.warn('Venta registrada pero no se pudo generar el PDF', fallbackError)
-                toast.warning('Venta registrada pero no se pudo generar el PDF')
+                // NO usar generatePdfTicket que hace una llamada al backend
+                // En su lugar, crear el PDF directamente con los datos que ya tenemos
+
+                const ventaParaPDF = {
+                    id_venta: ventaId,
+                    numero_comprobante: `T-${ventaId.toString().padStart(6, '0')}`,
+                    tipo_comprobante: receiptType,
+                    fecha_venta: new Date().toISOString(),
+                    total: totalWithIGV,
+                    subtotal: cartTotals.subtotal - cartTotals.descuentos, // Subtotal después de descuentos
+                    igv: igv,
+                    cliente_nombre: customerForm.nombre ?
+                        `${customerForm.nombre} ${customerForm.apellido_paterno || ''}`.trim() :
+                        null,
+                    cliente_documento: customerForm.dni || null,
+                    cliente_direccion: customerForm.direccion || null,
+                    metodo_pago: paymentMethod,
+                    // Items con información de descuentos
+                    items: cart.map(item => {
+                        const product = products.find(p => p.id === item.id)
+                        const priceInfo = getItemPriceInfo(item)
+
+                        return {
+                            nombre: item.name,
+                            cantidad: item.quantity,
+                            precio_unitario: priceInfo.precioFinal,
+                            precio_original: priceInfo.precioBase,
+                            descuento_oferta: priceInfo.descuentoOferta,
+                            descuento_mayorista: priceInfo.descuentoMayorista,
+                            es_oferta: priceInfo.esOferta,
+                            es_mayorista: priceInfo.esMayorista,
+                            subtotal: priceInfo.precioFinal * item.quantity
+                        }
+                    }),
+                    // Totales de descuentos
+                    subtotal_sin_descuentos: cartTotals.subtotal,
+                    total_descuentos: cartTotals.descuentos
+                }
+
+                // Usar generateCustomPdfTicket que NO hace llamada al backend
+                await generateCustomPdfTicket(ventaParaPDF, receiptType)
+
+                const comprobanteNombre = receiptType === 'ticket'
+                    ? 'Ticket'
+                    : receiptType === 'boleta'
+                        ? 'Boleta'
+                        : 'Factura'
+
+                toast.success(`${comprobanteNombre} generado exitosamente`)
+            } catch (pdfError) {
+                console.error('Error generando PDF:', pdfError)
+
+                // Fallback al método original
+                try {
+                    await generatePdfTicket(ventaId, receiptType)
+                } catch (fallbackError) {
+                    console.warn('Venta registrada pero no se pudo generar el PDF', fallbackError)
+                    toast.warning('Venta registrada pero no se pudo generar el PDF')
+                }
             }
+
+            if (onClearCart) onClearCart()
+            if (onRefreshData) await onRefreshData()
+
+            // Limpiar formulario
+            setCustomerForm({
+                dni: '',
+                nombre: '',
+                apellido_paterno: '',
+                apellido_materno: '',
+                direccion: '',
+                telefono: '',
+                correo: ''
+            })
+            setDniInput('')
+            setSelectedCustomerId('')
+            setPaymentMethod('EFECTIVO')
+            setReceivedAmount('')
+            setReceiptType('ticket')
+            onOpenChange(false)
+        } catch (err) {
+            console.error('Payment processing failed:', err)
+            toast.error(t('pos.payment_error'))
+        } finally {
+            setProcessing(false)
         }
-
-        if (onClearCart) onClearCart()
-        if (onRefreshData) await onRefreshData()
-
-        // Limpiar formulario
-        setCustomerForm({
-            dni: '',
-            nombre: '',
-            apellido_paterno: '',
-            apellido_materno: '',
-            direccion: '',
-            telefono: '',
-            correo: ''
-        })
-        setDniInput('')
-        setSelectedCustomerId('')
-        setPaymentMethod('EFECTIVO')
-        setReceivedAmount('')
-        setReceiptType('ticket')
-        onOpenChange(false)
-    } catch (err) {
-        console.error('Payment processing failed:', err)
-        toast.error(t('pos.payment_error'))
-    } finally {
-        setProcessing(false)
     }
-}
 
     const handleSelectExistingCustomer = (customerId: string) => {
         const customer = customers.find(c => c.id_cliente?.toString() === customerId)

@@ -9,6 +9,7 @@ type CartItem = {
     price: number
     quantity: number
     productIcon?: string
+    customPrice?: number
 }
 
 type CheckoutData = {

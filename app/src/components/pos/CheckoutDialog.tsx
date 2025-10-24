@@ -1,11 +1,12 @@
 // CheckoutDialog.tsx - ADAPTED VERSION WITH PRICE CALCULATORS
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, Minus, Plus, CreditCard, User, Loader2, AlertCircle, Receipt, FileText, FileSpreadsheet, Tag } from 'lucide-react'
+import { X, Minus, Plus, CreditCard, User, Loader2, AlertCircle, Receipt, FileText, FileSpreadsheet, Tag, Edit2 } from 'lucide-react'
 import {
     Dialog,
     DialogContent,
     DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
@@ -24,7 +25,7 @@ import {
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
 import { ventasService } from '@/lib/api-client'
-import { usePdfTicket } from '@/hooks/usePdfTicket'
+import { generateCustomPdfTicket, usePdfTicket } from '@/hooks/usePdfTicket'
 import { usePriceCalculator, useCartTotals } from '@/hooks/usePriceCalculator'
 import React from 'react'
 import { cn } from '@/lib/utils'
@@ -35,7 +36,7 @@ import businessConfig, {
     calculateIGV,
     generateInvoiceNumber
 } from '@/config/business.config'
-import { calculatePriceData } from '@/lib/price-calculator'
+import { calculatePriceData, calculatePriceWithCustomBase, calculatePriceWithCustomBaseV2 } from '@/lib/price-calculator'
 
 type Customer = {
     id_cliente?: number
@@ -55,6 +56,7 @@ type CheckoutDialogProps = {
     open: boolean
     onOpenChange: (open: boolean) => void
     cart: CartItem[]
+    setCart: (cart: CartItem[]) => void
     products?: Product[] // Added to get full product data
     updateQuantity: (productId: number, newQuantity: number) => void
     removeFromCart: (productId: number) => void
@@ -65,119 +67,310 @@ type CheckoutDialogProps = {
 
 type ComprobanteType = 'ticket' | 'boleta' | 'factura'
 
-// ✅ CartItemRow.tsx (adaptado al estilo del Cart Sidebar)
+
+
+
 function CartItemRow({
     item,
     product,
     updateQuantity,
     removeFromCart,
+    updatePrice,
 }: {
     item: CartItem
     product?: Product
     updateQuantity: (id: number, qty: number) => void
     removeFromCart: (id: number) => void
+    updatePrice: (id: number, newPrice: number) => void
 }) {
     const { t } = useTranslation()
+    const [showPriceDialog, setShowPriceDialog] = useState(false)
+    const [tempPrice, setTempPrice] = useState('')
 
     const priceInfo = product ? calculatePriceData(product, item.quantity) : null
-    const effectivePrice = priceInfo?.priceCalculation?.precioFinal ?? item.price
-    const originalPrice = priceInfo?.priceCalculation?.precioBase ?? item.price
 
-    const hasDiscount =
-        priceInfo?.hasDiscount || effectivePrice < originalPrice // incluye precios mayoristas
+    // 🔍 DEBUG: Ver qué está devolviendo priceInfo
+    // console.log('🔍 DEBUG CartItemRow:', {
+    //     productName: product?.name,
+    //     quantity: item.quantity,
+    //     priceInfo: priceInfo,
+    //     montoDescuentoOferta: priceInfo?.priceCalculation?.montoDescuentoOferta,
+    //     montoDescuentoMayorista: priceInfo?.priceCalculation?.montoDescuentoMayorista,
+    //     isOnSale: priceInfo?.isOnSale,
+    //     isWholesale: priceInfo?.isWholesale,
+    //     customPrice: item.customPrice
+    // })
+
+    // Calcular precio con o sin personalización
+    let effectivePrice: number
+    let originalPrice: number
+    let activeDiscounts = {
+        oferta: false,
+        mayorista: false,
+        personalizado: false
+    }
+
+    if (item.customPrice && product) {
+        // Si hay precio personalizado, calcular con descuentos aplicados
+        const customPriceCalc = calculatePriceWithCustomBaseV2(product, item.quantity, item.customPrice)
+        effectivePrice = customPriceCalc.finalPrice
+        originalPrice = item.customPrice
+
+        activeDiscounts.personalizado = true
+        // For custom prices, only consider oferta/mayorista active when they produce a
+        // positive absolute discount. This prevents showing a 'Mayorista' label with
+        // no effective discount which confuses users when oferta is already better.
+        activeDiscounts.oferta = customPriceCalc.isOnSale && (customPriceCalc.discounts.oferta ?? 0) > 0
+        activeDiscounts.mayorista = customPriceCalc.isWholesale && (customPriceCalc.discounts.mayorista ?? 0) > 0
+
+        // console.log('💰 Con precio personalizado:', customPriceCalc)
+    } else {
+        // Usar precios normales del sistema
+        effectivePrice = priceInfo?.priceCalculation?.precioFinal ?? item.price
+        originalPrice = priceInfo?.priceCalculation?.precioBase ?? item.price
+
+        // ✅ Verificar si hay descuentos activos. Only set when the numeric discount
+        // amount is greater than zero to avoid showing empty/zero badges.
+        if (priceInfo?.isOnSale && (priceInfo?.priceCalculation?.montoDescuentoOferta ?? 0) > 0) {
+            activeDiscounts.oferta = true
+        }
+        if (priceInfo?.isWholesale && (priceInfo?.priceCalculation?.montoDescuentoMayorista ?? 0) > 0) {
+            activeDiscounts.mayorista = true
+        }
+
+        // console.log('💰 Sin precio personalizado:', {
+        //     effectivePrice,
+        //     originalPrice,
+        //     activeDiscounts
+        // })
+    }
+
+    const hasDiscount = activeDiscounts.oferta || activeDiscounts.mayorista || effectivePrice < originalPrice
+
+    const handleOpenPriceDialog = () => {
+        setTempPrice(effectivePrice.toString())
+        setShowPriceDialog(true)
+    }
+
+    const handleSavePrice = () => {
+        const newPrice = parseFloat(tempPrice)
+        if (!isNaN(newPrice) && newPrice > 0) {
+            updatePrice(item.id, newPrice)
+            setShowPriceDialog(false)
+        }
+    }
+
+    const handleResetPrice = () => {
+        updatePrice(item.id, 0)
+        setShowPriceDialog(false)
+    }
 
     return (
-        <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-            {/* 🛒 Nombre y precios */}
-            <div className="flex-1 min-w-0">
-                <h4 className="font-medium text-xs truncate">
-                    {t(item.nameKey, item.name)}
-                </h4>
+        <>
+            <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-xs truncate">
+                        {t(item.nameKey, item.name)}
+                    </h4>
 
-                <p className="text-muted-foreground text-xs">
-                    {formatCurrency(effectivePrice)}{' '}
-                    {hasDiscount && (
-                        <span className="line-through ml-1 text-[10px] opacity-70">
-                            {formatCurrency(originalPrice)}
-                        </span>
+                    <div className="flex items-center gap-1">
+                        <p className="text-muted-foreground text-xs">
+                            {formatCurrency(effectivePrice)}{' '}
+                            {hasDiscount && (
+                                <span className="line-through ml-1 text-[10px] opacity-70">
+                                    {formatCurrency(originalPrice)}
+                                </span>
+                            )}
+                        </p>
+
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-4 w-4 p-0 hover:bg-transparent"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenPriceDialog()
+                            }}
+                        >
+                            <Edit2 className="w-3 h-3 text-primary hover:text-primary/80" />
+                        </Button>
+                    </div>
+
+                    {/* Precio personalizado */}
+                    {item.customPrice && (
+                        <Badge
+                            variant="outline"
+                            className="text-[10px] h-4 px-1 mt-0.5 flex items-center gap-0.5 bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700"
+                        >
+                            <Edit2 className="w-3 h-3" />
+                            Precio personalizado
+                        </Badge>
                     )}
-                </p>
 
-                {/* 🏷️ Badge (oferta/mayorista) */}
-                {hasDiscount && priceInfo?.priceBadge && (
-                    <Badge
+                    {/* Badge de oferta */}
+                    {activeDiscounts.oferta && (priceInfo?.priceCalculation?.montoDescuentoOferta ?? 0) > 0 && (
+                        <Badge
+                            variant="outline"
+                            className="text-[10px] h-4 px-1 mt-0.5 flex items-center gap-0.5 bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-200 dark:border-yellow-700"
+                        >
+                            <Tag className="w-3 h-3" />
+                            Oferta -{formatCurrency(priceInfo?.priceCalculation?.montoDescuentoOferta ?? 0)}
+                        </Badge>
+                    )}
+
+                    {/* Badge mayorista */}
+                    {priceInfo?.calificaMayorista && (
+                        <Badge
+                            variant="outline"
+                            className="text-[10px] h-4 px-1 mt-0.5 flex items-center gap-0.5 bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700"
+                        >
+                            <Tag className="w-3 h-3" />
+                            {/* Prefer to show discount relative to retail base (if product available), otherwise fall back to the calculated amount. */}
+                            {(() => {
+                                const baseRetail = product ? (product.precioVentaMinorista ?? product.price) : undefined
+                                const mayoristaPrice = product ? product.precioVentaMayorista : undefined
+                                const discountFromBase = (baseRetail !== undefined && mayoristaPrice !== undefined && mayoristaPrice !== null)
+                                    ? Math.max(0, baseRetail - (mayoristaPrice as number))
+                                    : 0
+
+                                const calcDiscount = priceInfo?.priceCalculation?.montoDescuentoMayorista ?? 0
+
+                                if (discountFromBase > 0) return `Mayorista -${formatCurrency(discountFromBase)}`
+                                if (calcDiscount > 0) return `Mayorista -${formatCurrency(calcDiscount)}`
+                                return 'Mayorista'
+                            })()}
+                        </Badge>
+                    )}
+
+                    {/* Unidades faltantes */}
+                    {!priceInfo?.calificaMayorista && (priceInfo?.unidadesFaltantes ?? 0) > 0 && (
+                        <p className="text-[10px] text-amber-600 flex items-center gap-1 mt-0.5">
+                            <Tag className="w-3 h-3" />
+                            +{priceInfo?.unidadesFaltantes ?? 0} p/ mayorista
+                        </p>
+                    )}
+                </div>
+
+                {/* Controles */}
+                <div className="flex items-center gap-1">
+                    <Button
+                        size="sm"
                         variant="outline"
-                        className={`text-[10px] h-4 px-1 mt-0.5 flex items-center gap-0.5 ${priceInfo.priceBadge.tipo === 'oferta'
-                            ? 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-200 dark:border-yellow-700'
-                            : 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700'
-                            }`}
+                        className="h-6 w-6 p-0"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            updateQuantity(item.id, item.quantity - 1)
+                        }}
                     >
-                        <Tag className="w-3 h-3" />
-                        {priceInfo.priceBadge.tipo === 'oferta' ? 'Oferta' : 'Mayorista'}
-                    </Badge>
-                )}
+                        <Minus className="w-3 h-3" />
+                    </Button>
 
-                {/* 🔸 Indicador de unidades faltantes para mayorista - SOLO si NO es mayorista aún */}
-                {!priceInfo?.isWholesale && priceInfo?.unidadesFaltantes && priceInfo.unidadesFaltantes > 0 && (
-                    <p className="text-[10px] text-amber-600 flex items-center gap-1 mt-0.5">
-                        <Tag className="w-3 h-3" />
-                        +{priceInfo.unidadesFaltantes} p/ mayorista
-                    </p>
-                )}
+                    <span className="w-5 text-center text-xs font-medium">
+                        {item.quantity}
+                    </span>
+
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 w-6 p-0"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            updateQuantity(item.id, item.quantity + 1)
+                        }}
+                    >
+                        <Plus className="w-3 h-3" />
+                    </Button>
+
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            removeFromCart(item.id)
+                            updateQuantity(item.id, 0)
+                        }}
+                    >
+                        <X className="w-3 h-3" />
+                    </Button>
+                </div>
             </div>
 
-            {/* 🔘 Botones de control */}
-            <div className="flex items-center gap-1">
-                <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-6 w-6 p-0"
-                    onClick={(e) => {
-                        e.stopPropagation()
-                        updateQuantity(item.id, item.quantity - 1)
-                    }}
-                >
-                    <Minus className="w-3 h-3" />
-                </Button>
-
-                <span className="w-5 text-center text-xs font-medium">
-                    {item.quantity}
-                </span>
-
-                <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-6 w-6 p-0"
-                    onClick={(e) => {
-                        e.stopPropagation()
-                        updateQuantity(item.id, item.quantity + 1)
-                    }}
-                >
-                    <Plus className="w-3 h-3" />
-                </Button>
-
-                <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                    onClick={(e) => {
-                        e.stopPropagation()
-                        removeFromCart(item.id)
-                        updateQuantity(item.id, 0)
-                    }}
-                >
-                    <X className="w-3 h-3" />
-                </Button>
-            </div>
-        </div>
+            {/* Dialog para editar precio */}
+            <Dialog open={showPriceDialog} onOpenChange={setShowPriceDialog}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Editar precio temporal</DialogTitle>
+                        <DialogDescription>
+                            Modifica el precio base de "{t(item.nameKey, item.name)}" solo para esta venta.
+                            Los descuentos activos (oferta/mayorista) se aplicarán sobre este precio.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="price">Nuevo precio base</Label>
+                            <Input
+                                id="price"
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                value={tempPrice}
+                                onChange={(e) => setTempPrice(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        handleSavePrice()
+                                    }
+                                }}
+                                placeholder="0.00"
+                                autoFocus
+                            />
+                            <div className="text-xs text-muted-foreground space-y-1">
+                                <p>Precio original: {formatCurrency(product?.precioVentaMinorista ?? item.price)}</p>
+                                {product && tempPrice && parseFloat(tempPrice) > 0 && (
+                                    (() => {
+                                        const preview = calculatePriceWithCustomBase(product, item.quantity, parseFloat(tempPrice))
+                                        return (
+                                            <>
+                                                {preview.totalDiscount > 0 && (
+                                                    <p className="text-amber-600">
+                                                        ⚠️ Descuentos activos: -{formatCurrency(preview.totalDiscount)}
+                                                        {preview.discounts.oferta > 0 && ` (Oferta: -${formatCurrency(preview.discounts.oferta)})`}
+                                                        {preview.discounts.mayorista > 0 && ` (Mayorista: -${formatCurrency(preview.discounts.mayorista)})`}
+                                                    </p>
+                                                )}
+                                                <p className="font-medium text-green-600">
+                                                    💰 Precio final: {formatCurrency(preview.finalPrice)}
+                                                </p>
+                                            </>
+                                        )
+                                    })()
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={handleResetPrice}
+                            disabled={!item.customPrice}
+                        >
+                            Restaurar precio
+                        </Button>
+                        <Button onClick={handleSavePrice}>
+                            Aplicar precio
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     )
 }
-
 
 export default function CheckoutDialog({
     open,
     onOpenChange,
     cart,
+    setCart,
     products = [],
     updateQuantity,
     removeFromCart,
@@ -206,34 +399,64 @@ export default function CheckoutDialog({
     const [selectedCustomerId, setSelectedCustomerId] = useState<string>('')
     const { generatePdfTicket } = usePdfTicket()
 
- // Prepare cart items with full product data for price calculations
-const cartItemsWithProducts = cart.map(item => ({
-    product: products.find(p => p.id === item.id) || {
-        id: item.id,
-        name: item.name,
-        nameKey: item.nameKey,
-        price: item.price,
-        image: item.image || '',
-        precioVentaMinorista: item.price
-    } as Product,
-    quantity: item.quantity
-}))
 
-// ✅ Calcular totales desde los precios YA actualizados en el carrito
-const subtotal = cart.reduce((sum, item) => {
-    return sum + (item.price * item.quantity)
-}, 0)
+    // Prepare cart items with full product data for price calculations
+    const cartItemsWithProducts = cart.map(item => ({
+        product: products.find(p => p.id === item.id) || {
+            id: item.id,
+            name: item.name,
+            nameKey: item.nameKey,
+            price: item.price,
+            image: item.image || '',
+            precioVentaMinorista: item.price
+        } as Product,
+        quantity: item.quantity
+    }))
 
-const cartTotals = {
-    subtotal: subtotal,
-    descuentos: 0, // Los descuentos ya están aplicados en item.price
-    total: subtotal
-}
+    // ✅ Calcular totales desde los precios YA actualizados en el carrito
+    const subtotal = cart.reduce((sum, item) => {
+        const product = products.find(p => p.id === item.id)
 
-// Calculate IGV and final totals
-const igv = calculateIGV(cartTotals.total)
-const totalWithIGV = cartTotals.total + igv
-const change = receivedAmount ? Math.max(0, parseFloat(receivedAmount) - totalWithIGV) : 0
+        let priceToUse = item.price
+
+        if (item.customPrice && product) {
+            // Usar la función helper para calcular precio con descuentos
+            const customPriceCalc = calculatePriceWithCustomBaseV2(product, item.quantity, item.customPrice)
+            priceToUse = customPriceCalc.finalPrice
+        } else if (product) {
+            const priceInfo = calculatePriceData(product, item.quantity)
+            priceToUse = priceInfo.priceCalculation.precioFinal
+        }
+
+        return sum + (priceToUse * item.quantity)
+    }, 0)
+
+    const cartTotals = {
+        subtotal: subtotal,
+        descuentos: 0, // Los descuentos ya están aplicados en item.price
+        total: subtotal
+    }
+
+    // Calculate IGV and final totals
+    const igv = calculateIGV(cartTotals.total)
+    const totalWithIGV = cartTotals.total + igv
+    const change = receivedAmount ? Math.max(0, parseFloat(receivedAmount) - totalWithIGV) : 0
+
+
+
+    const handleUpdatePrice = (id: number, newPrice: number) => {
+        const updatedCart = cart.map(item => {
+            if (item.id === id) {
+                return {
+                    ...item,
+                    customPrice: newPrice > 0 ? newPrice : undefined
+                }
+            }
+            return item
+        })
+        setCart(updatedCart)
+    }
+
 
     useEffect(() => {
         if (open) {
@@ -364,133 +587,232 @@ const change = receivedAmount ? Math.max(0, parseFloat(receivedAmount) - totalWi
         return true
     }
 
-    const handleProcessPayment = async () => {
-        // Validar formulario primero
-        if (!validateForm()) return
 
-        if (paymentMethod === 'EFECTIVO' && parseFloat(receivedAmount) < totalWithIGV) {
-            toast.error(t('pos.insufficient_amount'))
-            return
-        }
+// Helper para calcular precio final con descuentos E IGV
+const calculateFinalPriceWithTax = (item: any): number => {
+    const product = products.find(p => p.id === item.id)
+    if (!product) return item.price * (1 + businessConfig.igvRate / 100)
 
-        setProcessing(true)
-        try {
-            let customerId = selectedCustomerId
-
-            // Solo guardar cliente si hay datos y no es un ticket simple
-            if (!customerId && customerForm.dni && receiptType !== 'ticket') {
-                const newCustomerId = await saveCustomer()
-                if (newCustomerId) customerId = newCustomerId.toString()
-            }
-
-            // Build checkout data with price calculations
-            const checkoutData = {
-                cart: cart.map(item => {
-                    const product = products.find(p => p.id === item.id)
-                    const priceCalc = product ? calculatePriceData(product, item.quantity) : null
-
-                    return {
-                        ...item,
-                        precioOriginal: priceCalc?.priceCalculation.precioBase || item.price,
-                        precioFinal: priceCalc?.priceCalculation.precioFinal || item.price,
-                        descuentoAplicado: priceCalc?.priceCalculation.descuento || 0,
-                        esOferta: priceCalc?.isOnSale || false,
-                        esMayorista: priceCalc?.isWholesale || false
-                    }
-                }),
-                customer: customerForm,
-                customerId,
-                receiptType,
-                paymentMethod,
-                subtotal: cartTotals.subtotal,
-                descuentos: cartTotals.descuentos,
-                tax: igv,
-                total: totalWithIGV,
-                receivedAmount: paymentMethod === 'EFECTIVO' ? parseFloat(receivedAmount) : totalWithIGV,
-                change: paymentMethod === 'EFECTIVO' ? change : 0,
-                timestamp: new Date().toISOString()
-            }
-
-            await onProcessPayment(checkoutData)
-
-            // Crear la venta en el backend
-            let ventaId: number | null = null
-
-            try {
-                const ventaData = {
-                    id_cliente: customerId ? parseInt(customerId) : null,
-                    metodo_pago: paymentMethod,
-                    moneda: businessConfig.currency,
-                    productos: cart.map(item => {
-                        const product = products.find(p => p.id === item.id)
-                        const priceCalc = product ? calculatePriceData(product, item.quantity) : null
-
-                        return {
-                            id_producto: item.id,
-                            cantidad: item.quantity,
-                            precio_unitario: priceCalc?.priceCalculation.precioFinal || item.price
-                        }
-                    })
-                }
-
-                const ventaResponse = await ventasService.create(ventaData)
-                ventaId = ventaResponse.venta?.id_venta || ventaResponse.id_venta
-
-                if (!ventaId) {
-                    throw new Error('No se pudo obtener el ID de la venta')
-                }
-
-                toast.success('Venta registrada correctamente')
-
-                // Generar PDF según el tipo de comprobante
-                try {
-                    await generatePdfTicket(ventaId, receiptType)
-
-                    const comprobanteNombre = receiptType === 'ticket'
-                        ? 'Ticket'
-                        : receiptType === 'boleta'
-                            ? 'Boleta'
-                            : 'Factura'
-
-                    toast.success(`${comprobanteNombre} generado exitosamente`)
-                } catch (pdfError) {
-                    console.error('Error generando PDF:', pdfError)
-                    toast.warning('Venta registrada pero no se pudo generar el PDF')
-                }
-
-                if (onClearCart) onClearCart()
-                if (onRefreshData) await onRefreshData()
-
-                // Limpiar formulario
-                setCustomerForm({
-                    dni: '',
-                    nombre: '',
-                    apellido_paterno: '',
-                    apellido_materno: '',
-                    direccion: '',
-                    telefono: '',
-                    correo: ''
-                })
-                setDniInput('')
-                setSelectedCustomerId('')
-                setPaymentMethod('EFECTIVO')
-                setReceivedAmount('')
-                setReceiptType('ticket')
-                onOpenChange(false)
-
-            } catch (error) {
-                console.error('Error al crear venta:', error)
-                toast.error('Error al procesar la venta.')
-                throw error
-            }
-
-        } catch (error) {
-            console.error('Payment processing failed:', error)
-            toast.error(t('pos.payment_error'))
-        } finally {
-            setProcessing(false)
-        }
+    let precioFinal: number
+    
+    if (item.customPrice) {
+        const customCalc = calculatePriceWithCustomBaseV2(product, item.quantity, item.customPrice)
+        precioFinal = customCalc.finalPrice
+    } else {
+        const priceCalc = calculatePriceData(product, item.quantity)
+        precioFinal = priceCalc.priceCalculation.precioFinal
     }
+    
+    // Aplicar IGV al precio final
+    return precioFinal * (1 + businessConfig.igvRate / 100)
+}
+
+
+const handleProcessPayment = async () => {
+    // Validar formulario primero
+    if (!validateForm()) return
+
+    if (paymentMethod === 'EFECTIVO' && parseFloat(receivedAmount) < totalWithIGV) {
+        toast.error(t('pos.insufficient_amount'))
+        return
+    }
+
+    setProcessing(true)
+
+    try {
+        let customerId = selectedCustomerId
+
+        // Solo guardar cliente si hay datos y no es un ticket simple
+        if (!customerId && customerForm.dni && receiptType !== 'ticket') {
+            const newCustomerId = await saveCustomer()
+            if (newCustomerId) customerId = newCustomerId.toString()
+        }
+
+        // Helper para calcular precio final con descuentos
+        const calculateFinalPrice = (item: any): number => {
+            const product = products.find(p => p.id === item.id)
+            if (!product) return item.price
+
+            if (item.customPrice) {
+                const customCalc = calculatePriceWithCustomBaseV2(product, item.quantity, item.customPrice)
+                return customCalc.finalPrice
+            }
+
+            const priceCalc = calculatePriceData(product, item.quantity)
+            return priceCalc.priceCalculation.precioFinal
+        }
+
+        // Helper para obtener información completa de descuentos
+        const getItemPriceInfo = (item: any) => {
+            const product = products.find(p => p.id === item.id)
+            if (!product) {
+                return {
+                    precioBase: item.price,
+                    precioFinal: item.price,
+                    descuentoOferta: 0,
+                    descuentoMayorista: 0,
+                    esOferta: false,
+                    esMayorista: false
+                }
+            }
+
+            if (item.customPrice) {
+                const customCalc = calculatePriceWithCustomBaseV2(product, item.quantity, item.customPrice)
+                return {
+                    precioBase: item.customPrice,
+                    precioFinal: customCalc.finalPrice,
+                    descuentoOferta: customCalc.discounts.oferta,
+                    descuentoMayorista: customCalc.discounts.mayorista,
+                    esOferta: customCalc.isOnSale,
+                    esMayorista: customCalc.isWholesale
+                }
+            }
+
+            const priceCalc = calculatePriceData(product, item.quantity)
+            return {
+                precioBase: priceCalc.priceCalculation.precioBase,
+                precioFinal: priceCalc.priceCalculation.precioFinal,
+                descuentoOferta: priceCalc.priceCalculation.montoDescuentoOferta || 0,
+                descuentoMayorista: priceCalc.priceCalculation.montoDescuentoMayorista || 0,
+                esOferta: priceCalc.isOnSale,
+                esMayorista: priceCalc.isWholesale
+            }
+        }
+
+        // Checkout data para el frontend
+        const checkoutData = {
+            cart: cart.map(item => {
+                const priceInfo = getItemPriceInfo(item)
+                return {
+                    ...item,
+                    ...priceInfo
+                }
+            }),
+            customer: customerForm,
+            customerId,
+            receiptType,
+            paymentMethod,
+            subtotal: cartTotals.subtotal,
+            descuentos: cartTotals.descuentos,
+            tax: igv,
+            total: totalWithIGV,
+            receivedAmount: paymentMethod === 'EFECTIVO' ? parseFloat(receivedAmount) : totalWithIGV,
+            change: paymentMethod === 'EFECTIVO' ? change : 0,
+            timestamp: new Date().toISOString()
+        }
+
+        await onProcessPayment(checkoutData)
+
+        // Crear venta en backend (formato que tu API espera)
+        const ventaData = {
+            id_cliente: customerId ? parseInt(customerId) : null,
+            metodo_pago: paymentMethod,
+            moneda: businessConfig.currency,
+            productos: cart.map(item => ({
+                id_producto: item.id,
+                cantidad: item.quantity,
+                precio_unitario: calculateFinalPrice(item) // Precio final con descuentos
+            }))
+        }
+
+        const ventaResponse = await ventasService.create(ventaData)
+        const ventaId = ventaResponse.venta?.id_venta || ventaResponse.id_venta
+
+        if (!ventaId) {
+            throw new Error('No se pudo obtener el ID de la venta')
+        }
+
+        toast.success('Venta registrada correctamente')
+
+        // Generar PDF con información de descuentos
+      try {
+    // NO usar generatePdfTicket que hace una llamada al backend
+    // En su lugar, crear el PDF directamente con los datos que ya tenemos
+    
+    const ventaParaPDF = {
+        id_venta: ventaId,
+        numero_comprobante: `T-${ventaId.toString().padStart(6, '0')}`,
+        tipo_comprobante: receiptType,
+        fecha_venta: new Date().toISOString(),
+        total: totalWithIGV,
+        subtotal: cartTotals.subtotal - cartTotals.descuentos, // Subtotal después de descuentos
+        igv: igv,
+        cliente_nombre: customerForm.nombre ? 
+            `${customerForm.nombre} ${customerForm.apellido_paterno || ''}`.trim() : 
+            null,
+        cliente_documento: customerForm.dni || null,
+        cliente_direccion: customerForm.direccion || null,
+        metodo_pago: paymentMethod,
+        // Items con información de descuentos
+        items: cart.map(item => {
+            const product = products.find(p => p.id === item.id)
+            const priceInfo = getItemPriceInfo(item)
+            
+            return {
+                nombre: item.name,
+                cantidad: item.quantity,
+                precio_unitario: priceInfo.precioFinal,
+                precio_original: priceInfo.precioBase,
+                descuento_oferta: priceInfo.descuentoOferta,
+                descuento_mayorista: priceInfo.descuentoMayorista,
+                es_oferta: priceInfo.esOferta,
+                es_mayorista: priceInfo.esMayorista,
+                subtotal: priceInfo.precioFinal * item.quantity
+            }
+        }),
+        // Totales de descuentos
+        subtotal_sin_descuentos: cartTotals.subtotal,
+        total_descuentos: cartTotals.descuentos
+    }
+
+    // Usar generateCustomPdfTicket que NO hace llamada al backend
+    await generateCustomPdfTicket(ventaParaPDF, receiptType)
+
+    const comprobanteNombre = receiptType === 'ticket'
+        ? 'Ticket'
+        : receiptType === 'boleta'
+            ? 'Boleta'
+            : 'Factura'
+
+    toast.success(`${comprobanteNombre} generado exitosamente`)
+        } catch (pdfError) {
+            console.error('Error generando PDF:', pdfError)
+
+            // Fallback al método original
+            try {
+                await generatePdfTicket(ventaId, receiptType)
+            } catch (fallbackError) {
+                console.warn('Venta registrada pero no se pudo generar el PDF', fallbackError)
+                toast.warning('Venta registrada pero no se pudo generar el PDF')
+            }
+        }
+
+        if (onClearCart) onClearCart()
+        if (onRefreshData) await onRefreshData()
+
+        // Limpiar formulario
+        setCustomerForm({
+            dni: '',
+            nombre: '',
+            apellido_paterno: '',
+            apellido_materno: '',
+            direccion: '',
+            telefono: '',
+            correo: ''
+        })
+        setDniInput('')
+        setSelectedCustomerId('')
+        setPaymentMethod('EFECTIVO')
+        setReceivedAmount('')
+        setReceiptType('ticket')
+        onOpenChange(false)
+    } catch (err) {
+        console.error('Payment processing failed:', err)
+        toast.error(t('pos.payment_error'))
+    } finally {
+        setProcessing(false)
+    }
+}
 
     const handleSelectExistingCustomer = (customerId: string) => {
         const customer = customers.find(c => c.id_cliente?.toString() === customerId)
@@ -882,6 +1204,7 @@ const change = receivedAmount ? Math.max(0, parseFloat(receivedAmount) - totalWi
                                             product={product}
                                             updateQuantity={handleUpdateQuantity}  // ← USA EL WRAPPER
                                             removeFromCart={removeFromCart}
+                                            updatePrice={handleUpdatePrice}
                                         />
                                     )
                                 })}

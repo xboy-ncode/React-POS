@@ -900,7 +900,7 @@ export default function POSSystem() {
 
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h1 className="text-3xl font-bold tracking-tight">{t('pos.title')}</h1>
-            <div className="flex gap-2">
+            {/* <div className="flex gap-2">
               <Button
                 className="gap-2"
                 onClick={() => {
@@ -911,7 +911,7 @@ export default function POSSystem() {
                 <Plus className="w-4 h-4" />
                 {t('pos.buttons.add_product')}
               </Button>
-            </div>
+            </div> */}
           </div>
 
           {/* Barra de búsqueda con código de barras */}
@@ -1080,6 +1080,7 @@ export default function POSSystem() {
           open={showCheckout}
           onOpenChange={setShowCheckout}
           cart={cart}
+          setCart={setCart}
           products={products}
           updateQuantity={updateQuantity}
           removeFromCart={removeFromCart}

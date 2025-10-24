@@ -3,6 +3,7 @@ import type { Product, PriceCalculation, PriceBadge } from '@/types/pos'
 
 /**
  * Calcula el precio correcto según cantidad, ofertas y tipo de venta
+ * ✅ MODIFICADO: Descuentos acumulativos solo si mejoran el precio
  */
 export function calcularPrecioProducto(
     product: Product,
@@ -13,24 +14,34 @@ export function calcularPrecioProducto(
     let esOferta = false
     let esMayorista = false
     let descuento = 0
+    let montoDescuentoOferta = 0
+    let montoDescuentoMayorista = 0
 
-    // 1. Verificar si aplica oferta
+    // 1. Aplicar descuento por oferta (si existe)
     if (product.enOferta && product.precioOferta) {
+        montoDescuentoOferta = precioBase - product.precioOferta
         precioFinal = product.precioOferta
-        descuento = ((precioBase - precioFinal) / precioBase) * 100
         esOferta = true
     }
-    // 2. Verificar si aplica precio mayorista (solo si no hay oferta)
-    else if (
+
+    // 2. Aplicar descuento mayorista solo SI mejora el precio actual
+    if (
         product.precioVentaMayorista &&
         quantity >= (product.cantidadMinimaMayorista || 1)
     ) {
-        precioFinal = product.precioVentaMayorista
-        descuento = ((precioBase - precioFinal) / precioBase) * 100
-        esMayorista = true
+        // ✅ Solo aplicar si el precio mayorista es MEJOR (menor) que el precio actual
+        if (product.precioVentaMayorista < precioFinal) {
+            montoDescuentoMayorista = precioFinal - product.precioVentaMayorista
+            precioFinal = product.precioVentaMayorista
+            esMayorista = true
+        }
     }
 
-    const ahorro = (precioBase - precioFinal) * quantity
+    // Calcular descuento total en porcentaje
+    const descuentoTotal = precioBase - precioFinal
+    descuento = descuentoTotal > 0 ? ((descuentoTotal / precioBase) * 100) : 0
+
+    const ahorro = descuentoTotal * quantity
 
     return {
         precioBase,
@@ -38,7 +49,9 @@ export function calcularPrecioProducto(
         descuento: descuento > 0 ? descuento : undefined,
         esOferta,
         esMayorista,
-        ahorro: ahorro > 0 ? ahorro : undefined
+        ahorro: ahorro > 0 ? ahorro : undefined,
+        montoDescuentoOferta,
+        montoDescuentoMayorista
     }
 }
 
@@ -186,6 +199,10 @@ export function calcularTotalCarrito(items: Array<{
  */
 export function obtenerDescripcionPrecio(product: Product, quantity: number): string {
     const calculo = calcularPrecioProducto(product, quantity)
+    
+    if (calculo.esOferta && calculo.esMayorista) {
+        return `Oferta + Mayorista (${calculo.descuento?.toFixed(0)}% desc. total)`
+    }
     
     if (calculo.esOferta) {
         return `En oferta (${calculo.descuento?.toFixed(0)}% desc.)`

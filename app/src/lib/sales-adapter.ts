@@ -17,6 +17,8 @@ export interface Sale {
     id_usuario: number
     fecha: string
     total: string
+    igv: string
+    total_con_igv: string
     moneda: string
     metodo_pago: string
     cliente_nombre?: string

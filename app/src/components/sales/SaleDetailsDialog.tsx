@@ -31,6 +31,7 @@ import {
     Receipt,
 } from 'lucide-react'
 import { useSaleDetails } from '@/hooks/useSales'
+import { calculateTaxBreakdown } from '@/lib/tax-helpers'
 
 interface SaleDetailsDialogProps {
     saleId: number | null
@@ -41,6 +42,7 @@ interface SaleDetailsDialogProps {
 export function SaleDetailsDialog({ saleId, open, onOpenChange }: SaleDetailsDialogProps) {
     const { t } = useTranslation()
     const { sale, loading, error } = useSaleDetails(saleId)
+    const taxBreakdown = sale ? calculateTaxBreakdown(parseFloat(sale.total)) : null
 
     const getPaymentMethodBadge = (method: string) => {
         const variants: Record<string, { variant: 'default' | 'secondary' | 'outline', label: string }> = {
@@ -233,19 +235,40 @@ export function SaleDetailsDialog({ saleId, open, onOpenChange }: SaleDetailsDia
 
                         <Separator />
 
-                        {/* Total */}
+                        {/* Total Breakdown */}
                         <div className="flex justify-end">
-                            <div className="space-y-2 min-w-[250px]">
+                            <div className="space-y-2 min-w-[300px]">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">
+                                        Subtotal:
+                                    </span>
+                                    <span className="font-medium">
+                                        {sale.moneda} {taxBreakdown?.subtotal.toFixed(2)}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">
+                                        IGV (18%):
+                                    </span>
+                                    <span className="font-medium">
+                                        {sale.moneda} {taxBreakdown?.igv.toFixed(2)}
+                                    </span>
+                                </div>
+
+                                <Separator />
+
                                 <div className="flex justify-between text-lg">
                                     <span className="font-semibold">
-                                        {t('app.total', 'Total')}:
+                                        {t('app.total', 'Total con IGV')}:
                                     </span>
                                     <span className="font-bold text-primary">
-                                        {sale.moneda} {parseFloat(sale.total).toFixed(2)}
+                                        {sale.moneda} {taxBreakdown?.total.toFixed(2)}
                                     </span>
                                 </div>
                             </div>
                         </div>
+
                     </div>
                 )}
             </DialogContent>

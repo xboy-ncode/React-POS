@@ -5,11 +5,12 @@ import type { Product, PriceCalculation, PriceBadge } from '@/types/pos'
  * Calcula el precio correcto según cantidad, ofertas y tipo de venta
  * ✅ MODIFICADO: Descuentos acumulativos solo si mejoran el precio
  */
+// lib/price-helpers.ts
 export function calcularPrecioProducto(
     product: Product,
     quantity: number = 1
 ): PriceCalculation {
-    let precioBase = product.precioVentaMinorista || product.price
+    const precioBase = product.precioVentaMinorista || product.price
     let precioFinal = precioBase
     let esOferta = false
     let esMayorista = false
@@ -17,25 +18,45 @@ export function calcularPrecioProducto(
     let montoDescuentoOferta = 0
     let montoDescuentoMayorista = 0
 
-    // 1. Aplicar descuento por oferta (si existe)
+    // 1. Calcular descuento de oferta (SIEMPRE desde precio base)
     if (product.enOferta && product.precioOferta) {
         montoDescuentoOferta = precioBase - product.precioOferta
-        precioFinal = product.precioOferta
         esOferta = true
     }
 
-    // 2. Aplicar descuento mayorista solo SI mejora el precio actual
+    // 2. Calcular descuento mayorista (SIEMPRE desde precio base)
     if (
         product.precioVentaMayorista &&
         quantity >= (product.cantidadMinimaMayorista || 1)
     ) {
-        // ✅ Solo aplicar si el precio mayorista es MEJOR (menor) que el precio actual
-        if (product.precioVentaMayorista < precioFinal) {
-            montoDescuentoMayorista = precioFinal - product.precioVentaMayorista
-            precioFinal = product.precioVentaMayorista
-            esMayorista = true
-        }
+        montoDescuentoMayorista = precioBase - product.precioVentaMayorista
+        esMayorista = true
     }
+
+    // 3. Aplicar descuentos de forma acumulativa
+    if (esOferta && esMayorista) {
+        // Ambos descuentos activos: aplicar el mayor y sumar la diferencia del menor
+        if (montoDescuentoMayorista > montoDescuentoOferta) {
+            // Mayorista es mejor: aplicar mayorista completo
+            precioFinal = precioBase - montoDescuentoMayorista
+        } else {
+            // Oferta es mejor o igual: aplicar oferta completo
+            precioFinal = precioBase - montoDescuentoOferta
+            // Ajustar descuento mayorista para que no sobrepase
+            montoDescuentoMayorista = Math.max(0, montoDescuentoMayorista)
+        }
+    } else if (esOferta) {
+        // Solo oferta
+        precioFinal = precioBase - montoDescuentoOferta
+        montoDescuentoMayorista = 0
+    } else if (esMayorista) {
+        // Solo mayorista
+        precioFinal = precioBase - montoDescuentoMayorista
+        montoDescuentoOferta = 0
+    }
+
+    // No permitir precios negativos
+    precioFinal = Math.max(0.01, precioFinal)
 
     // Calcular descuento total en porcentaje
     const descuentoTotal = precioBase - precioFinal
@@ -54,7 +75,6 @@ export function calcularPrecioProducto(
         montoDescuentoMayorista
     }
 }
-
 /**
  * Calcula el margen de ganancia
  */

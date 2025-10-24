@@ -581,17 +581,18 @@ function ProductEditor({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="supplier">{t('inventory.supplier', 'Proveedor')}</Label>
-                <BrandSelector
-                  value={form.brandId}
-                  brandName={form.brandName}
-                  onChange={(id, name) => {
+                <Label htmlFor="brand">{t('inventory.brand', 'Marca')}</Label>
+                <Input
+                  id="brand"
+                  value={form.brandName || ''}
+                  onChange={(e) =>
                     setForm({
                       ...form,
-                      brandId: id,
-                      brandName: name
+                      brandName: e.target.value,
+                      brandId: undefined // clear id when typing a free-text brand
                     })
-                  }}
+                  }
+                  placeholder={t('inventory.brand_placeholder', 'Ej: Coca-Cola')}
                 />
               </div>
             </div>

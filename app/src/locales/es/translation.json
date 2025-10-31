@@ -123,7 +123,8 @@
     "or_add_new": "O agregar nuevo cliente",
     "try_again": "Intentar nuevamente",
     "movements": "Movimientos",
-    "view_all": "Ver Todos"
+    "view_all": "Ver Todos",
+    "quick_actions": "Acciones Rápidas"
   },
     "dashboard": {
   "sales_trend": "Tendencia de ventas hoy",

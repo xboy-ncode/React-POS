@@ -36,6 +36,7 @@ import { useSales } from '@/hooks/useSales'
 import { SaleDetailsDialog } from '@/components/sales/SaleDetailsDialog'
 import { MonthlyReportDialog } from '@/components/movements/MonthlyReportDialog'
 import { calculateTaxBreakdown } from '@/lib/tax-helpers'
+import { DailyReportDialog } from '@/components/movements/DailyReportDialog'
 
 export default function Movements() {
     const { t } = useTranslation()
@@ -119,8 +120,12 @@ export default function Movements() {
                 </p>
             </div>
 
-            {/* Botón de reporte mensual */}
-            <MonthlyReportDialog />
+            {/* Botones de reportes */}
+            <div className="flex gap-3">
+                <DailyReportDialog />
+                <MonthlyReportDialog />
+            </div>
+
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

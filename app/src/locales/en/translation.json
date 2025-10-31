@@ -123,7 +123,8 @@
     "or_add_new": "or add a new customer",
     "try_again": "Try again",
     "movements": "Movements",
-    "view_all": "View All"
+    "view_all": "View All",
+    "quick_actions": "Quick Actions"
   },
 "dashboard": {
     "title": "Dashboard",

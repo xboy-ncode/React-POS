@@ -21,6 +21,7 @@ import {
 } from '../hooks/useDashboardData'
 
 import { useCan } from '../lib/permissions' // ✅ Importamos helper de permisos
+import QuickActions from '@/components/dashboard/QuickActions'
 
 export default function Dashboard() {
   const { t } = useTranslation()
@@ -50,6 +51,10 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+
+    {/* Quick Actions */}
+      <QuickActions />
+
       {/* 🔹 Top Stats */}
       {(canSales || canInventory || canCustomers) && (
         <Card className="p-4">

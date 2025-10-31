@@ -3,6 +3,9 @@ import React from "react";
 import { Button } from "../ui/button";
 import { Plus, Package, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
+import { DailyReportDialog } from "../movements/DailyReportDialog";
+import { MonthlyReportDialog } from "../movements/MonthlyReportDialog";
 
 type QuickActionsProps = {
     animated?: boolean;
@@ -12,10 +15,10 @@ type ActionVariant = "default" | "secondary" | "outline" | "link" | "destructive
 
 export default function QuickActions({ animated = true }: QuickActionsProps) {
     const actions: { label: string; icon: React.ElementType; variant: ActionVariant }[] = [
-        { label: "Add Sale", icon: Plus, variant: "default" },
-        { label: "Add Product", icon: Package, variant: "secondary" },
-        { label: "Add Customer", icon: UserPlus, variant: "outline" },
+
     ];
+
+const { t } = useTranslation();
 
     return (
         <div
@@ -25,8 +28,12 @@ export default function QuickActions({ animated = true }: QuickActionsProps) {
             )}
             style={{ transitionDelay: "800ms" }}
         >
-            <h3 className="text-lg font-semibold text-foreground mb-5">Quick Actions</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-5">{t('app.quick_actions')}</h3>
             <div className="flex flex-wrap gap-4">
+                            <div className="flex gap-3">
+                                <DailyReportDialog />
+                                <MonthlyReportDialog />
+                            </div>
                 {actions.map((action, idx) => {
                     const Icon = action.icon;
                     return (

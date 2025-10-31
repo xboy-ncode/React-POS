@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, Plus, Package, DollarSign, AlertTriangle, Loader2, Barcode } from 'lucide-react'
+import { Search, Plus, Package, DollarSign, AlertTriangle, Loader2, Barcode, AlertCircle } from 'lucide-react'
 import { useInventory } from '@/hooks/useInventory'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
@@ -498,42 +498,71 @@ function ProductEditor({
               </div>
             </div>
             {form.enOferta && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="porcentajeDescuentoOferta">% Descuento</Label>
-                  <Input
-                    id="porcentajeDescuentoOferta"
-                    type="number"
-                    step="1"
-                    min="0"
-                    max="100"
-                    value={form.porcentajeDescuentoOferta || ''}
-                    onChange={(e) => {
-                      const descuento = parseFloat(e.target.value) || 0
-                      const precioBase = form.precioVentaMinorista || form.price || 0
-                      const precioOferta = precioBase * (1 - descuento / 100)
-                      setForm({
-                        ...form,
-                        porcentajeDescuentoOferta: descuento,
-                        precioOferta: precioOferta
-                      })
-                    }}
-                    placeholder="Ej: 20"
-                  />
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="porcentajeDescuentoOferta">% Descuento</Label>
+                    <Input
+                      id="porcentajeDescuentoOferta"
+                      type="number"
+                      step="1"
+                      min="0"
+                      max="100"
+                      value={form.porcentajeDescuentoOferta || ''}
+                      onChange={(e) => {
+                        const descuento = parseFloat(e.target.value) || 0
+                        const precioBase = form.precioVentaMinorista || form.price || 0
+                        const precioOferta = precioBase * (1 - descuento / 100)
+                        setForm({
+                          ...form,
+                          porcentajeDescuentoOferta: descuento,
+                          precioOferta: Number(precioOferta.toFixed(2))
+                        })
+                      }}
+                      placeholder="Ej: 20"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="precioOferta">Precio con Oferta</Label>
+                    <Input
+                      id="precioOferta"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.precioOferta || ''}
+                      onChange={(e) => {
+                        const precioOferta = parseFloat(e.target.value) || 0
+                        const precioBase = form.precioVentaMinorista || form.price || 0
+                        const descuento = precioBase > 0 ? Number((((precioBase - precioOferta) / precioBase) * 100).toFixed(2)) : 0
+                        setForm({
+                          ...form,
+                          precioOferta: precioOferta,
+                          porcentajeDescuentoOferta: descuento
+                        })
+                      }}
+                      placeholder="Ingrese el precio final"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="precioOferta">Precio con Oferta</Label>
-                  <Input
-                    id="precioOferta"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.precioOferta || ''}
-                    onChange={(e) => setForm({ ...form, precioOferta: parseFloat(e.target.value) || undefined })}
-                    placeholder="Calculado automáticamente"
-                    disabled
-                  />
-                </div>
+
+                {/* Warnings */}
+                {form.porcentajeDescuentoOferta !== undefined && form.porcentajeDescuentoOferta < 0 && (
+                  <div className="flex items-center gap-2 text-amber-600 bg-amber-50 border border-amber-200 rounded-md p-3">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    <p className="text-sm">
+                      El precio de oferta es mayor que el precio base. El descuento es negativo.
+                    </p>
+                  </div>
+                )}
+
+                {form.porcentajeDescuentoOferta !== undefined && form.porcentajeDescuentoOferta === 0 && (
+                  <div className="flex items-center gap-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-md p-3">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    <p className="text-sm">
+                      El precio de oferta es igual al precio base. No hay descuento aplicado.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </Card>

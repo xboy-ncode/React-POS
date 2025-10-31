@@ -456,30 +456,30 @@ async function generateTicket(
             y: yPosition,
             size: 7,
             font: fontBold,
-           // color: rgb(0, 0.5, 0)
+            // color: rgb(0, 0.5, 0)
         })
         yPosition -= 12
     }
 
     const totalValue = Number(sale.total) || 0
     page.drawText('Sub-Total:', { x: maxWidth - 90, y: yPosition, size: 10, font: fontBold })
-        page.drawText(formatCurrency(totalValue), {
+    page.drawText(formatCurrency(totalValue), {
         x: maxWidth - 15,
         y: yPosition,
         size: 10,
         font: fontBold
     })
-        yPosition -= 15
+    yPosition -= 15
 
-        page.drawText('Impuestos:', { x: maxWidth - 90, y: yPosition, size: 10, font: fontBold })
-        page.drawText(formatCurrency(totalValue * 0.18), {
+    page.drawText('Impuestos:', { x: maxWidth - 90, y: yPosition, size: 10, font: fontBold })
+    page.drawText(formatCurrency(totalValue * 0.18), {
         x: maxWidth - 15,
         y: yPosition,
         size: 10,
         font: fontBold
     })
-        yPosition -= 15
-        
+    yPosition -= 15
+
     page.drawText('TOTAL:', { x: maxWidth - 90, y: yPosition, size: 10, font: fontBold })
     page.drawText(formatCurrency(totalValue + (totalValue * 0.18)), {
         x: maxWidth - 15,
@@ -1203,6 +1203,186 @@ export function usePdfTicket() {
         }
     }, [])
 
+   async function generateDailyReport(fecha: string) {
+    // Solo pasar la fecha en formato YYYY-MM-DD
+    // El backend se encargará de agregar las horas
+    const { resumen, detalle } = await ventasService.getResumen({
+        fecha_desde: fecha,  // Solo "2025-10-30"
+        fecha_hasta: fecha   // Solo "2025-10-30"
+    })
+
+    const pdfDoc = await PDFDocument.create()
+    let page = pdfDoc.addPage([595.28, 842]) // A4
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+    const margin = 40
+    let y = 800
+
+    // === LOGO Y ENCABEZADO ===
+    if (businessConfig.printConfig.showLogo && businessConfig.printConfig.logoUrl) {
+        try {
+            const logoBytes = await fetch(businessConfig.printConfig.logoUrl).then(res => res.arrayBuffer())
+            const logoImage = await pdfDoc.embedPng(logoBytes)
+            const logoWidth = 90
+            const logoHeight = (logoImage.height / logoImage.width) * logoWidth
+            page.drawImage(logoImage, {
+                x: margin,
+                y: y - logoHeight,
+                width: logoWidth,
+                height: logoHeight
+            })
+        } catch {
+            console.warn('⚠️ No se pudo cargar el logo')
+        }
+    }
+
+    // Nombre de empresa
+    page.drawText(businessConfig.name, {
+        x: margin + 110,
+        y,
+        size: 14,
+        font: fontBold,
+        color: rgb(0, 0, 0)
+    })
+    y -= 18
+
+    page.drawText(`RUC: ${businessConfig.ruc}`, {
+        x: margin + 110,
+        y,
+        size: 10,
+        font,
+    })
+    y -= 14
+
+    page.drawText(`Dirección: ${businessConfig.address}`, {
+        x: margin + 110,
+        y,
+        size: 9,
+        font
+    })
+    y -= 14
+
+    if (businessConfig.phone)
+        page.drawText(`Tel: ${businessConfig.phone}`, { x: margin + 110, y, size: 9, font })
+    if (businessConfig.email)
+        page.drawText(`Email: ${businessConfig.email}`, { x: margin + 230, y, size: 9, font })
+
+    y -= 30
+    page.drawText('REPORTE DIARIO DE VENTAS', { x: margin, y, size: 13, font: fontBold })
+    y -= 15
+    page.drawText(`Fecha: ${format(new Date(fecha), "dd 'de' MMMM 'de' yyyy", { locale: es })}`, {
+        x: margin,
+        y,
+        size: 10,
+        font
+    })
+    y -= 12
+    page.drawText(`Hora de generación: ${format(new Date(), 'HH:mm:ss')}`, {
+        x: margin,
+        y,
+        size: 9,
+        font,
+        color: rgb(0.4, 0.4, 0.4)
+    })
+
+    y -= 25
+    page.drawLine({
+        start: { x: margin, y },
+        end: { x: 555, y },
+        thickness: 1,
+        color: rgb(0, 0, 0)
+    })
+    y -= 20
+
+    // === ENCABEZADO TABLA ===
+    const headers = ['Hora', 'Cliente', 'Vendedor', 'Método', 'Moneda', 'Total']
+    const positions = [margin, margin + 70, margin + 240, margin + 330, margin + 420, margin + 500]
+
+    headers.forEach((h, i) => {
+        page.drawText(h, { x: positions[i], y, size: 9, font: fontBold })
+    })
+    y -= 15
+
+    // === DETALLE DE VENTAS ===
+    for (const venta of detalle) {
+        if (y < 80) {
+            page = pdfDoc.addPage([595.28, 842])
+            y = 780
+        }
+
+        const horaFmt = format(new Date(venta.fecha), 'HH:mm')
+        const cliente = venta.cliente_nombre || 'Cliente Varios'
+        const vendedor = venta.vendedor || '-'
+        const metodo = venta.metodo_pago || '-'
+        const moneda = venta.moneda === 'PEN' ? 'S/' : venta.moneda
+        const total = `${moneda} ${parseFloat(venta.total).toFixed(2)}`
+
+        const row = [horaFmt, cliente, vendedor, metodo, moneda, total]
+
+        row.forEach((text, i) => {
+            page.drawText(String(text).substring(0, 25), {
+                x: positions[i],
+                y,
+                size: 9,
+                font
+            })
+        })
+        y -= 14
+    }
+
+    y -= 20
+    page.drawLine({
+        start: { x: margin, y },
+        end: { x: 555, y },
+        thickness: 1,
+        color: rgb(0, 0, 0)
+    })
+    y -= 20
+
+    // === RESUMEN GENERAL ===
+    page.drawText(`Total de Ventas: ${resumen.total_ventas}`, { x: margin, y, size: 10, font })
+    y -= 14
+    page.drawText(`Monto Total: ${formatCurrency(parseFloat(resumen.monto_total))}`, { x: margin, y, size: 10, font })
+    y -= 14
+    page.drawText(`Promedio de Venta: ${formatCurrency(parseFloat(resumen.promedio_venta))}`, { x: margin, y, size: 10, font })
+    y -= 14
+    page.drawText(`Clientes Atendidos: ${resumen.clientes_atendidos}`, { x: margin, y, size: 10, font })
+    y -= 40
+
+    // === PIE DE PÁGINA ===
+    page.drawText(businessConfig.invoiceFooter, {
+        x: margin,
+        y,
+        size: 8,
+        font,
+        color: rgb(0.3, 0.3, 0.3)
+    })
+    y -= 12
+    page.drawText(businessConfig.invoiceWebsiteText, {
+        x: margin,
+        y,
+        size: 8,
+        font,
+        color: rgb(0.4, 0.4, 0.4)
+    })
+    y -= 12
+    page.drawText(businessConfig.invoiceAuthText, {
+        x: margin,
+        y,
+        size: 7,
+        font,
+        color: rgb(0.4, 0.4, 0.4)
+    })
+
+    // === EXPORTAR ===
+    const pdfBytes = await pdfDoc.save()
+    const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' })
+    const url = URL.createObjectURL(blob)
+    window.open(url)
+
+    return resumen
+}
+
 
     async function generateMonthlyReport(month: number, year: number) {
         const fechaDesde = `${year}-${String(month).padStart(2, '0')}-01`
@@ -1377,6 +1557,8 @@ export function usePdfTicket() {
 
         return resumen
     }
+
+
 
 
     async function generateTicketWithDiscounts(
@@ -1799,6 +1981,7 @@ export function usePdfTicket() {
         generatePdfTicket,
         generateCustomPdfTicket,
         generateMonthlyReport,
-        businessConfig // Exportar la configuración por si se necesita en otros lugares
+        generateDailyReport,
+        businessConfig 
     }
 }

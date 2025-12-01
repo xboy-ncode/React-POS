@@ -332,7 +332,7 @@ const { customCategories, addCategoryLocal, addCategoryToApi, removeRemoteCatego
             </Select>
           </SettingItem>
 
-          <Separator />
+         {/* <Separator />
 
           <SettingItem
             icon={<Monitor className="h-4 w-4" />}
@@ -343,7 +343,7 @@ const { customCategories, addCategoryLocal, addCategoryToApi, removeRemoteCatego
               checked={compactMode}
               onCheckedChange={setCompactMode}
             />
-          </SettingItem>
+          </SettingItem> */}
         </CardContent>
       </Card>
 
@@ -512,6 +512,7 @@ const { customCategories, addCategoryLocal, addCategoryToApi, removeRemoteCatego
       </Card>
 
       {/* Preferences */}
+      {/* 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -561,7 +562,7 @@ const { customCategories, addCategoryLocal, addCategoryToApi, removeRemoteCatego
           </SettingItem>
         </CardContent>
       </Card>
-
+*/}
       {/* Data Management */}
       <Card>
         <CardHeader>
@@ -607,6 +608,7 @@ const { customCategories, addCategoryLocal, addCategoryToApi, removeRemoteCatego
             <div>
               {t('settings.version')}: 1.0.0 | {t('settings.lastUpdated')}: {new Date().toLocaleDateString()}
             </div>
+            {/*}
             <div className="flex gap-4">
               <a href="#" className="hover:text-foreground transition-colors">
                 {t('settings.privacy')}
@@ -617,7 +619,7 @@ const { customCategories, addCategoryLocal, addCategoryToApi, removeRemoteCatego
               <a href="#" className="hover:text-foreground transition-colors">
                 {t('settings.support')}
               </a>
-            </div>
+            </div> */}
           </div>
         </CardContent>
       </Card>

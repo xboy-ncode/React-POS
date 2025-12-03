@@ -243,6 +243,65 @@ export const productosService = {
     const response = await apiClient.delete(`/products/${id}`);
     return response.data;
   },
+  validateBarcode: async (
+    barcode: string, 
+    excludeId?: number
+  ): Promise<{
+    unique: boolean
+    exists: boolean
+    product?: { id: number; nombre: string; codigo: string }
+  }> => {
+    const params: Record<string, any> = { codigo_barras: barcode }
+    if (excludeId) params.exclude_id = excludeId
+    const response = await apiClient.get('/products/validate/barcode', { params })
+    return response.data
+  },
+
+  validateSku: async (
+    sku: string,
+    excludeId?: number
+  ): Promise<{
+    unique: boolean
+    exists: boolean
+    product?: { id: number; nombre: string }
+  }> => {
+    const params: Record<string, any> = { codigo: sku }
+    if (excludeId) params.exclude_id = excludeId
+    const response = await apiClient.get('/products/validate/sku', { params })
+    return response.data
+  },
+
+  searchByBarcodeQuick: async (barcode: string): Promise<{
+    success: boolean
+    producto?: Producto
+    error?: string
+  }> => {
+    try {
+      const response = await apiClient.get(`/products/search/barcode/${barcode}`)
+      return response.data
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return { success: false, error: 'Producto no encontrado' }
+      }
+      if (error.response?.status === 400) {
+        return { success: false, error: error.response.data.error }
+      }
+      throw error
+    }
+  },
+
+  getBarcodeStats: async () => {
+    const response = await apiClient.get('/products/stats/barcode')
+    return response.data
+  },
+
+  searchMulti: async (query: string, limit: number = 10) => {
+    const response = await apiClient.get('/products/search/multi', {
+      params: { query, limit }
+    })
+    return response.data
+  },
+
 };
 
 // ======================================================

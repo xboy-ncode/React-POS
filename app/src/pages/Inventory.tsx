@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, Plus, Package, DollarSign, AlertTriangle, Loader2, Barcode, AlertCircle } from 'lucide-react'
+import { Search, Plus, Package, DollarSign, AlertTriangle, Loader2, Barcode, AlertCircle, CheckCircle2, Tag } from 'lucide-react'
 import { useInventory } from '@/hooks/useInventory'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
@@ -16,6 +16,8 @@ import type { Product, Category } from '@/types/pos'
 import { usePOSCategories } from '@/hooks/usePOSCategories'
 import { CategorySelector } from '@/components/CategorySelector'
 import { BrandSelector } from '@/components/BrandSelector'
+import { validateBarcodeFormat, generateInternalBarcode } from '@/lib/barcode-validation'
+import { validateUniqueBarcode } from '@/lib/pos-adapter'
 
 const getStockStatus = (
   product: Product,
@@ -282,6 +284,13 @@ function ProductEditor({
   })
 
   const [saving, setSaving] = useState(false)
+  // ✅ NUEVO: Estados para validación de barcode
+  const [barcodeValidation, setBarcodeValidation] = useState<{
+    status: 'idle' | 'validating' | 'valid' | 'invalid' | 'duplicate'
+    message?: string
+  }>({ status: 'idle' })
+
+  const [barcodeDebounceTimer, setBarcodeDebounceTimer] = useState<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (product) {
@@ -320,15 +329,36 @@ function ProductEditor({
     }
   }
 
-  async function save() {
+   async function save() {
     if (!form.name?.trim() || !form.categoryId || (form.price || 0) <= 0) {
-      toast.error('Completa todos los campos requeridos')
+      toast.error('Por favor completa todos los campos requeridos')
       return
+    }
+
+    // Validar barcode si tiene uno
+    if (form.barcode && form.barcode.trim()) {
+      if (barcodeValidation.status === 'duplicate' || barcodeValidation.status === 'invalid') {
+        toast.error(barcodeValidation.message || 'Código de barras inválido')
+        return
+      }
+
+      // Validación final antes de guardar
+      const formatCheck = validateBarcodeFormat(form.barcode)
+      if (!formatCheck.valid) {
+        toast.error(formatCheck.error)
+        return
+      }
+
+      const uniqueCheck = await validateUniqueBarcode(form.barcode, product?.id)
+      if (!uniqueCheck.unique) {
+        toast.error(`Código ya asignado a: ${uniqueCheck.existingProduct?.name}`)
+        return
+      }
     }
 
     try {
       setSaving(true)
-      await new Promise(resolve => setTimeout(resolve, 300))
+      await new Promise(resolve => setTimeout(resolve, 800))
 
       const categoryPrefix = form.categoryName?.substring(0, 3).toUpperCase() || 'PRD'
 
@@ -339,7 +369,7 @@ function ProductEditor({
         barcode: form.barcode?.trim() || '',
         stock: form.stock || 0,
         supplier: form.supplier?.trim() || '',
-        price: form.precioVentaMinorista || form.price || 0, // Mantener compatibilidad
+        price: form.precioVentaMinorista || form.price || 0,
         nameKey: `pos.products.${form.name?.toLowerCase().replace(/\s+/g, '_')}` || '',
         id: product?.id || Date.now()
       })
@@ -353,10 +383,119 @@ function ProductEditor({
     }
   }
 
+
+  // ✅ NUEVO: Función para validar barcode en tiempo real
+  const validateBarcodeField = async (barcode: string) => {
+    if (!barcode || !barcode.trim()) {
+      setBarcodeValidation({ status: 'idle' })
+      return
+    }
+
+    setBarcodeValidation({ status: 'validating' })
+
+    try {
+      // 1. Validar formato
+      const formatValidation = validateBarcodeFormat(barcode)
+      if (!formatValidation.valid) {
+        setBarcodeValidation({
+          status: 'invalid',
+          message: formatValidation.error
+        })
+        return
+      }
+
+      // 2. Validar unicidad
+      const uniqueCheck = await validateUniqueBarcode(
+        barcode,
+        product?.id // Excluir el producto actual si estamos editando
+      )
+
+      if (!uniqueCheck.unique) {
+        setBarcodeValidation({
+          status: 'duplicate',
+          message: `Ya asignado a: ${uniqueCheck.existingProduct?.name}`
+        })
+        return
+      }
+
+      // ✅ Todo bien
+      setBarcodeValidation({
+        status: 'valid',
+        message: 'Código válido y disponible'
+      })
+    } catch (error) {
+      setBarcodeValidation({
+        status: 'invalid',
+        message: 'Error al validar código'
+      })
+    }
+  }
+
+  // ✅ NUEVO: Manejar cambios en el campo barcode con debounce
+  const handleBarcodeChange = (value: string) => {
+    setForm({ ...form, barcode: value })
+
+    // Limpiar timer anterior
+    if (barcodeDebounceTimer) {
+      clearTimeout(barcodeDebounceTimer)
+    }
+
+    // Si está vacío, limpiar validación
+    if (!value.trim()) {
+      setBarcodeValidation({ status: 'idle' })
+      return
+    }
+
+    // Validar después de 500ms de inactividad
+    const timer = setTimeout(() => {
+      validateBarcodeField(value)
+    }, 500)
+
+    setBarcodeDebounceTimer(timer)
+  }
+
+  // ✅ NUEVO: Generar código interno si no tiene
+  const handleGenerateInternalBarcode = () => {
+    const categoryPrefix = form.categoryName?.substring(0, 3).toUpperCase() || 'INT'
+    const generated = generateInternalBarcode(categoryPrefix)
+    setForm({ ...form, barcode: generated })
+    validateBarcodeField(generated)
+  }
+
+  // ✅ NUEVO: Limpiar timer al desmontar
+  useEffect(() => {
+    return () => {
+      if (barcodeDebounceTimer) {
+        clearTimeout(barcodeDebounceTimer)
+      }
+    }
+  }, [barcodeDebounceTimer])
+
+  // ✅ ACTUALIZAR: Validar antes de guardar
+ 
+  // ✅ ACTUALIZAR: Validación del formulario
   const isValid = form.name?.trim() &&
     form.categoryId &&
     (form.precioVentaMinorista || form.price || 0) > 0 &&
-    (form.precioCompra || 0) >= 0
+    (form.precioCompra || 0) >= 0 &&
+    // No permitir guardar si el barcode está en estado inválido
+    (barcodeValidation.status !== 'invalid' && barcodeValidation.status !== 'duplicate')
+
+  // ✅ FUNCIÓN AUXILIAR: Obtener icono de validación
+  const getBarcodeValidationIcon = () => {
+    switch (barcodeValidation.status) {
+      case 'validating':
+        return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+      case 'valid':
+        return <CheckCircle2 className="h-4 w-4 text-green-500" />
+      case 'invalid':
+      case 'duplicate':
+        return <AlertCircle className="h-4 w-4 text-red-500" />
+      default:
+        return null
+    }
+  }
+
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -365,58 +504,111 @@ function ProductEditor({
           <DialogTitle className="flex items-center space-x-2">
             <Package className="h-5 w-5" />
             <span>
-              {product ? t('pos.dialogs.edit_product.title', 'Editar Producto') : t('pos.dialogs.add_product.title', 'Agregar Producto')}
+              {product ? t('pos.dialogs.edit_product.title') : t('pos.dialogs.add_product.title')}
             </span>
           </DialogTitle>
           <DialogDescription>
             {product
-              ? t('pos.dialogs.edit_product.description', 'Edita los detalles del producto.')
-              : t('pos.dialogs.add_product.description', 'Agrega un nuevo producto al inventario.')}
+              ? t('pos.dialogs.edit_product.description', 'Edit the details of this product.')
+              : t('pos.dialogs.add_product.description', 'Add a new product to your inventory.')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
           {/* Basic Information */}
           <Card className="p-4">
-            <h4 className="font-medium mb-3">{t('inventory.basic_information', 'Información Básica')}</h4>
+            <h4 className="font-medium mb-3">{t('inventory.basic_information')}</h4>
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">
-                    {t('inventory.product_name_required', 'Nombre del Producto *')}
+                    {t('inventory.product_name_required')}
                   </Label>
                   <Input
                     id="name"
                     value={form.name || ''}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder={t('inventory.product_name_placeholder', 'Ej: Vino Tinto')}
+                    placeholder={t('inventory.product_name_placeholder', 'e.g. Red Wine')}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="sku">
-                    {t('inventory.sku_required', 'SKU *')}
+                    {t('inventory.sku_required')}
                   </Label>
                   <Input
                     id="sku"
                     value={form.sku || ''}
                     onChange={(e) => setForm({ ...form, sku: e.target.value.toUpperCase() })}
-                    placeholder={t('inventory.sku_placeholder', 'Ej: ALC-RED-001')}
+                    placeholder={t('inventory.sku_placeholder', 'e.g. ALC-RED-001')}
                     className="font-mono uppercase"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="barcode">{t('inventory.barcode', 'Código de Barras')}</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="barcode"
-                      value={form.barcode || ''}
-                      onChange={(e) => setForm({ ...form, barcode: e.target.value })}
-                      placeholder={t('inventory.barcode_placeholder', 'Ej: 7501234567890')}
-                      className="font-mono"
-                    />
-                    <Button variant="outline" size="icon" type="button">
-                      <Barcode className="h-4 w-4" />
+
+                {/* ✅ CAMPO DE BARCODE MEJORADO */}
+                <div className="space-y-2 md:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="barcode">
+                      {t('inventory.barcode', 'Código de Barras')}
+                      <span className="text-xs text-muted-foreground ml-2">(Opcional)</span>
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleGenerateInternalBarcode}
+                      className="text-xs"
+                    >
+                      <Tag className="h-3 w-3 mr-1" />
+                      Generar Código Interno
                     </Button>
+                  </div>
+
+                  <div className="relative">
+                    <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <Input
+                          id="barcode"
+                          value={form.barcode || ''}
+                          onChange={(e) => handleBarcodeChange(e.target.value)}
+                          placeholder={t('inventory.barcode_placeholder', 'Ej: 7501234567890')}
+                          className={`font-mono pr-10 ${
+                            barcodeValidation.status === 'valid' ? 'border-green-500' :
+                            barcodeValidation.status === 'invalid' || barcodeValidation.status === 'duplicate' ? 'border-red-500' :
+                            ''
+                          }`}
+                        />
+                        {/* Icono de validación */}
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          {getBarcodeValidationIcon()}
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        type="button"
+                        title="Escanear código de barras"
+                      >
+                        <Barcode className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {/* Mensaje de validación */}
+                    {barcodeValidation.message && (
+                      <div className={`text-xs mt-1 flex items-center gap-1 ${
+                        barcodeValidation.status === 'valid' ? 'text-green-600' :
+                        barcodeValidation.status === 'invalid' || barcodeValidation.status === 'duplicate' ? 'text-red-600' :
+                        'text-muted-foreground'
+                      }`}>
+                        {barcodeValidation.message}
+                      </div>
+                    )}
+
+                    {/* Info sobre formatos soportados */}
+                    {!form.barcode && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Soporta: EAN-13, EAN-8, UPC-A, Code-128, o códigos personalizados (3-50 caracteres)
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

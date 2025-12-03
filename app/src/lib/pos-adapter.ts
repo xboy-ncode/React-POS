@@ -2,6 +2,7 @@
 import { productosService } from '@/lib/api-client'
 import type { Product } from '@/types/pos'
 import { useTranslation } from 'react-i18next'
+import { validateBarcodeFormat } from './barcode-validation'
 
 export function useCategoryAdapter() {
     const { t } = useTranslation()
@@ -218,27 +219,27 @@ export function mapProductToPos(backendProduct: any): Product {
         id: backendProduct.id_producto,
         name: backendProduct.nombre,
         nameKey: `pos.products.${backendProduct.nombre.toLowerCase().replace(/\s+/g, '_')}`,
-        
+
         // ✅ ACTUALIZADO: Usar precio_venta_minorista como precio principal
         price: parseFloat(backendProduct.precio_venta_minorista || backendProduct.precio_unitario || 0),
-        
+
         // ✅ NUEVO: Campos de precios adicionales
         precioCompra: parseFloat(backendProduct.precio_compra || 0),
         precioVentaMinorista: parseFloat(backendProduct.precio_venta_minorista || 0),
-        precioVentaMayorista: backendProduct.precio_venta_mayorista 
-            ? parseFloat(backendProduct.precio_venta_mayorista) 
+        precioVentaMayorista: backendProduct.precio_venta_mayorista
+            ? parseFloat(backendProduct.precio_venta_mayorista)
             : null,
-        precioOferta: backendProduct.precio_oferta 
-            ? parseFloat(backendProduct.precio_oferta) 
+        precioOferta: backendProduct.precio_oferta
+            ? parseFloat(backendProduct.precio_oferta)
             : null,
         margenMinorista: parseFloat(backendProduct.margen_minorista || 0),
-        margenMayorista: backendProduct.margen_mayorista 
-            ? parseFloat(backendProduct.margen_mayorista) 
+        margenMayorista: backendProduct.margen_mayorista
+            ? parseFloat(backendProduct.margen_mayorista)
             : null,
         enOferta: backendProduct.en_oferta || false,
         porcentajeDescuentoOferta: parseFloat(backendProduct.porcentaje_descuento_oferta || 0),
         cantidadMinimaMayorista: parseInt(backendProduct.cantidad_minima_mayorista || 1),
-        
+
         categoryId: backendProduct.id_categoria,
         categoryName: category,
         brandId: backendProduct.id_marca,
@@ -277,7 +278,7 @@ export function mapProductToBackend(posProduct: Partial<Product>) {
         activo: posProduct.isAvailable !== false,
         id_categoria: posProduct.categoryId || undefined,
         id_marca: posProduct.brandId || undefined,
-        
+
         // ✅ NUEVO: Campos de precios
         precio_compra: posProduct.precioCompra ?? posProduct.cost ?? 0,
         precio_venta_minorista: posProduct.precioVentaMinorista ?? posProduct.price ?? 0,
@@ -288,7 +289,7 @@ export function mapProductToBackend(posProduct: Partial<Product>) {
         en_oferta: posProduct.enOferta ?? false,
         porcentaje_descuento_oferta: posProduct.porcentajeDescuentoOferta ?? 0,
         cantidad_minima_mayorista: posProduct.cantidadMinimaMayorista ?? 1,
-        
+
         // Legacy: mantener para compatibilidad
         precio_unitario: posProduct.precioVentaMinorista ?? posProduct.price ?? 0,
     };
@@ -318,28 +319,6 @@ export async function loadProducts(): Promise<Product[]> {
 }
 
 /**
- * Busca un producto por código de barras
- */
-export async function findProductByBarcode(barcode: string): Promise<Product | null> {
-    try {
-        const response = await productosService.getAll({
-            codigo_barras: barcode,
-            activo: 'true',
-            limit: 1
-        })
-
-        if (!response.productos || response.productos.length === 0) {
-            return null
-        }
-
-        return mapProductToPos(response.productos[0])
-    } catch (error) {
-        console.error('Error finding product by barcode:', error)
-        return null
-    }
-}
-
-/**
  * Crea un nuevo producto
  */
 export async function createProduct(product: Partial<Product>): Promise<Product> {
@@ -348,38 +327,43 @@ export async function createProduct(product: Partial<Product>): Promise<Product>
             throw new Error('La categoría debe ser sincronizada con el servidor antes de crear el producto.')
         }
 
+        // Validar formato de barcode
+        if (product.barcode) {
+            const barcodeValidation = validateBarcodeFormat(product.barcode)
+            if (!barcodeValidation.valid) {
+                throw new Error(barcodeValidation.error)
+            }
+
+            // Validar unicidad
+            const uniqueCheck = await validateUniqueBarcode(product.barcode)
+            if (!uniqueCheck.unique) {
+                throw new Error(
+                    `El código de barras "${product.barcode}" ya está asignado al producto "${uniqueCheck.existingProduct?.name}"`
+                )
+            }
+
+            // Usar el barcode formateado
+            product.barcode = barcodeValidation.formatted
+        }
+
+        // Validar SKU único
+        if (product.sku) {
+            const skuUnique = await validateUniqueSku(product.sku)
+            if (!skuUnique) {
+                throw new Error(`El SKU "${product.sku}" ya existe`)
+            }
+        }
+
         const backendData = mapProductToBackend(product)
         const response = await productosService.create(backendData)
         return mapProductToPos(response.producto)
     } catch (error: any) {
         console.error('❌ [createProduct] Error:', error)
-        if (error.message?.includes('categoría')) {
-            throw error
-        }
-        throw new Error(error.response?.data?.error || error.message || 'Error al crear el producto')
+        throw new Error(error.message || 'Error al crear el producto')
     }
 }
 
-/**
- * Actualiza un producto existente
- */
-export async function updateProduct(id: number, product: Partial<Product>): Promise<Product> {
-    try {
-        if (product.categoryId !== undefined && product.categoryId <= 0) {
-            throw new Error('La categoría debe ser sincronizada con el servidor antes de actualizar el producto.')
-        }
 
-        const backendData = mapProductToBackend(product)
-        const response = await productosService.update(id, backendData)
-        return mapProductToPos(response.producto)
-    } catch (error: any) {
-        console.error('❌ [updateProduct] Error:', error)
-        if (error.message?.includes('categoría')) {
-            throw error
-        }
-        throw new Error(error.response?.data?.error || error.message || 'Error al actualizar el producto')
-    }
-}
 
 /**
  * Elimina un producto
@@ -446,12 +430,132 @@ export function calculateProductPrice(product: Product, quantity: number): numbe
     if (product.enOferta && product.precioOferta) {
         return product.precioOferta
     }
-    
+
     // Si la cantidad cumple el threshold de mayorista, usar precio mayorista
     if (product.precioVentaMayorista && quantity >= (product.cantidadMinimaMayorista || 1)) {
         return product.precioVentaMayorista
     }
-    
+
     // Usar precio minorista por defecto
     return product.precioVentaMinorista || product.price
+}
+
+
+
+
+
+
+
+
+
+
+
+
+export async function validateUniqueSku(sku: string, excludeId?: number): Promise<boolean> {
+    try {
+        if (!sku || !sku.trim()) return true
+        const response = await productosService.validateSku(sku.trim(), excludeId)
+        return response.unique
+    } catch (error) {
+        console.error('Error validating SKU:', error)
+        return true
+    }
+}
+
+export async function validateUniqueBarcode(barcode: string, excludeId?: number): Promise<{
+    unique: boolean
+    existingProduct?: any
+}> {
+    try {
+        if (!barcode || !barcode.trim()) {
+            return { unique: true }
+        }
+
+        const response = await productosService.validateBarcode(barcode.trim(), excludeId)
+
+        if (!response.unique) {
+            return {
+                unique: false,
+                existingProduct: {
+                    id: response.product?.id,
+                    name: response.product?.nombre,
+                    sku: response.product?.codigo
+                }
+            }
+        }
+
+        return { unique: true }
+    } catch (error) {
+        console.error('Error validating barcode:', error)
+        return { unique: true }
+    }
+}
+
+export async function findProductByBarcode(barcode: string): Promise<Product | null> {
+    try {
+        if (!barcode || !barcode.trim()) return null
+
+        const validation = validateBarcodeFormat(barcode)
+        if (!validation.valid) {
+            throw new Error(validation.error)
+        }
+
+        const searchBarcode = validation.formatted || barcode.trim()
+        const result = await productosService.searchByBarcodeQuick(searchBarcode)
+
+        if (!result.success || !result.producto) {
+            return null
+        }
+
+        return mapProductToPos(result.producto)
+    } catch (error) {
+        console.error('Error finding product by barcode:', error)
+        throw error
+    }
+}
+
+/**
+ * Actualiza un producto existente
+ */
+export async function updateProduct(id: number, product: Partial<Product>): Promise<Product> {
+    try {
+        if (product.categoryId !== undefined && product.categoryId <= 0) {
+            throw new Error('La categoría debe ser sincronizada con el servidor antes de actualizar el producto.')
+        }
+
+        // Validar formato de barcode
+        if (product.barcode !== undefined) {
+            if (product.barcode) {
+                const barcodeValidation = validateBarcodeFormat(product.barcode)
+                if (!barcodeValidation.valid) {
+                    throw new Error(barcodeValidation.error)
+                }
+
+                // Validar unicidad (excluyendo el producto actual)
+                const uniqueCheck = await validateUniqueBarcode(product.barcode, id)
+                if (!uniqueCheck.unique) {
+                    throw new Error(
+                        `El código de barras "${product.barcode}" ya está asignado al producto "${uniqueCheck.existingProduct?.name}"`
+                    )
+                }
+
+                product.barcode = barcodeValidation.formatted
+            }
+        }
+
+        // Validar SKU único (si se está cambiando)
+        if (product.sku) {
+            const skuUnique = await validateUniqueSku(product.sku, id)
+            if (!skuUnique) {
+                throw new Error(`El SKU "${product.sku}" ya existe en otro producto`)
+            }
+        }
+
+        const backendData = mapProductToBackend(product)
+        const response = await productosService.update(id, backendData)
+        return mapProductToPos(response.producto)
+    } catch (error: any) {
+        console.error('❌ [updateProduct] Error:', error)
+        throw new Error(error.message || 'Error al actualizar el producto')
+    }
 }

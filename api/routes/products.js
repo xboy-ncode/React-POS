@@ -220,6 +220,179 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 });
 
+
+
+// =============================
+// NUEVA RUTA - Validar unicidad de código de barras
+// =============================
+router.get('/validate/barcode', authenticateToken, async (req, res) => {
+    try {
+        const { codigo_barras, exclude_id } = req.query;
+
+        if (!codigo_barras) {
+            return res.status(400).json({ error: 'El código de barras es requerido' });
+        }
+
+        let query = `
+            SELECT id_producto, nombre, codigo, codigo_barras 
+            FROM productos 
+            WHERE codigo_barras = $1
+        `;
+        const params = [codigo_barras];
+
+        // Si estamos editando, excluir el producto actual
+        if (exclude_id) {
+            query += ' AND id_producto != $2';
+            params.push(exclude_id);
+        }
+
+        query += ' LIMIT 1';
+
+        const result = await pool.query(query, params);
+
+        if (result.rows.length > 0) {
+            // Código de barras ya existe
+            return res.json({
+                unique: false,
+                exists: true,
+                product: {
+                    id: result.rows[0].id_producto,
+                    nombre: result.rows[0].nombre,
+                    codigo: result.rows[0].codigo
+                }
+            });
+        }
+
+        // Código de barras disponible
+        res.json({
+            unique: true,
+            exists: false
+        });
+    } catch (error) {
+        console.error('Error al validar código de barras:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// =============================
+// NUEVA RUTA - Validar unicidad de SKU
+// =============================
+router.get('/validate/sku', authenticateToken, async (req, res) => {
+    try {
+        const { codigo, exclude_id } = req.query;
+
+        if (!codigo) {
+            return res.status(400).json({ error: 'El código SKU es requerido' });
+        }
+
+        let query = `
+            SELECT id_producto, nombre, codigo 
+            FROM productos 
+            WHERE codigo = $1
+        `;
+        const params = [codigo];
+
+        if (exclude_id) {
+            query += ' AND id_producto != $2';
+            params.push(exclude_id);
+        }
+
+        query += ' LIMIT 1';
+
+        const result = await pool.query(query, params);
+
+        if (result.rows.length > 0) {
+            return res.json({
+                unique: false,
+                exists: true,
+                product: {
+                    id: result.rows[0].id_producto,
+                    nombre: result.rows[0].nombre
+                }
+            });
+        }
+
+        res.json({
+            unique: true,
+            exists: false
+        });
+    } catch (error) {
+        console.error('Error al validar SKU:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// =============================
+// NUEVA RUTA - Búsqueda rápida por código de barras
+// =============================
+router.get('/search/barcode/:barcode', authenticateToken, async (req, res) => {
+    try {
+        const { barcode } = req.params;
+
+        if (!barcode || barcode.trim().length < 3) {
+            return res.status(400).json({ 
+                error: 'El código de barras debe tener al menos 3 caracteres' 
+            });
+        }
+
+        const result = await pool.query(`
+            SELECT 
+                p.*,
+                c.nombre AS categoria_nombre,
+                c.id_categoria,
+                m.nombre AS marca_nombre,
+                m.id_marca
+            FROM productos p
+            LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+            LEFT JOIN marcas m ON p.id_marca = m.id_marca
+            WHERE p.codigo_barras = $1 AND p.activo = true
+            LIMIT 1
+        `, [barcode.trim()]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ 
+                error: 'Producto no encontrado',
+                barcode: barcode.trim()
+            });
+        }
+
+        const producto = result.rows[0];
+
+        // Validaciones adicionales
+        if (!producto.activo) {
+            return res.status(400).json({
+                error: 'Producto no disponible',
+                producto: {
+                    id: producto.id_producto,
+                    nombre: producto.nombre
+                }
+            });
+        }
+
+        if (producto.stock <= 0) {
+            return res.status(400).json({
+                error: 'Producto sin stock',
+                producto: {
+                    id: producto.id_producto,
+                    nombre: producto.nombre,
+                    stock: producto.stock
+                }
+            });
+        }
+
+        res.json({
+            success: true,
+            producto: producto
+        });
+    } catch (error) {
+        console.error('Error al buscar por código de barras:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+
+
+
 // GET - Obtener producto por ID
 router.get('/:id', authenticateToken, async (req, res) => {
     try {
@@ -326,12 +499,33 @@ router.post('/', authenticateToken, requireRole(['ADMIN']), async (req, res) => 
             message: 'Producto creado exitosamente',
             producto: fullProduct.rows[0]
         });
-    } catch (error) {
+ } catch (error) {
         console.error('Error al crear producto:', error);
 
-        if (error.code === '23505' && error.constraint === 'productos_codigo_barras_key') {
+        // Manejo específico de código de barras duplicado
+        if (error.code === '23505') {
+            if (error.constraint === 'productos_codigo_barras_key') {
+                return res.status(400).json({
+                    error: 'El código de barras ya existe',
+                    field: 'codigo_barras',
+                    constraint: 'unique'
+                });
+            }
+            if (error.constraint === 'productos_codigo_key') {
+                return res.status(400).json({
+                    error: 'El código SKU ya existe',
+                    field: 'codigo',
+                    constraint: 'unique'
+                });
+            }
+        }
+
+        // Manejo de foreign key (categoría/marca inválida)
+        if (error.code === '23503') {
             return res.status(400).json({
-                error: 'El código de barras ya existe en otro producto'
+                error: 'Categoría o marca no válida',
+                field: error.constraint,
+                constraint: 'foreign_key'
             });
         }
 
@@ -413,12 +607,31 @@ router.put('/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) =
             message: 'Producto actualizado exitosamente',
             producto: result.rows[0]
         });
-    } catch (error) {
+   } catch (error) {
         console.error('Error al actualizar producto:', error);
 
-        if (error.code === '23505' && error.constraint === 'productos_codigo_barras_key') {
+        if (error.code === '23505') {
+            if (error.constraint === 'productos_codigo_barras_key') {
+                return res.status(400).json({
+                    error: 'El código de barras ya existe en otro producto',
+                    field: 'codigo_barras',
+                    constraint: 'unique'
+                });
+            }
+            if (error.constraint === 'productos_codigo_key') {
+                return res.status(400).json({
+                    error: 'El código SKU ya existe en otro producto',
+                    field: 'codigo',
+                    constraint: 'unique'
+                });
+            }
+        }
+
+        if (error.code === '23503') {
             return res.status(400).json({
-                error: 'El código de barras ya existe en otro producto'
+                error: 'Categoría o marca no válida',
+                field: error.constraint,
+                constraint: 'foreign_key'
             });
         }
 
@@ -457,5 +670,94 @@ router.delete('/:id', authenticateToken, requireRole(['ADMIN']), async (req, res
         res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
+
+
+
+
+// =============================
+// NUEVA RUTA - Estadísticas de productos con barcode
+// =============================
+router.get('/stats/barcode', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                COUNT(*) as total_productos,
+                COUNT(CASE WHEN codigo_barras IS NOT NULL AND codigo_barras != '' THEN 1 END) as con_barcode,
+                COUNT(CASE WHEN codigo_barras IS NULL OR codigo_barras = '' THEN 1 END) as sin_barcode,
+                COUNT(CASE WHEN activo = true THEN 1 END) as activos,
+                COUNT(CASE WHEN activo = false THEN 1 END) as inactivos
+            FROM productos
+        `);
+
+        const stats = result.rows[0];
+
+        res.json({
+            total: parseInt(stats.total_productos),
+            con_barcode: parseInt(stats.con_barcode),
+            sin_barcode: parseInt(stats.sin_barcode),
+            porcentaje_con_barcode: stats.total_productos > 0 
+                ? ((stats.con_barcode / stats.total_productos) * 100).toFixed(2)
+                : 0,
+            activos: parseInt(stats.activos),
+            inactivos: parseInt(stats.inactivos)
+        });
+    } catch (error) {
+        console.error('Error al obtener estadísticas:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// =============================
+// NUEVA RUTA - Búsqueda múltiple (barcode, SKU o nombre)
+// =============================
+router.get('/search/multi', authenticateToken, async (req, res) => {
+    try {
+        const { query, limit = 10 } = req.query;
+
+        if (!query || query.trim().length < 2) {
+            return res.status(400).json({ 
+                error: 'La búsqueda debe tener al menos 2 caracteres' 
+            });
+        }
+
+        const searchTerm = query.trim();
+
+        const result = await pool.query(`
+            SELECT 
+                p.*,
+                c.nombre AS categoria_nombre,
+                m.nombre AS marca_nombre,
+                CASE 
+                    WHEN p.codigo_barras = $1 THEN 1
+                    WHEN p.codigo = $1 THEN 2
+                    WHEN p.nombre ILIKE $2 THEN 3
+                    ELSE 4
+                END as relevancia
+            FROM productos p
+            LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
+            LEFT JOIN marcas m ON p.id_marca = m.id_marca
+            WHERE 
+                p.codigo_barras = $1 
+                OR p.codigo = $1 
+                OR p.nombre ILIKE $2
+                AND p.activo = true
+            ORDER BY relevancia, p.nombre
+            LIMIT $3
+        `, [searchTerm, `%${searchTerm}%`, limit]);
+
+        res.json({
+            success: true,
+            query: searchTerm,
+            results: result.rows,
+            count: result.rows.length
+        });
+    } catch (error) {
+        console.error('Error en búsqueda múltiple:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+
+
 
 module.exports = router;

@@ -6,10 +6,12 @@ import {
     updateProduct,
     deleteProduct,
     validateCartStock,
-    findProductByBarcode
+    findProductByBarcode,
+    validateUniqueBarcode
 } from '@/lib/pos-adapter'
 import { toast } from 'sonner'
-import type { Product } from '@/types/pos' // ← Importar tipo compartido
+import type { Product } from '@/types/pos' 
+import { validateBarcodeFormat} from '@/lib/barcode-validation'
 
 export function usePOSProducts() {
     const [products, setProducts] = useState<Product[]>([])
@@ -84,23 +86,64 @@ export function usePOSProducts() {
         return validation.valid
     }
 
-    const searchByBarcode = async (barcode: string): Promise<Product | null> => {
-        try {
-            if (!barcode.trim()) return null
+  const searchByBarcode = async (barcode: string): Promise<Product | null> => {
+    try {
+      if (!barcode.trim()) {
+        toast.error('Código de barras vacío')
+        return null
+      }
 
-            const product = await findProductByBarcode(barcode)
+      // Validar formato
+      const validation = validateBarcodeFormat(barcode)
+      if (!validation.valid) {
+        toast.error(validation.error || 'Formato de código inválido')
+        return null
+      }
 
-            if (!product) {
-                toast.error('Producto no encontrado')
-                return null
-            }
+      const product = await findProductByBarcode(barcode)
 
-            return product
-        } catch (err: any) {
-            toast.error('Error al buscar producto')
-            return null
-        }
+      if (!product) {
+        toast.error(`No se encontró producto con código: ${barcode}`)
+        return null
+      }
+
+      // Validar disponibilidad
+      if (!product.isAvailable) {
+        toast.warning(`${product.name} no está disponible`)
+        return null
+      }
+
+      // Validar stock
+      if (!product.stock || product.stock <= 0) {
+        toast.warning(`${product.name} sin stock disponible`)
+        return null
+      }
+
+      return product
+    } catch (err: any) {
+      toast.error(err.message || 'Error al buscar producto')
+      return null
     }
+  }
+ const validateBarcode = async (barcode: string, excludeId?: number): Promise<boolean> => {
+    if (!barcode) return true
+
+    const validation = validateBarcodeFormat(barcode)
+    if (!validation.valid) {
+      toast.error(validation.error || 'Código de barras inválido')
+      return false
+    }
+
+    const uniqueCheck = await validateUniqueBarcode(barcode, excludeId)
+    if (!uniqueCheck.unique) {
+      toast.error(
+        `Este código ya está asignado a: ${uniqueCheck.existingProduct?.name}`
+      )
+      return false
+    }
+
+    return true
+  }
 
     return {
         products,
@@ -111,6 +154,7 @@ export function usePOSProducts() {
         updateProduct: handleUpdateProduct,
         deleteProduct: handleDeleteProduct,
         validateStock,
-        searchByBarcode
+        searchByBarcode,
+        validateBarcode 
     }
 }

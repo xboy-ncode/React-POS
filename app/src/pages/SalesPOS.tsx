@@ -65,6 +65,10 @@ import { formatCurrency } from '@/config/business.config'
 import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { calculatePriceData } from '@/lib/price-calculator'
 
+import { useBarcodeScanner } from '@/hooks/useBarcodeScanner'
+import { BarcodeInput } from '@/components/pos/BarcodeInput'
+import { BarcodeCamera } from '@/components/pos/BarcodeCamera'
+
 
 // use CartItem from '@/types/pos' for consistent typing across components
 
@@ -171,6 +175,7 @@ function ProductEditor({
   })
 
   const [saving, setSaving] = useState(false)
+  const [showBarcodeCamera, setShowBarcodeCamera] = useState(false)
 
   useEffect(() => {
     if (product) {
@@ -302,9 +307,24 @@ function ProductEditor({
                       placeholder={t('inventory.barcode_placeholder', 'Ej: 7501234567890')}
                       className="font-mono"
                     />
-                    <Button variant="outline" size="icon" type="button">
-                      <Barcode className="h-4 w-4" />
-                    </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        type="button"
+                        onClick={() => setShowBarcodeCamera(true)}
+                        title={t('inventory.scan_barcode', 'Escanear con cámara')}
+                      >
+                        <Barcode className="h-4 w-4" />
+                      </Button>
+                      <div className="hidden md:block">
+                        <BarcodeInput
+                          onScan={(code) => { setForm({ ...form, barcode: code }); return Promise.resolve() }}
+                          placeholder={t('inventory.barcode_placeholder', 'Ej: 7501234567890')}
+                          enableCamera={false}
+                          enableQR={true}
+                          showFeedback={false}
+                        />
+                      </div>
                   </div>
                 </div>
               </div>
@@ -507,6 +527,18 @@ function ProductEditor({
             )}
           </Button>
         </div>
+        {showBarcodeCamera && (
+          <BarcodeCamera
+            onScan={(code) => {
+              setForm(prev => ({ ...prev, barcode: code }))
+              setShowBarcodeCamera(false)
+            }}
+            onClose={() => setShowBarcodeCamera(false)}
+            enableQR={true}
+            autoCloseOnSuccess={true}
+            autoCloseDelay={600}
+          />
+        )}
       </DialogContent>
     </Dialog>
   )
@@ -543,9 +575,130 @@ export default function POSSystem() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [showCheckout, setShowCheckout] = useState<boolean>(false)
   const [barcodeInput, setBarcodeInput] = useState('')
-  const barcodeInputRef = useRef<HTMLInputElement | null>(null)
-  const barcodeBufferRef = useRef('')
-  const barcodeTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const [scanMode, setScanMode] = useState<'global' | 'input' | 'search'>('global');
+
+
+
+
+  const addToCart = (product: Product) => {
+    // ✅ Validar disponibilidad
+    if (product.isAvailable === false) {
+      toast.error('Producto no disponible')
+      return
+    }
+
+    setCart((prevCart) => {
+      const existingItem = prevCart.find((item) => item.id === product.id)
+      const newQuantity = existingItem ? existingItem.quantity + 1 : 1
+
+      // ✅ Validar stock disponible
+      if (newQuantity > (product.stock || 0)) {
+        toast.error(`Stock insuficiente. Disponible: ${product.stock || 0}`)
+        return prevCart // no modifica el carrito
+      }
+
+      // ✅ Calcular precio actualizado
+      const calculo = calcularPrecioProducto(product, newQuantity)
+
+      if (existingItem) {
+        return prevCart.map((item) =>
+          item.id === product.id
+            ? {
+              ...item,
+              quantity: newQuantity,
+              price: calculo.precioFinal,
+              precioBase: calculo.precioBase,
+              descuento: calculo.descuento,
+              esOferta: calculo.esOferta,
+              esMayorista: calculo.esMayorista,
+            }
+            : item
+        )
+      }
+
+      // ✅ Nuevo producto en carrito
+      return [
+        ...prevCart,
+        {
+          id: product.id,
+          name: product.name,
+          nameKey: product.nameKey,
+          quantity: 1,
+          price: calculo.precioFinal,
+          precioBase: calculo.precioBase,
+          descuento: calculo.descuento,
+          esOferta: calculo.esOferta,
+          esMayorista: calculo.esMayorista,
+        },
+      ]
+    })
+  }
+
+
+
+
+  const handleBarcodeSearch = useCallback(
+    async (barcode: string, options?: { searchOnly?: boolean }) => {
+      if (!barcode.trim()) {
+        toast.error('Código de barras vacío')
+        return
+      }
+
+      const product = products.find(
+        (p) => p.barcode && p.barcode.toLowerCase() === barcode.toLowerCase()
+      )
+
+      if (!product) {
+        toast.error(`Producto no encontrado: ${barcode}`)
+        return
+      }
+
+      // 🌟 MODO SOLO BÚSQUEDA: no agrega al carrito
+      if (options?.searchOnly || scanMode === 'search') {
+        setSearchQuery(product.name) // o product.barcode si prefieres
+        return
+      }
+
+      // 🚚 MODO NORMAL (agrega al carrito)
+      if (product.isAvailable === false) {
+        toast.error(`${product.name} no está disponible`)
+        return
+      }
+
+      const validation = await validateCartStock([
+        {
+          id: product.id,
+          name: product.name,
+          nameKey: product.nameKey,
+          price: product.price,
+          quantity: 1
+        }
+      ])
+
+      if (validation) {
+        addToCart(product)
+        toast.success(`${product.name} agregado`, {
+          duration: 1500,
+          icon: '✓'
+        })
+      } else {
+        toast.error('Stock insuficiente')
+      }
+    },
+    [products, validateCartStock, addToCart, scanMode]
+  )
+
+
+  useBarcodeScanner({
+    onScan: (code) => handleBarcodeSearch(code, { searchOnly: scanMode === 'search' }),
+    onError: (error) => toast.error(error),
+    enabled: scanMode !== 'input',
+    minLength: 3,
+    maxLength: 50,
+    timeout: 100,
+    preventDefault: true
+  })
+
 
   const clearCart = () => {
     setCart([]) // o el método que uses para limpiar
@@ -572,96 +725,8 @@ export default function POSSystem() {
 
 
 
-  const handleBarcodeSearch = useCallback(async (barcode: string) => {
-    if (!barcode.trim()) return
-
-    const product = products.find(p => p.barcode === barcode)
-    if (!product) {
-      toast.error('Producto no encontrado')
-      return
-    }
-
-    const validation = await validateCartStock([
-      {
-        id: product.id,
-        name: product.name,
-        nameKey: product.nameKey,
-        price: product.price,
-        quantity: 1
-      }
-    ])
-
-    if (validation) {
-      addToCart(product)
-      setBarcodeInput('')
-    } else {
-      toast.error((', '))
-    }
-  }, [products, validateCartStock])
-
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
-        return
-      }
-
-      if (e.key === 'Enter' && barcodeBufferRef.current) {
-        e.preventDefault()
-        const scannedCode = barcodeBufferRef.current.trim()
-        barcodeBufferRef.current = ''
-        handleBarcodeSearch(scannedCode)
-        return
-      }
-
-      if (e.key.length === 1) {
-        barcodeBufferRef.current += e.key
-      }
-
-      if (barcodeTimerRef.current) {
-        clearTimeout(barcodeTimerRef.current)
-      }
-      barcodeTimerRef.current = setTimeout(() => {
-        barcodeBufferRef.current = ''
-      }, 200)
-    }
-
-    window.addEventListener('keypress', handleKeyPress)
-    return () => {
-      window.removeEventListener('keypress', handleKeyPress)
-      if (barcodeTimerRef.current) {
-        clearTimeout(barcodeTimerRef.current)
-      }
-    }
-  }, [handleBarcodeSearch]) // 👈 aquí agregas la dependencia
 
 
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">{t('pos.loading_products')}</span>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
-          <p className="text-lg font-semibold mb-2">Error al cargar productos</p>
-          <p className="text-muted-foreground">{error}</p>
-          <Button className="mt-4" onClick={() => window.location.reload()}>
-            {t('pos.try_again')}
-          </Button>
-        </div>
-      </div>
-    )
-  }
 
 
 
@@ -759,60 +824,6 @@ export default function POSSystem() {
 
 
 
-  const addToCart = (product: Product) => {
-    // ✅ Validar disponibilidad
-    if (product.isAvailable === false) {
-      toast.error('Producto no disponible')
-      return
-    }
-
-    setCart((prevCart) => {
-      const existingItem = prevCart.find((item) => item.id === product.id)
-      const newQuantity = existingItem ? existingItem.quantity + 1 : 1
-
-      // ✅ Validar stock disponible
-      if (newQuantity > (product.stock || 0)) {
-        toast.error(`Stock insuficiente. Disponible: ${product.stock || 0}`)
-        return prevCart // no modifica el carrito
-      }
-
-      // ✅ Calcular precio actualizado
-      const calculo = calcularPrecioProducto(product, newQuantity)
-
-      if (existingItem) {
-        return prevCart.map((item) =>
-          item.id === product.id
-            ? {
-              ...item,
-              quantity: newQuantity,
-              price: calculo.precioFinal,
-              precioBase: calculo.precioBase,
-              descuento: calculo.descuento,
-              esOferta: calculo.esOferta,
-              esMayorista: calculo.esMayorista,
-            }
-            : item
-        )
-      }
-
-      // ✅ Nuevo producto en carrito
-      return [
-        ...prevCart,
-        {
-          id: product.id,
-          name: product.name,
-          nameKey: product.nameKey,
-          quantity: 1,
-          price: calculo.precioFinal,
-          precioBase: calculo.precioBase,
-          descuento: calculo.descuento,
-          esOferta: calculo.esOferta,
-          esMayorista: calculo.esMayorista,
-        },
-      ]
-    })
-  }
-
 
   const updateQuantity = (productId: string | number, newQuantity: number) => {
     if (newQuantity === 0) {
@@ -879,6 +890,35 @@ export default function POSSystem() {
     return total + (effectivePrice * item.quantity)
   }, 0)
 
+
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">{t('pos.loading_products')}</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <p className="text-lg font-semibold mb-2">Error al cargar productos</p>
+          <p className="text-muted-foreground">{error}</p>
+          <Button className="mt-4" onClick={() => window.location.reload()}>
+            {t('pos.try_again')}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+
+
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -916,33 +956,89 @@ export default function POSSystem() {
           </div>
 
           {/* Barra de búsqueda con código de barras */}
+          {/* ✅ NUEVO: Toggle para modo de escaneo */}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Modo:</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setScanMode(prev =>
+                  prev === 'global'
+                    ? 'input'
+                    : prev === 'input'
+                      ? 'search'
+                      : 'global'
+                )
+              }
+              className={
+                scanMode === 'global'
+                  ? 'bg-blue-50 border-blue-300'
+                  : scanMode === 'input'
+                    ? 'bg-green-50 border-green-300'
+                    : 'bg-purple-50 border-purple-300'
+              }
+            >
+              <Barcode className="w-4 h-4 mr-2" />
+              {scanMode === 'global'
+                ? 'Scanner Global'
+                : scanMode === 'input'
+                  ? 'Campo Específico'
+                  : 'Modo Búsqueda'}
+            </Button>
+          </div>
+
+          {/* ✅ MODIFICADO: Barra de búsqueda con nuevo BarcodeInput */}
           <div className="flex flex-col sm:flex-row gap-2">
+            {/* Campo de búsqueda por nombre (sin cambios) */}
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder={t('pos.search_placeholder')}
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="relative w-full sm:w-64">
-              <Barcode className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-              <Input
-                ref={barcodeInputRef}
-                placeholder={t('pos.barcode_placeholder', 'Escanear código de barras')}
-                value={barcodeInput}
-                onChange={(e) => setBarcodeInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    handleBarcodeSearch(barcodeInput)
+                onChange={(e) => {
+                  const value = e.target.value
+                  setSearchQuery(value)
+
+                  // 🚀 Si el usuario escanea directamente en el input
+                  if (scanMode === 'search' && value.length >= 3) {
+                    handleBarcodeSearch(value, { searchOnly: true })
                   }
                 }}
-                className="pl-10 font-mono"
+                className="pl-10"
+              />
+
+            </div>
+
+            {/* ✅ NUEVO: Componente BarcodeInput mejorado */}
+            <div className="w-full sm:w-64">
+              <BarcodeInput
+                onScan={handleBarcodeSearch}
+                placeholder={t('pos.barcode_placeholder', 'Escanear código de barras')}
+                autoFocus={scanMode === 'input'}
+                minLength={3}
+                maxLength={50}
+                showFeedback
+                enableCamera={true}
+                enableQR={false} // Cambia a true si quieres habilitar QR codes
               />
             </div>
           </div>
+
+          {/* ✅ NUEVO: Indicador visual del modo activo */}
+          {scanMode === 'global' && (
+            <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+              <Barcode className="w-4 h-4" />
+              <span>
+                Scanner activo globalmente - Los códigos escaneados se procesarán automáticamente
+              </span>
+            {/*
+              <kbd className="ml-auto px-1.5 py-0.5 bg-white border rounded text-[10px]">ESC</kbd>
+              <span className="text-[10px]">para cancelar</span>
+            */}
+            </div>
+          )}
+
         </div>
       </Card>
 

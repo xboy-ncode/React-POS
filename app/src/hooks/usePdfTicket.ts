@@ -8,7 +8,6 @@ import { ventasService } from '@/lib/api-client'
 import businessConfig, {
     formatCurrency,
     calculateIGV,
-    getInvoiceTypeName,
     generateInvoiceNumber
 } from '@/config/business.config'
 

@@ -1,7 +1,6 @@
 import { ChevronRight } from "lucide-react"
 import { Link, useLocation } from "react-router-dom"
 import { useCan } from "../lib/permissions"
-import { useAuth } from "../store/auth"
 import type { Permission } from "../lib/permissions"
 import type { LucideIcon } from "lucide-react"
 
@@ -35,7 +34,6 @@ interface NavItem {
 
 export function NavMain({ items }: { items: NavItem[] }) {
   const location = useLocation()
-  const user = useAuth((s) => s.user)
 
   return (
     <SidebarGroup>

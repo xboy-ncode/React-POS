@@ -26,16 +26,13 @@ import { toast } from 'sonner'
 import { api } from '@/lib/api'
 import { ventasService } from '@/lib/api-client'
 import { generateCustomPdfTicket, usePdfTicket } from '@/hooks/usePdfTicket'
-import { usePriceCalculator, useCartTotals } from '@/hooks/usePriceCalculator'
 import React from 'react'
 import { cn } from '@/lib/utils'
 import type { CartItem, Product } from '@/types/pos'
 
 import businessConfig, {
     formatCurrency,
-    calculateIGV,
-    generateInvoiceNumber
-} from '@/config/business.config'
+    calculateIGV} from '@/config/business.config'
 import { calculatePriceData, calculatePriceWithCustomBase, calculatePriceWithCustomBaseV2 } from '@/lib/price-calculator'
 
 type Customer = {
@@ -589,23 +586,6 @@ export default function CheckoutDialog({
 
 
 // Helper para calcular precio final con descuentos E IGV
-const calculateFinalPriceWithTax = (item: any): number => {
-    const product = products.find(p => p.id === item.id)
-    if (!product) return item.price * (1 + businessConfig.igvRate / 100)
-
-    let precioFinal: number
-    
-    if (item.customPrice) {
-        const customCalc = calculatePriceWithCustomBaseV2(product, item.quantity, item.customPrice)
-        precioFinal = customCalc.finalPrice
-    } else {
-        const priceCalc = calculatePriceData(product, item.quantity)
-        precioFinal = priceCalc.priceCalculation.precioFinal
-    }
-    
-    // Aplicar IGV al precio final
-    return precioFinal * (1 + businessConfig.igvRate / 100)
-}
 
 
 const handleProcessPayment = async () => {
@@ -745,7 +725,6 @@ const handleProcessPayment = async () => {
         metodo_pago: paymentMethod,
         // Items con información de descuentos
         items: cart.map(item => {
-            const product = products.find(p => p.id === item.id)
             const priceInfo = getItemPriceInfo(item)
             
             return {
@@ -858,7 +837,6 @@ const handleProcessPayment = async () => {
     }
 
     const ReceiptTypeButton: React.FC<ReceiptTypeButtonProps> = ({
-        type,
         isSelected,
         onClick,
         icon,
@@ -1193,7 +1171,7 @@ const handleProcessPayment = async () => {
                             </h3>
 
                             <div className="space-y-3 max-h-60 overflow-y-auto mb-4">
-                                {cartItemsWithProducts.map(({ product, quantity }) => {
+                                {cartItemsWithProducts.map(({ product }) => {
                                     const item = cart.find(i => i.id === product.id)
                                     if (!item) return null
 

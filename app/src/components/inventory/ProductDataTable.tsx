@@ -28,14 +28,12 @@ import {
     ArrowUpDown,
     ArrowUp,
     ArrowDown,
-    ShoppingCart,
     Edit2,
     Trash2,
     Box,
     Barcode,
     AlertTriangle,
     TrendingUp,
-    Tag,
 } from "lucide-react"
 import {
     AlertDialog,
@@ -204,7 +202,6 @@ export function ProductsDataTable({
             },
             cell: ({ row }) => {
                 const categoryName = row.getValue("categoryName") as string | undefined
-                const product = row.original
                 
                 // Buscar el icono de la categoría
                 const category = categories.find(cat => cat.name === categoryName)
@@ -379,7 +376,6 @@ export function ProductsDataTable({
             },
             cell: ({ row }) => {
                 const product = row.original
-                const isOutOfStock = (product.stock || 0) === 0
                 
                 return (
                     <div className="flex items-center justify-end space-x-1">

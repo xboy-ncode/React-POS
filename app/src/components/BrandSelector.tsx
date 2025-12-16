@@ -18,18 +18,14 @@ export function BrandSelector({
 }) {
     const [open, setOpen] = useState(false)
     const [marcas, setMarcas] = useState<{ id_marca: number; nombre: string }[]>([])
-    const [loading, setLoading] = useState(false)
-
+    
     const fetchMarcas = async () => {
         try {
-            setLoading(true)
             const res = await api('/brands')
             setMarcas(res.marcas || [])
         } catch (err) {
             console.error(err)
             toast.error('Error al cargar marcas')
-        } finally {
-            setLoading(false)
         }
     }
 

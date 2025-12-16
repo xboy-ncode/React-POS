@@ -40,7 +40,7 @@ export const BarcodeCamera: React.FC<BarcodeCameraProps> = ({
     const processingRef = useRef(false) // NUEVO: ref para evitar race conditions
     const autoCloseTimerRef = useRef<NodeJS.Timeout | null>(null) // NUEVO
     
-    const [debugInfo, setDebugInfo] = useState({
+    const [, setDebugInfo] = useState({
         frames: 0,
         lastScan: '',
         lastFormat: '',
@@ -57,10 +57,8 @@ export const BarcodeCamera: React.FC<BarcodeCameraProps> = ({
             format?: string
         }>
     })
-    const frameCountRef = useRef(0)
     const attemptCountRef = useRef(0)
     const successCountRef = useRef(0)
-    const lastFrameTimeRef = useRef(Date.now())
     const fpsIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
     // Detectar orientación del dispositivo

@@ -1,6 +1,6 @@
 // components/dashboard/TopProducts.tsx
 
-import { TrendingUp, TrendingDown, Store } from "lucide-react";
+import { Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 

@@ -1,6 +1,6 @@
 // hooks/useSales.tsx
 import { useState, useEffect, useCallback } from 'react'
-import { salesAdapter, type Sale, type SalesFilters, type SalesResponse } from '@/lib/sales-adapter'
+import { salesAdapter, type Sale, type SalesFilters } from '@/lib/sales-adapter'
 import { toast } from 'sonner'
 
 export function useSales(initialFilters: SalesFilters = {}) {

@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
-import { Switch } from '../components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Separator } from '../components/ui/separator'
 import { Input } from '../components/ui/input'
@@ -12,11 +11,8 @@ import { useCategories } from '../hooks/useCategories'
 import {
   Palette,
   Globe,
-  Bell,
-  Shield,
   Download,
   Trash2,
-  RefreshCw,
   Monitor,
   Sun,
   Moon,
@@ -30,19 +26,19 @@ import {
 export default function Settings() {
   const { t, i18n } = useTranslation()
   const { theme, setTheme, colorTheme, setColorTheme } = useTheme()
-const { customCategories, addCategoryLocal, addCategoryToApi, removeRemoteCategory } = useCategories()
+const { customCategories, addCategoryToApi, removeRemoteCategory } = useCategories()
 
   // Settings state
-  const [notifications, setNotifications] = useState(() =>
+  const [notifications] = useState(() =>
     localStorage.getItem('notifications') === 'true'
   )
-  const [autoSave, setAutoSave] = useState(() =>
+  const [autoSave] = useState(() =>
     localStorage.getItem('autoSave') !== 'false'
   )
-  const [compactMode, setCompactMode] = useState(() =>
+  const [compactMode] = useState(() =>
     localStorage.getItem('compactMode') === 'true'
   )
-  const [soundEffects, setSoundEffects] = useState(() =>
+  const [soundEffects] = useState(() =>
     localStorage.getItem('soundEffects') === 'true'
   )
   const [fontSize, setFontSize] = useState(() =>

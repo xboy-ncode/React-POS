@@ -7,8 +7,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import { AlertTriangle, Cloud, HardDrive } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 interface CategorySelectorProps {
@@ -21,7 +20,6 @@ interface CategorySelectorProps {
 
 export function CategorySelector({
     value,
-    categoryName,
     onChange,
     disabled = false,
     showLocalIndicator = true

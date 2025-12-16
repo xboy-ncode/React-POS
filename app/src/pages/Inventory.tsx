@@ -1,21 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, Plus, Package, DollarSign, AlertTriangle, Loader2, Barcode, AlertCircle, CheckCircle2, Tag } from 'lucide-react'
+import { Plus, Package, DollarSign, AlertTriangle, Loader2, Barcode, AlertCircle, CheckCircle2, Tag } from 'lucide-react'
 import { useInventory } from '@/hooks/useInventory'
 import { toast } from 'sonner'
-import { api } from '@/lib/api'
 import { ProductsDataTable } from '@/components/inventory/ProductDataTable'
 import type { Product, Category } from '@/types/pos'
 import { usePOSCategories } from '@/hooks/usePOSCategories'
 import { CategorySelector } from '@/components/CategorySelector'
-import { BrandSelector } from '@/components/BrandSelector'
 import { validateBarcodeFormat, generateInternalBarcode } from '@/lib/barcode-validation'
 import { validateUniqueBarcode } from '@/lib/pos-adapter'
 
@@ -43,7 +40,6 @@ export default function Inventory() {
     loading,
     error,
     stats,
-    refetch,
     createProduct,
     updateProduct,
     deleteProduct
@@ -51,14 +47,12 @@ export default function Inventory() {
 
   const {
     categories,
-    loading: loadingCategories,
-    error: errorCategories,
     getCategoryBackendId
   } = usePOSCategories()
 
   // Estados locales
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<number>(0)
+  const [searchQuery] = useState('')
+  const [selectedCategory] = useState<number>(0)
   const [showAddProduct, setShowAddProduct] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
 
@@ -247,9 +241,7 @@ function ProductEditor({
   onSave,
   onClose,
   open,
-  onOpenChange,
-  categories
-}: {
+  onOpenChange}: {
   product: Product | null
   onSave: (product: Partial<Product>) => void
   onClose: () => void

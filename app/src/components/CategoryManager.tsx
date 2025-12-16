@@ -1,15 +1,13 @@
 // components/CategoryManager.tsx
 import { useState } from 'react'
 import { useDynamicCategories } from '../hooks/useDynamicsCategories'
-import { Plus, Trash2, Edit2 } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 
 export function CategoryManager() {
     const {
         customCategories,
         addCategory,
-        removeCategory,
-        updateCategory
-    } = useDynamicCategories()
+        removeCategory    } = useDynamicCategories()
 
     const [isAdding, setIsAdding] = useState(false)
     const [newCategory, setNewCategory] = useState({

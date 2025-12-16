@@ -8,7 +8,6 @@ import {
     deleteProduct as deleteProductAPI,
     updateProductStock
 } from '@/lib/inventory-adapter'
-import { useTranslation } from 'react-i18next'
 import type { Product } from '@/types/pos'
 
 

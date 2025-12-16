@@ -193,7 +193,7 @@ export const useCameraScanner = ({
             // console.log('🎥 Starting scanner with device:', selectedDevice)
             
             let frameCount = 0
-            let lastLogTime = Date.now()
+        
             
             await codeReaderRef.current.decodeFromVideoDevice(
                 selectedDevice,
@@ -226,15 +226,13 @@ export const useCameraScanner = ({
                     }
                     
                     if (frameCount % 30 === 0) {
-                        const now = Date.now()
-                        const fps = 30000 / (now - lastLogTime)
-                        // console.log(`📊 Scanner active - Frame: ${frameCount}, FPS: ${fps.toFixed(1)}`)
-                        lastLogTime = now
+
+
+                    
                     }
                     
                     if (result) {
                         const code = result.getText()
-                        const format = BarcodeFormat[result.getBarcodeFormat()]
                         const now = Date.now()
 
                         // console.log('✅ CODE DETECTED!', {
@@ -306,3 +304,83 @@ export const useCameraScanner = ({
         setSelectedDevice
     }
 }
+async function tryDecodeCanvasRotations(videoElement: HTMLVideoElement): Promise<boolean> {
+    if (!videoElement) return false
+
+    const vw = videoElement.videoWidth || videoElement.clientWidth || 640
+    const vh = videoElement.videoHeight || videoElement.clientHeight || 480
+
+    const rotations = [0, 90, 180, 270]
+    const DetectorCtor = (window as any).BarcodeDetector
+
+    // Preferred: native BarcodeDetector if available
+    const useNative = typeof DetectorCtor === 'function'
+    const nativeFormats = [
+        'qr_code',
+        'data_matrix',
+        'aztec',
+        'ean_13',
+        'ean_8',
+        'upc_a',
+        'upc_e',
+        'code_128',
+        'code_39'
+    ]
+
+    for (const rot of rotations) {
+        // create a canvas sized appropriately for the rotation
+        const cw = rot % 180 === 0 ? vw : vh
+        const ch = rot % 180 === 0 ? vh : vw
+        const canvas = document.createElement('canvas')
+        canvas.width = cw
+        canvas.height = ch
+        const ctx = canvas.getContext('2d')
+        if (!ctx) continue
+
+        // draw the video frame rotated onto the canvas
+        ctx.save()
+        // move to center
+        ctx.translate(cw / 2, ch / 2)
+        ctx.rotate((rot * Math.PI) / 180)
+        // drawImage expects top-left coordinates relative to the rotated context
+        ctx.drawImage(videoElement, -vw / 2, -vh / 2, vw, vh)
+        ctx.restore()
+
+        // Try native Detector first (fast)
+        if (useNative) {
+            try {
+                const detector = new DetectorCtor({ formats: nativeFormats })
+                // detector.detect accepts HTMLCanvasElement
+                const results = await detector.detect(canvas as any)
+                if (results && results.length > 0) {
+                    // dispatch an event with the detection so callers can hook into it
+                    const detail = { result: results[0].rawValue, format: results[0].format }
+                    videoElement.dispatchEvent(new CustomEvent('camera-scanner-rotated-scan', { detail }))
+                    return true
+                }
+            } catch {
+                // fall through to next rotation / fallback
+            }
+        }
+
+        // Fallback: try using image -> data URL. Some ZXing builds can decode from an <img> element or image data,
+        // but we don't assume a specific API here. Provide a minimal fallback attempting to create an ImageBitmap
+        // and again dispatching if the browser recognizes it (useful for external handlers).
+        try {
+            if ('createImageBitmap' in window) {
+                const bitmap = await createImageBitmap(canvas)
+                // dispatch event containing bitmap for external decoders (if any listener wants to use it)
+                const detail = { bitmap, rotation: rot }
+                videoElement.dispatchEvent(new CustomEvent('camera-scanner-rotated-bitmap', { detail }))
+                // consumer can attempt to decode the bitmap via other means; we treat generation as success only
+                // if a listener handles it. Since we cannot synchronously know that, continue to next rotation.
+                bitmap.close()
+            }
+        } catch {
+            // ignore and continue
+        }
+    }
+
+    return false
+}
+

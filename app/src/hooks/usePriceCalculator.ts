@@ -1,5 +1,5 @@
 // hooks/usePriceCalculator.ts
-import React, { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { Product, PriceCalculation, PriceBadge } from '@/types/pos'
 import {
     calcularPrecioProducto,

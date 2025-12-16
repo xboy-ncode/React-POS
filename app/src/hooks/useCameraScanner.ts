@@ -227,14 +227,12 @@ export const useCameraScanner = ({
                     
                     if (frameCount % 30 === 0) {
                         const now = Date.now()
-                        const fps = 30000 / (now - lastLogTime)
                         // console.log(`📊 Scanner active - Frame: ${frameCount}, FPS: ${fps.toFixed(1)}`)
                         lastLogTime = now
                     }
                     
                     if (result) {
                         const code = result.getText()
-                        const format = BarcodeFormat[result.getBarcodeFormat()]
                         const now = Date.now()
 
                         // console.log('✅ CODE DETECTED!', {

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { X, Printer, Download } from 'lucide-react'
+import { X, Printer } from 'lucide-react'
 import {
     Dialog,
     DialogContent,

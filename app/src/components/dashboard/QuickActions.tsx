@@ -1,7 +1,6 @@
 // components/dashboard/QuickActions.tsx
 import React from "react";
 import { Button } from "../ui/button";
-import { Plus, Package, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { DailyReportDialog } from "../movements/DailyReportDialog";

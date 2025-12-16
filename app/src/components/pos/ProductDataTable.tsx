@@ -19,12 +19,10 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-    Search,
     ArrowUpDown,
     ArrowUp,
     ArrowDown,
@@ -36,7 +34,6 @@ import {
     AlertTriangle,
     TrendingUp,
     Tag,
-    DollarSign,
 } from "lucide-react"
 import {
     AlertDialog,

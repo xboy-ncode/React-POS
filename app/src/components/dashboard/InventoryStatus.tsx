@@ -1,7 +1,7 @@
 // components/dashboard/InventoryStatus.tsx
 
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
-import { Import, Package } from "lucide-react";
+import { Package } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";

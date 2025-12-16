@@ -61,7 +61,6 @@ export function calculatePriceWithCustomBase(
     customBasePrice: number
 ) {
     // Obtener información de precios del producto
-    const priceInfo = calculatePriceData(product, quantity)
     
     // Calcular los descuentos absolutos sobre el precio base ORIGINAL
     let totalDescuentosAbsolutos = 0

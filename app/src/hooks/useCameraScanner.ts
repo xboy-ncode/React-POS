@@ -193,7 +193,7 @@ export const useCameraScanner = ({
             // console.log('🎥 Starting scanner with device:', selectedDevice)
             
             let frameCount = 0
-            let lastLogTime = Date.now()
+        
             
             await codeReaderRef.current.decodeFromVideoDevice(
                 selectedDevice,
@@ -226,9 +226,9 @@ export const useCameraScanner = ({
                     }
                     
                     if (frameCount % 30 === 0) {
-                        const now = Date.now()
-                        // console.log(`📊 Scanner active - Frame: ${frameCount}, FPS: ${fps.toFixed(1)}`)
-                        lastLogTime = now
+
+
+                    
                     }
                     
                     if (result) {

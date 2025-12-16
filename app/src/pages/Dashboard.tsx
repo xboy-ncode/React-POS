@@ -30,7 +30,6 @@ export default function Dashboard() {
   const canSales = useCan(['sales:read'])
   const canInventory = useCan(['inventory:read'])
   const canCustomers = useCan(['customers:read'])
-  const canMovements = useCan(['movements:read'])
 
   const { stats, loading: statsLoading, error: statsError } = useDashboardStats()
   const { loading: inventoryLoading } = useInventoryStatus()

@@ -1,12 +1,9 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Plus, ShoppingCart, X, Minus, Package, Loader2, Barcode, Tag } from 'lucide-react'
+import { Search, Plus, X, Minus, Package, Loader2, Barcode } from 'lucide-react'
 import {
-  Card,
-  CardContent,
-
-  CardHeader,
-  CardTitle,
+  Card
+  ,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,54 +12,32 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogDescription,
   DialogTitle,
 
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Table,
-  TableBody,
-
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 
 
-import { Edit2, Trash2, Box, AlertTriangle } from 'lucide-react'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
+import { AlertTriangle } from 'lucide-react'
 
 import CheckoutDialog from '../components/pos/CheckoutDialog'
 
 import { usePOSProducts } from '../hooks/usePOSProducts'
-import { processCheckout } from '../lib/checkout-adapter'
 
 import { toast } from 'sonner'
-import { BrandSelector } from '@/components/BrandSelector'
 import { CategorySelector } from '@/components/CategorySelector'
-import { Switch } from '@/components/ui/switch'
 import { usePOSCategories } from '@/hooks/usePOSCategories'
 
 import type { Category, Product, CartItem } from '@/types/pos'
 import { ProductsDataTable } from '@/components/pos/ProductDataTable'
 
-import { RefreshCw, AlertCircle } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 import { CategorySyncStatus } from '@/components/CategorySyncStatus'
 import { calcularPrecioProducto } from '@/lib/price-helpers'
 import { formatCurrency } from '@/config/business.config'
-import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { calculatePriceData } from '@/lib/price-calculator'
 
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner'
@@ -138,9 +113,7 @@ function ProductEditor({
   onSave,
   onClose,
   open,
-  onOpenChange,
-  categories
-}: {
+  onOpenChange}: {
   product: Product | null
   onSave: (product: Partial<Product>) => void
   onClose: () => void
@@ -550,10 +523,7 @@ export default function POSSystem() {
 
   const {
     categories,
-    loading: loadingCategories,
-    error: errorCategories,
     getCategoryBackendId,
-    syncAllLocalCategories,
     hasLocalCategories
   } = usePOSCategories()
 
@@ -568,13 +538,13 @@ export default function POSSystem() {
     validateStock: validateCartStock
   } = usePOSProducts()
 
-  const [selectedCategory, setSelectedCategory] = useState<number>(0)
+  const [selectedCategory] = useState<number>(0)
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
   const [showAddProduct, setShowAddProduct] = useState<boolean>(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [showCheckout, setShowCheckout] = useState<boolean>(false)
-  const [barcodeInput, setBarcodeInput] = useState('')
+
   const [scanMode, setScanMode] = useState<'global' | 'input' | 'search'>('global');
 
 

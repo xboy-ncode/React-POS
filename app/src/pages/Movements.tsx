@@ -50,7 +50,6 @@ export default function Movements() {
         sales,
         pagination,
         loading,
-        error,
         updateFilters,
         nextPage,
         prevPage,

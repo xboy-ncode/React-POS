@@ -95,7 +95,7 @@ export default function App() {
 }
 
 function AppShell() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { user, signOut } = useAuth()
   const location = useLocation()
   

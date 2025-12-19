@@ -124,7 +124,9 @@
     "try_again": "Intentar nuevamente",
     "movements": "Movimientos",
     "view_all": "Ver Todos",
-    "quick_actions": "Acciones Rápidas"
+    "quick_actions": "Acciones Rápidas",
+    "purchases": "Compras",
+    "suppliers": "Proveedores"
   },
     "dashboard": {
   "sales_trend": "Tendencia de ventas hoy",
@@ -137,6 +139,50 @@
   "sold_units": "unidades vendidas"
 
 },
+
+"purchases": {
+    "title": "Compras",
+    "description": "Gestiona tus órdenes de compra y proveedores",
+    "add_purchase": "Agregar Compra",
+    "edit_purchase": "Editar Compra",
+    "delete_purchase": "Eliminar Compra",
+    "delete_purchase_confirmation": "¿Estás seguro de que quieres eliminar la orden de compra N° {{number}}? Esta acción no se puede deshacer.",
+    "purchase_list": "Lista de Compras",
+    "search_purchases": "Buscar por número de orden, proveedor o fecha...",
+    "no_purchases_found": "No se encontraron órdenes de compra que coincidan con tu búsqueda",
+    "no_purchases": "Aún no hay órdenes de compra",
+    "add_first_purchase": "Agrega tu primera orden de compra",
+    "purchase_number": "N° de Orden",
+    "supplier": "Proveedor",
+    "date": "Fecha",
+    "total_amount": "Monto Total",
+    "status": "Estado",
+    "received": "Recibido",
+    "pending": "Pendiente",
+    "items_count_one": "{{count}} artículo",
+    "items_count_other": "{{count}} artículos"
+  },
+
+  "suppliers": {
+    "title": "Proveedores",
+    "description": "Gestiona tus proveedores y contactos",
+    "add_supplier": "Agregar Proveedor",
+    "edit_supplier": "Editar Proveedor",
+    "delete_supplier": "Eliminar Proveedor",
+    "delete_supplier_confirmation": "¿Estás seguro de que quieres eliminar a \"{{name}}\"? Esta acción no se puede deshacer.",
+    "supplier_list": "Lista de Proveedores",
+    "search_suppliers": "Buscar por nombre, contacto o teléfono...",
+    "no_suppliers_found": "No se encontraron proveedores que coincidan con tu búsqueda",
+    "no_suppliers": "Aún no hay proveedores",
+    "add_first_supplier": "Agrega tu primer proveedor",
+    "supplier_name": "Nombre del Proveedor",
+    "contact_person": "Persona de Contacto",
+    "phone": "Teléfono",
+    "email": "Correo Electrónico",
+    "address": "Dirección",
+    "notes": "Notas Adicionales"
+  },
+
   "inventory": {
     "title": "Gestión de Inventario",
     "description": "Gestiona tus productos y niveles de stock",

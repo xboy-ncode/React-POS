@@ -128,6 +128,41 @@ export interface CategoriaParams {
   limit?: number;
 }
 
+
+// ======================================================
+// TIPOS DE PROVEEDOR
+// ======================================================
+
+export interface Proveedor {
+  id_proveedor: number;
+  ruc: string;
+  razon_social: string;
+  direccion?: string;
+  telefono?: string;
+  correo?: string;
+  activo: boolean;
+  fecha_creacion?: string;
+  fecha_actualizacion?: string;
+}
+
+export interface ProveedorCreate {
+  ruc: string;
+  razon_social: string;
+  direccion?: string;
+  telefono?: string;
+  correo?: string;
+  activo?: boolean;
+}
+
+export interface ProveedorUpdate {
+  ruc?: string;
+  razon_social?: string;
+  direccion?: string;
+  telefono?: string;
+  correo?: string;
+  activo?: boolean;
+}
+
 // ======================================================
 // AUTH SERVICE
 // ======================================================
@@ -424,6 +459,41 @@ export const clientesService = {
     return response.data;
   },
 };
+
+
+
+// ======================================================
+// PROVEEDORES SERVICE
+// ======================================================
+
+export const proveedoresService = {
+  getAll: async (params?: { page?: number; limit?: number; search?: string }) => {
+    const response = await apiClient.get('/suppliers', { params });
+    return response.data;
+  },
+
+  getById: async (id: number): Promise<Proveedor> => {
+    const response = await apiClient.get(`/suppliers/${id}`);
+    return response.data;
+  },
+
+  create: async (data: ProveedorCreate): Promise<{ message: string; proveedor: Proveedor }> => {
+    const response = await apiClient.post('/suppliers', data);
+    return response.data;
+  },
+
+  update: async (id: number, data: ProveedorUpdate): Promise<{ message: string; proveedor: Proveedor }> => {
+    const response = await apiClient.put(`/suppliers/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/suppliers/${id}`);
+    return response.data;
+  },
+};
+
+
 
 // ======================================================
 // DASHBOARD SERVICE

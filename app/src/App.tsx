@@ -35,6 +35,8 @@ import Settings from './pages/Settings'
 import Personalization from './pages/Personalization'
 import { useAuth } from './store/auth'
 import Movements from './pages/Movements'
+import Purchases from './pages/Purchases'
+import Suppliers from './pages/Suppliers'
 
 // Función auxiliar para generar breadcrumbs basado en la ruta
 function generateBreadcrumbs(pathname: string, t: (key: string) => string) {
@@ -77,6 +79,12 @@ export default function App() {
             </Route>
             <Route path="/inventory" element={<Protected required={['inventory:read']} />}>
               <Route index element={<Inventory />} />
+            </Route>
+            <Route path="/suppliers" element={<Protected required={['suppliers:read']} />}>
+              <Route index element={<Suppliers />} />
+            </Route>
+            <Route path="/purchases" element={<Protected required={['purchases:read']} />}>
+              <Route index element={<Purchases />} />
             </Route>
             <Route path="/customers" element={<Protected required={['customers:read']} />}>
               <Route index element={<Customers />} />

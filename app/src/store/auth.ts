@@ -6,6 +6,8 @@ export type Permission =
   | 'inventory:read' | 'inventory:write'
   | 'sales:read' | 'sales:write'
   | 'movements:read' | 'movements:write'
+  | 'suppliers:read' | 'suppliers:write'
+  | 'purchases:read' | 'purchases:write'
   | 'customers:read' | 'customers:write'
   | 'users:read' | 'users:write'
   | 'settings:write';
@@ -36,6 +38,8 @@ export const ROLE_DEFAULT_PERMS: Record<Role, Permission[]> = {
     'inventory:read', 'inventory:write',
     'sales:read', 'sales:write',
     'movements:read', 'movements:write',
+    'suppliers:read', 'suppliers:write',
+    'purchases:read', 'purchases:write',
     'customers:read', 'customers:write',
     'users:read', 'users:write',
     'settings:write'
@@ -44,6 +48,8 @@ export const ROLE_DEFAULT_PERMS: Record<Role, Permission[]> = {
     'inventory:read', 'inventory:write',
     'sales:read', 'sales:write',
     'movements:read', 'movements:write',
+    'suppliers:read', 'suppliers:write',
+    'purchases:read', 'purchases:write',
     'customers:read', 'customers:write',
     'users:read'
   ],

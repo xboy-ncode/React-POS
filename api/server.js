@@ -24,6 +24,7 @@ app.use('/api/sales', require('./routes/sales'));
 app.use('/api/purchases', require('./routes/purchases'));
 app.use('/api/invoices', require('./routes/invoices'));
 
+
 // Ruta de prueba
 app.get('/', (req, res) => {
     res.json({ message: 'API Sistema de Ventas funcionando correctamente' });

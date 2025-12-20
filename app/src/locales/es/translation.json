@@ -450,7 +450,11 @@
     "lastUpdated": "Última Actualización",
     "privacy": "Política de Privacidad",
     "terms": "Términos de Servicio",
-    "support": "Soporte"
+    "support": "Soporte",
+    "help": "Centro de Ayuda",
+    "exportDataSuccess": "Configuraciones exportadas exitosamente",
+    "exportDatabase": "Exportar Base de Datos",
+    "exporting": "Exportando..."
   },
   "theme": {
     "light": "Claro",

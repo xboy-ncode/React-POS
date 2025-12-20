@@ -4,6 +4,7 @@
 /app/node_modules
 /shadcn-frontend/.env
 /shadcn-frontend/.node_modules
+/backup/node_modules
 .env
 .node_modules
 Dockerfile

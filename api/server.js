@@ -23,6 +23,7 @@ app.use('/api/suppliers', require('./routes/suppliers'));
 app.use('/api/sales', require('./routes/sales'));
 app.use('/api/purchases', require('./routes/purchases'));
 app.use('/api/invoices', require('./routes/invoices'));
+app.use('/api/admin', require('./routes/admin'));
 
 
 // Ruta de prueba

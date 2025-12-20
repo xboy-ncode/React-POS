@@ -494,6 +494,65 @@ export const proveedoresService = {
 };
 
 
+// ======================================================
+// BACKUP SERVICE
+// ======================================================
+
+export const backupService = {
+  exportDatabase: async (format: 'sql' | 'json' | 'csv' | 'xlsx', table: string = 'all') => {
+    try {
+      console.log('📥 Solicitando backup:', { format, table });
+
+      const response = await apiClient.post(
+        `/admin/backup/export`, 
+        { format, table },
+        { 
+          responseType: 'blob',
+          timeout: 120000, // 2 minutos
+          headers: {
+            'Accept': format === 'sql' ? 'application/x-sql' : 
+                     format === 'json' ? 'application/json' :
+                     format === 'csv' ? 'text/csv' :
+                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          },
+          onDownloadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              console.log(`📊 Progreso de descarga: ${percentCompleted}%`);
+            } else {
+              console.log(`📊 Descargados: ${(progressEvent.loaded / 1024).toFixed(2)} KB`);
+            }
+          }
+        }
+      );
+
+      console.log('✅ Backup recibido:', {
+        tipo: response.headers['content-type'],
+        tamaño: `${(response.data.size / 1024).toFixed(2)} KB`
+      });
+
+      return response;
+
+    } catch (error: any) {
+      console.error('❌ Error en exportDatabase:', error);
+      
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Timeout: La exportación tardó demasiado');
+      }
+      
+      if (error.response?.status === 503) {
+        throw new Error('Servicio de backup no disponible');
+      }
+
+      if (error.response?.status === 504) {
+        throw new Error('Tiempo de espera agotado');
+      }
+      
+      throw error;
+    }
+  },
+};
+
 
 // ======================================================
 // DASHBOARD SERVICE

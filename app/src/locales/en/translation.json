@@ -471,7 +471,11 @@
     "lastUpdated": "Last Updated",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
-    "support": "Support"
+    "support": "Support",
+    "help": "Help Center",
+    "exportDataSuccess": "Settings exported successfully",
+    "exportDatabase": "Export Data",
+    "exporting": "Exporting..."
   },
   "theme": {
     "light": "Light",

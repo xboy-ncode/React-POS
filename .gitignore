@@ -4,6 +4,9 @@
 /app/node_modules
 /shadcn-frontend/.env
 /shadcn-frontend/.node_modules
+/backup/node_modules
+/backup/.env
+/backup/test-email.js
 .env
 .node_modules
 Dockerfile

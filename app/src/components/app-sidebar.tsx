@@ -8,7 +8,9 @@ import {
   UserCog,
   Settings,
   Command,
-  ArrowUpDown
+  ArrowUpDown,
+  Truck,
+  ShoppingBag
 } from "lucide-react"
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../store/auth'
@@ -62,6 +64,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       url: "/inventory",
       icon: Package,
       permissions: ['inventory:read'] as Permission[],
+    },
+    {
+      title: t('app.suppliers'),
+      url: "/suppliers",
+      icon: Truck,
+      permissions: ['purchases:read'] as Permission[],
+    },
+    {
+      title: t('app.purchases'),
+      url: "/purchases",
+      icon: ShoppingBag,
+      permissions: ['purchases:read'] as Permission[],
     },
     {
       title: t('app.customers'),

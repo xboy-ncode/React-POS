@@ -20,13 +20,30 @@ import {
   Circle,
   Plus,
   Tags,
-  X
+  X,
+  Database,
+  Loader2,
+  ChevronDown,
+  FileJson,
+  FileText,
+  Table,
+  Upload
 } from 'lucide-react'
+
+import { backupService } from '@/lib/api-client'
+import { toast } from 'sonner'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '@radix-ui/react-dropdown-menu'
+import { BackupDialog } from '@/components/settings/BackupDialog';
+import { RestoreDialog } from '@/components/settings/RestoreDialog';
 
 export default function Settings() {
   const { t, i18n } = useTranslation()
   const { theme, setTheme, colorTheme, setColorTheme } = useTheme()
-const { customCategories, addCategoryToApi, removeRemoteCategory } = useCategories()
+  const { customCategories, addCategoryToApi, removeRemoteCategory } = useCategories()
+  const [isExporting, setIsExporting] = useState(false);
+    const [backupDialogOpen, setBackupDialogOpen] = useState(false)
+    const [restoreDialogOpen, setRestoreDialogOpen] = useState(false)
+
 
   // Settings state
   const [notifications] = useState(() =>
@@ -125,6 +142,41 @@ const { customCategories, addCategoryToApi, removeRemoteCategory } = useCategori
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
   }
+
+  const handleBackupData = async (format: 'sql' | 'json' | 'csv') => {
+    setIsExporting(true);
+    const toastId = toast.loading(`Generando archivo ${format.toUpperCase()}...`);
+
+    try {
+      const response = await backupService.exportDatabase(format, 'all');
+
+      // Crear el blob con el tipo MIME correcto según el formato
+      const mimeTypes = {
+        sql: 'application/x-sql',
+        json: 'application/json',
+        csv: 'text/csv'
+      };
+
+      const blob = new Blob([response.data], { type: mimeTypes[format] });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      const date = new Date().toISOString().split('T')[0];
+      link.setAttribute('download', `backup_${date}.${format}`);
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`${format.toUpperCase()} descargado con éxito`, { id: toastId });
+    } catch (error) {
+      toast.error("Error al exportar los datos", { id: toastId });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleAddCategory = () => {
     if (!newCategory.backendName.trim() || !newCategory.internalName.trim()) {
@@ -328,7 +380,7 @@ const { customCategories, addCategoryToApi, removeRemoteCategory } = useCategori
             </Select>
           </SettingItem>
 
-         {/* <Separator />
+          {/* <Separator />
 
           <SettingItem
             icon={<Monitor className="h-4 w-4" />}
@@ -571,10 +623,31 @@ const { customCategories, addCategoryToApi, removeRemoteCategory } = useCategori
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button
-              onClick={handleExportSettings}
-              variant="outline"
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+
+            {/* Botón de Exportar (Backup) */}
+            <Button 
+              onClick={() => setBackupDialogOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Database className="h-4 w-4" />
+              {t('settings.exportDatabase')}
+            </Button>
+
+            {/* 🆕 NUEVO: Botón de Importar (Restore) */}
+            <Button 
+              onClick={() => setRestoreDialogOpen(true)}
+              variant="secondary"
+              className="flex items-center gap-2"
+            >
+              <Upload className="h-4 w-4" />
+              Restaurar Base de Datos
+            </Button>
+
+            {/* Botones existentes */}
+            <Button 
+              onClick={handleExportSettings} 
+              variant="outline" 
               className="flex items-center gap-2"
             >
               <Download className="h-4 w-4" />
@@ -596,6 +669,18 @@ const { customCategories, addCategoryToApi, removeRemoteCategory } = useCategori
           </p>
         </CardContent>
       </Card>
+
+      {/* Dialogs */}
+      <BackupDialog 
+        open={backupDialogOpen} 
+        onOpenChange={setBackupDialogOpen} 
+      />
+
+      {/* 🆕 NUEVO: Dialog de Restauración */}
+      <RestoreDialog 
+        open={restoreDialogOpen} 
+        onOpenChange={setRestoreDialogOpen} 
+      />
 
       {/* App Info */}
       <Card>

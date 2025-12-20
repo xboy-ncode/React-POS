@@ -124,7 +124,9 @@
     "try_again": "Try again",
     "movements": "Movements",
     "view_all": "View All",
-    "quick_actions": "Quick Actions"
+    "quick_actions": "Quick Actions",
+    "purchases": "Purchases",
+    "suppliers": "Suppliers"
   },
 "dashboard": {
     "title": "Dashboard",
@@ -150,6 +152,55 @@
   "transaction_number": "Transaction #",
   "view_details": "View Details",
   "sold_units": "units sold"
+  },
+
+  "suppliers": {
+    "title": "Suppliers",
+    "description": "Manage your suppliers and contacts",
+    "add_supplier": "Add Supplier",
+    "edit_supplier": "Edit Supplier",
+    "delete_supplier": "Delete Supplier",
+    "delete_supplier_confirmation": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
+    "supplier_list": "Supplier List",
+    "search_suppliers": "Search by name, contact or phone...",
+    "no_suppliers_found": "No suppliers found matching your search",
+    "no_suppliers": "No suppliers yet",
+    "add_first_supplier": "Add your first supplier",
+    "supplier_name": "Supplier Name",
+    "contact_person": "Contact Person",
+    "phone": "Phone Number",
+    "email": "Email Address",
+    "address": "Address",
+    "notes": "Additional Notes"
+  },
+
+  "purchases": {
+    "title": "Purchases",
+    "description": "Manage your purchase orders and suppliers",
+    "purchase_list": "Purchase List",
+    "search_purchases": "Search by supplier, date or purchase number...",
+    "no_purchases_found": "No purchases found matching your search",
+    "no_purchases": "No purchases yet",
+    "add_first_purchase": "Add your first purchase",
+    "delete_purchase": "Delete Purchase",
+    "delete_purchase_confirmation": "Are you sure you want to delete Purchase #{{number}} from {{supplier}}? This action cannot be undone.",
+    "edit_purchase": "Edit Purchase",
+    "add_purchase": "Add Purchase",
+    "supplier": "Supplier",
+    "purchase_date": "Purchase Date",
+    "purchase_number": "Purchase Number",
+    "total_amount": "Total Amount",
+    "items_count_one": "{{count}} item",
+    "items_count_other": "{{count}} items",
+    "purchase_details": "Purchase Details",
+    "product": "Product",
+    "quantity": "Quantity",
+    "unit_price": "Unit Price",
+    "subtotal": "Subtotal",
+    "tax": "Tax",
+    "total": "Total",
+    "saving": "Saving...",
+    "update": "Update"
   },
 
   "inventory": {
@@ -420,7 +471,11 @@
     "lastUpdated": "Last Updated",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
-    "support": "Support"
+    "support": "Support",
+    "help": "Help Center",
+    "exportDataSuccess": "Settings exported successfully",
+    "exportDatabase": "Export Data",
+    "exporting": "Exporting..."
   },
   "theme": {
     "light": "Light",

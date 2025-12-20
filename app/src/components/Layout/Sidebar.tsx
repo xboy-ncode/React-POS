@@ -36,6 +36,7 @@ export default function Sidebar() {
         <NavItem to="/sales" label={t('app.sales')} perm={['sales:read']} />
         <NavItem to="/movements" label={t('app.movements')} perm={['movements:read']} />
         <NavItem to="/inventory" label={t('app.inventory')} perm={['inventory:read']} />
+        <NavItem to="/purchases" label={t('app.purchases')} perm={['purchases:read']} />
         <NavItem to="/customers" label={t('app.customers')} perm={['customers:read']} />
         <NavItem to="/users" label={t('app.users')} perm={['users:read']} />
         <NavItem to="/settings" label={t('app.settings')} />

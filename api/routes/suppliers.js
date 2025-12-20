@@ -115,16 +115,16 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // POST - Crear nuevo proveedor
 router.post('/', authenticateToken, async (req, res) => {
     try {
-        const { error } = createSupplierSchema.validate(req.body);
+        const { error } = createSupplierSchema.validate(req.body, { allowUnknown: true });
         if (error) {
             return res.status(400).json({ error: error.details[0].message });
         }
 
-        const { ruc, razon_social, direccion, telefono, correo } = req.body;
+        const { ruc, razon_social, direccion, telefono, correo, activo = true } = req.body;
 
         const result = await pool.query(
-            'INSERT INTO proveedores (ruc, razon_social, direccion, telefono, correo) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [ruc, razon_social, direccion, telefono, correo]
+            'INSERT INTO proveedores (ruc, razon_social, direccion, telefono, correo, activo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+            [ruc, razon_social, direccion, telefono, correo, activo]
         );
 
         res.status(201).json({
@@ -144,13 +144,13 @@ router.post('/', authenticateToken, async (req, res) => {
 router.put('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const { error } = updateSupplierSchema.validate(req.body);
+        const { error } = updateSupplierSchema.validate(req.body, { allowUnknown: true });
 
         if (error) {
             return res.status(400).json({ error: error.details[0].message });
         }
 
-        const { razon_social, direccion, telefono, correo } = req.body;
+        const { razon_social, direccion, telefono, correo, activo } = req.body;
 
         const updates = [];
         const values = [];
@@ -177,6 +177,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
         if (correo !== undefined) {
             updates.push(`correo = $${paramCount}`);
             values.push(correo);
+            paramCount++;
+        }
+
+        if (typeof activo !== 'undefined') {
+            updates.push(`activo = $${paramCount}`);
+            values.push(activo);
             paramCount++;
         }
 

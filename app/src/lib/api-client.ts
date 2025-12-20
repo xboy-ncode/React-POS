@@ -128,6 +128,41 @@ export interface CategoriaParams {
   limit?: number;
 }
 
+
+// ======================================================
+// TIPOS DE PROVEEDOR
+// ======================================================
+
+export interface Proveedor {
+  id_proveedor: number;
+  ruc: string;
+  razon_social: string;
+  direccion?: string;
+  telefono?: string;
+  correo?: string;
+  activo: boolean;
+  fecha_creacion?: string;
+  fecha_actualizacion?: string;
+}
+
+export interface ProveedorCreate {
+  ruc: string;
+  razon_social: string;
+  direccion?: string;
+  telefono?: string;
+  correo?: string;
+  activo?: boolean;
+}
+
+export interface ProveedorUpdate {
+  ruc?: string;
+  razon_social?: string;
+  direccion?: string;
+  telefono?: string;
+  correo?: string;
+  activo?: boolean;
+}
+
 // ======================================================
 // AUTH SERVICE
 // ======================================================
@@ -424,6 +459,158 @@ export const clientesService = {
     return response.data;
   },
 };
+
+
+
+// ======================================================
+// PROVEEDORES SERVICE
+// ======================================================
+
+export const proveedoresService = {
+  getAll: async (params?: { page?: number; limit?: number; search?: string }) => {
+    const response = await apiClient.get('/suppliers', { params });
+    return response.data;
+  },
+
+  getById: async (id: number): Promise<Proveedor> => {
+    const response = await apiClient.get(`/suppliers/${id}`);
+    return response.data;
+  },
+
+  create: async (data: ProveedorCreate): Promise<{ message: string; proveedor: Proveedor }> => {
+    const response = await apiClient.post('/suppliers', data);
+    return response.data;
+  },
+
+  update: async (id: number, data: ProveedorUpdate): Promise<{ message: string; proveedor: Proveedor }> => {
+    const response = await apiClient.put(`/suppliers/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/suppliers/${id}`);
+    return response.data;
+  },
+};
+
+
+// ======================================================
+// BACKUP SERVICE
+// ======================================================
+
+export const backupService = {
+    /**
+     * Exporta la base de datos en el formato especificado
+     * @param format - Formato de exportación (sql, json, csv, xlsx)
+     * @param table - Tabla(s) a exportar ('all' o nombres separados por coma)
+     * @param sendEmail - Si se debe enviar por correo electrónico
+     * @param email - Email opcional (si no se proporciona, usa el del usuario)
+     */
+    exportDatabase: async (
+        format: 'sql' | 'json' | 'csv' | 'xlsx',
+        table: string = 'all',
+        sendEmail: boolean = false,
+        email?: string
+    ) => {
+        try {
+            console.log('📤 Llamando a /admin/backup/export con:', {
+                format,
+                table,
+                sendEmail,
+                email
+            });
+
+           const response = await apiClient.post('/admin/backup/export', {
+                format,
+                table,
+                sendEmail,
+                email
+            }, {
+                responseType: 'blob',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            console.log('✅ Respuesta del servidor:', {
+                status: response.status,
+                contentType: response.headers['content-type'],
+                contentLength: response.headers['content-length']
+            });
+
+            return response;
+        } catch (error: any) {
+            console.error('❌ Error en exportDatabase:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Verifica el estado del servicio de backup
+     */
+    healthCheck: async () => {
+        try {
+            const response = await apiClient.get('/backup/health');
+            return response.data;
+        } catch (error) {
+            console.error('❌ Error en health check:', error);
+            throw error;
+        }
+    },
+
+
+ /**
+     * Restaura la base de datos desde un archivo de backup
+     * @param file - Archivo de backup (SQL, JSON, CSV o XLSX)
+     * @param clearBefore - Si se deben limpiar los datos existentes antes de importar
+     * @param onProgress - Callback opcional para reportar progreso de subida
+     */
+    restoreDatabase: async (
+        file: File,
+        clearBefore: boolean = false,
+        onProgress?: (progress: number) => void
+    ) => {
+        try {
+            console.log('📥 Iniciando restauración:', {
+                archivo: file.name,
+                tamaño: file.size,
+                limpiarAntes: clearBefore
+            });
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('clearBefore', clearBefore.toString());
+
+            const response = await apiClient.post('/admin/backup/restore', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                },
+                // Reportar progreso de subida
+                onUploadProgress: (progressEvent) => {
+                    if (onProgress && progressEvent.total) {
+                        const percentCompleted = Math.round(
+                            (progressEvent.loaded * 100) / progressEvent.total
+                        );
+                        onProgress(percentCompleted);
+                    }
+                },
+                timeout: 300000, // 5 minutos timeout para archivos grandes
+            });
+
+            console.log('✅ Restauración completada:', response.data);
+
+            return response;
+        } catch (error: any) {
+            console.error('❌ Error en restoreDatabase:', error);
+            throw error;
+        }
+    }
+
+};
+
+
+
+
 
 // ======================================================
 // DASHBOARD SERVICE

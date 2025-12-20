@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 require('dotenv').config();
 
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -23,6 +24,8 @@ app.use('/api/suppliers', require('./routes/suppliers'));
 app.use('/api/sales', require('./routes/sales'));
 app.use('/api/purchases', require('./routes/purchases'));
 app.use('/api/invoices', require('./routes/invoices'));
+app.use('/api/admin', require('./routes/admin'));
+
 
 // Ruta de prueba
 app.get('/', (req, res) => {

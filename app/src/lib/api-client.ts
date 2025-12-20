@@ -499,59 +499,117 @@ export const proveedoresService = {
 // ======================================================
 
 export const backupService = {
-  exportDatabase: async (format: 'sql' | 'json' | 'csv' | 'xlsx', table: string = 'all') => {
-    try {
-      console.log('📥 Solicitando backup:', { format, table });
+    /**
+     * Exporta la base de datos en el formato especificado
+     * @param format - Formato de exportación (sql, json, csv, xlsx)
+     * @param table - Tabla(s) a exportar ('all' o nombres separados por coma)
+     * @param sendEmail - Si se debe enviar por correo electrónico
+     * @param email - Email opcional (si no se proporciona, usa el del usuario)
+     */
+    exportDatabase: async (
+        format: 'sql' | 'json' | 'csv' | 'xlsx',
+        table: string = 'all',
+        sendEmail: boolean = false,
+        email?: string
+    ) => {
+        try {
+            console.log('📤 Llamando a /admin/backup/export con:', {
+                format,
+                table,
+                sendEmail,
+                email
+            });
 
-      const response = await apiClient.post(
-        `/admin/backup/export`, 
-        { format, table },
-        { 
-          responseType: 'blob',
-          timeout: 120000, // 2 minutos
-          headers: {
-            'Accept': format === 'sql' ? 'application/x-sql' : 
-                     format === 'json' ? 'application/json' :
-                     format === 'csv' ? 'text/csv' :
-                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-          },
-          onDownloadProgress: (progressEvent) => {
-            if (progressEvent.total) {
-              const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-              console.log(`📊 Progreso de descarga: ${percentCompleted}%`);
-            } else {
-              console.log(`📊 Descargados: ${(progressEvent.loaded / 1024).toFixed(2)} KB`);
-            }
-          }
+           const response = await apiClient.post('/admin/backup/export', {
+                format,
+                table,
+                sendEmail,
+                email
+            }, {
+                responseType: 'blob',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            console.log('✅ Respuesta del servidor:', {
+                status: response.status,
+                contentType: response.headers['content-type'],
+                contentLength: response.headers['content-length']
+            });
+
+            return response;
+        } catch (error: any) {
+            console.error('❌ Error en exportDatabase:', error);
+            throw error;
         }
-      );
+    },
 
-      console.log('✅ Backup recibido:', {
-        tipo: response.headers['content-type'],
-        tamaño: `${(response.data.size / 1024).toFixed(2)} KB`
-      });
+    /**
+     * Verifica el estado del servicio de backup
+     */
+    healthCheck: async () => {
+        try {
+            const response = await apiClient.get('/backup/health');
+            return response.data;
+        } catch (error) {
+            console.error('❌ Error en health check:', error);
+            throw error;
+        }
+    },
 
-      return response;
 
-    } catch (error: any) {
-      console.error('❌ Error en exportDatabase:', error);
-      
-      if (error.code === 'ECONNABORTED') {
-        throw new Error('Timeout: La exportación tardó demasiado');
-      }
-      
-      if (error.response?.status === 503) {
-        throw new Error('Servicio de backup no disponible');
-      }
+ /**
+     * Restaura la base de datos desde un archivo de backup
+     * @param file - Archivo de backup (SQL, JSON, CSV o XLSX)
+     * @param clearBefore - Si se deben limpiar los datos existentes antes de importar
+     * @param onProgress - Callback opcional para reportar progreso de subida
+     */
+    restoreDatabase: async (
+        file: File,
+        clearBefore: boolean = false,
+        onProgress?: (progress: number) => void
+    ) => {
+        try {
+            console.log('📥 Iniciando restauración:', {
+                archivo: file.name,
+                tamaño: file.size,
+                limpiarAntes: clearBefore
+            });
 
-      if (error.response?.status === 504) {
-        throw new Error('Tiempo de espera agotado');
-      }
-      
-      throw error;
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('clearBefore', clearBefore.toString());
+
+            const response = await apiClient.post('/admin/backup/restore', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                },
+                // Reportar progreso de subida
+                onUploadProgress: (progressEvent) => {
+                    if (onProgress && progressEvent.total) {
+                        const percentCompleted = Math.round(
+                            (progressEvent.loaded * 100) / progressEvent.total
+                        );
+                        onProgress(percentCompleted);
+                    }
+                },
+                timeout: 300000, // 5 minutos timeout para archivos grandes
+            });
+
+            console.log('✅ Restauración completada:', response.data);
+
+            return response;
+        } catch (error: any) {
+            console.error('❌ Error en restoreDatabase:', error);
+            throw error;
+        }
     }
-  },
+
 };
+
+
+
 
 
 // ======================================================

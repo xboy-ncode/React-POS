@@ -26,13 +26,15 @@ import {
   ChevronDown,
   FileJson,
   FileText,
-  Table
+  Table,
+  Upload
 } from 'lucide-react'
 
 import { backupService } from '@/lib/api-client'
 import { toast } from 'sonner'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '@radix-ui/react-dropdown-menu'
 import { BackupDialog } from '@/components/settings/BackupDialog';
+import { RestoreDialog } from '@/components/settings/RestoreDialog';
 
 export default function Settings() {
   const { t, i18n } = useTranslation()
@@ -40,6 +42,7 @@ export default function Settings() {
   const { customCategories, addCategoryToApi, removeRemoteCategory } = useCategories()
   const [isExporting, setIsExporting] = useState(false);
     const [backupDialogOpen, setBackupDialogOpen] = useState(false)
+    const [restoreDialogOpen, setRestoreDialogOpen] = useState(false)
 
 
   // Settings state
@@ -622,7 +625,7 @@ export default function Settings() {
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row flex-wrap gap-3">
 
-            {/* Botón para abrir el Dialog de Backup */}
+            {/* Botón de Exportar (Backup) */}
             <Button 
               onClick={() => setBackupDialogOpen(true)}
               className="flex items-center gap-2"
@@ -631,7 +634,17 @@ export default function Settings() {
               {t('settings.exportDatabase')}
             </Button>
 
-            {/* Los otros botones se mantienen igual */}
+            {/* 🆕 NUEVO: Botón de Importar (Restore) */}
+            <Button 
+              onClick={() => setRestoreDialogOpen(true)}
+              variant="secondary"
+              className="flex items-center gap-2"
+            >
+              <Upload className="h-4 w-4" />
+              Restaurar Base de Datos
+            </Button>
+
+            {/* Botones existentes */}
             <Button 
               onClick={handleExportSettings} 
               variant="outline" 
@@ -657,10 +670,16 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      {/* Dialog de Backup */}
+      {/* Dialogs */}
       <BackupDialog 
         open={backupDialogOpen} 
         onOpenChange={setBackupDialogOpen} 
+      />
+
+      {/* 🆕 NUEVO: Dialog de Restauración */}
+      <RestoreDialog 
+        open={restoreDialogOpen} 
+        onOpenChange={setRestoreDialogOpen} 
       />
 
       {/* App Info */}

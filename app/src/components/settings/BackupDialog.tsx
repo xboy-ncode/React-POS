@@ -31,6 +31,7 @@ import {
     Download,
     CheckCircle2,
     AlertCircle,
+    Mail,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { backupService } from '@/lib/api-client';
@@ -138,7 +139,6 @@ export function BackupDialog({ open, onOpenChange }: BackupDialogProps) {
     };
 
     const isAllSelected = selectedTables.length === AVAILABLE_TABLES.length;
-    const isSomeSelected = selectedTables.length > 0 && !isAllSelected;
 
     // Validación para CSV (solo una tabla)
     const currentFormat = FORMAT_OPTIONS.find(f => f.value === selectedFormat);
@@ -159,28 +159,33 @@ export function BackupDialog({ open, onOpenChange }: BackupDialogProps) {
         }
 
         setIsExporting(true);
-        const toastId = toast.loading(`Generando archivo ${selectedFormat.toUpperCase()}...`);
+        const toastId = toast.loading(`Generando backup y enviando por correo...`);
 
         try {
-            console.log('🔄 Iniciando exportación:', {
-                formato: selectedFormat,
-                tablas: selectedTables,
-                todasSeleccionadas: isAllSelected
-            });
+            // console.log('🔄 Iniciando exportación:', {
+            //     formato: selectedFormat,
+            //     tablas: selectedTables,
+            //     todasSeleccionadas: isAllSelected,
+            //     enviarEmail: true // SIEMPRE true
+            // });
 
             // Determinar qué enviar al backend
             const tableParam = isAllSelected ? 'all' : selectedTables.join(',');
 
-            console.log('📤 Parámetro de tablas:', tableParam);
+            // console.log('📤 Parámetro de tablas:', tableParam);
 
-            // Llamar al servicio
-            const response = await backupService.exportDatabase(selectedFormat, tableParam);
+            // Llamar al servicio - SIEMPRE con sendEmail = true
+            const response = await backupService.exportDatabase(
+                selectedFormat, 
+                tableParam, 
+                true  // ✨ SIEMPRE enviar por email
+            );
 
-            console.log('✅ Respuesta recibida:', {
-                tipo: response.headers['content-type'],
-                tamaño: response.data.size,
-                headers: response.headers
-            });
+            // console.log('✅ Respuesta recibida:', {
+            //     tipo: response.headers['content-type'],
+            //     tamaño: response.data.size,
+            //     headers: response.headers
+            // });
 
             // Validar que recibimos datos
             if (!response.data) {
@@ -236,8 +241,8 @@ export function BackupDialog({ open, onOpenChange }: BackupDialogProps) {
             const tableText = tableCount === 1 ? 'tabla' : 'tablas';
             
             toast.success(
-                `✅ Backup ${selectedFormat.toUpperCase()} descargado (${tableCount} ${tableText})`,
-                { id: toastId, duration: 4000 }
+                `Backup ${selectedFormat.toUpperCase()} descargado (${tableCount} ${tableText})\n Email enviado exitosamente`,
+                { id: toastId, duration: 5000 }
             );
 
             // Cerrar el dialog después de un breve delay
@@ -424,6 +429,16 @@ export function BackupDialog({ open, onOpenChange }: BackupDialogProps) {
                             </ScrollArea>
                         </div>
                     </div>
+
+                    <Separator />
+
+                    {/* Nota sobre el envío automático por email */}
+                    <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm text-blue-800 dark:text-blue-200">
+                            <strong>📧 Envío automático:</strong> El backup se descargará y también se enviará automáticamente a tu correo electrónico como respaldo.
+                        </div>
+                    </div>
                 </div>
 
                 <DialogFooter className="gap-3 sm:gap-3 flex-col sm:flex-row">
@@ -445,11 +460,12 @@ export function BackupDialog({ open, onOpenChange }: BackupDialogProps) {
                         {isExporting ? (
                             <>
                                 <Loader2 className="h-4 w-4 animate-spin" />
-                                Exportando...
+                                Exportando y enviando...
                             </>
                         ) : (
                             <>
                                 <Download className="h-4 w-4" />
+                                <Mail className="h-4 w-4" />
                                 Exportar {selectedFormat.toUpperCase()}
                             </>
                         )}
